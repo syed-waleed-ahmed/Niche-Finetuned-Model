@@ -27,7 +27,7 @@ def prepare_model_and_tokenizer():
 
     model = AutoModelForCausalLM.from_pretrained(
         BASE_MODEL_NAME,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
         device_map="auto" if torch.cuda.is_available() else None,
     )
 
@@ -59,7 +59,7 @@ def main():
     train_ds = tokenized_ds["train"]
     eval_ds = tokenized_ds["eval"]
 
-    # SIMPLIFIED TrainingArguments so it works with older/newer transformers
+    # Simplified TrainingArguments – compatible across transformer versions
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=BATCH_SIZE,

@@ -66,18 +66,6 @@ This will:
 You: How do I define a POST endpoint in FastAPI?
 Assistant: Use @app.post and a Pydantic model...
 
-# ...model gives a FastAPI-specific expert answer
-
-## 🧩 Why This Project Matters
-
-This project shows real skills in:
-
-- LLM fine-tuning
-- Custom dataset curation
-- LoRA parameter-efficient training
-- Model loading & inference
-- HuggingFace Transformers / PEFT
-
 ## 🔮 Future Enhancements
 
 - Expand dataset with hundreds more Q&A samples

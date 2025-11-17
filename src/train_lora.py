@@ -59,6 +59,7 @@ def main():
     train_ds = tokenized_ds["train"]
     eval_ds = tokenized_ds["eval"]
 
+    # SIMPLIFIED TrainingArguments so it works with older/newer transformers
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=BATCH_SIZE,
@@ -66,15 +67,8 @@ def main():
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
         num_train_epochs=NUM_EPOCHS,
         learning_rate=LEARNING_RATE,
-        evaluation_strategy="steps",
-        eval_steps=50,
-        save_steps=100,
-        logging_steps=10,
-        save_total_limit=2,
         weight_decay=0.0,
-        bf16=torch.cuda.is_available(),  # use bf16 if possible
-        fp16=False,  # we use bf16 or full precision
-        report_to=[],
+        logging_dir=os.path.join(OUTPUT_DIR, "logs"),
     )
 
     trainer = Trainer(

@@ -76,4 +76,4 @@ Assistant: Use @app.post and a Pydantic model...
 
 ## Author
 
-Created by SYED WALEED AHMED
+Created by Syed Waleed Ahmed

@@ -4,4 +4,3 @@ datasets>=2.18.0
 peft>=0.10.0
 accelerate>=0.29.0
 python-dotenv>=1.0.0
-gradio>=4.0.0

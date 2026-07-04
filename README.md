@@ -1,9 +1,11 @@
 # Niche Fine-Tuned Model
 ### Production-oriented FastAPI assistant built with TinyLlama and LoRA
 
-This repository demonstrates an end-to-end workflow for fine-tuning a small open-source LLM on a focused domain and exposing it as a standalone service.
+This repository demonstrates an end-to-end workflow for fine-tuning a focused open-source language model and exposing it as a standalone service.
 
-The target domain is **FastAPI**. The resulting model answers framework-specific questions with code examples, health checks, and a reusable API surface suitable for production deployment.
+The domain is FastAPI. The resulting model answers framework-specific questions with code examples, health checks, and a reusable API surface suitable for deployment.
+
+## Overview
 
 The project includes:
 - A custom JSONL dataset of FastAPI questions and expert answers
@@ -14,21 +16,7 @@ The project includes:
 - An interactive CLI for local experimentation
 - A modular project structure that is easy to deploy and extend
 
----
-
-## 🚀 Features
-
-✔ Fine-tunes **TinyLlama-1.1B-Chat** using **LoRA**
-✔ Custom **FastAPI Q&A dataset**
-✔ Works on **Google Colab GPU**
-✔ Modular Python design (`src/config`, `dataset`, `train_lora`, `inference`, `api`)
-✔ Simple CLI for local chat
-✔ FastAPI app with `/health`, `/ready`, and `/generate` endpoints
-✔ Cached model loading for repeated inference calls
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```text
 niche_finetuned_model/
@@ -53,25 +41,25 @@ niche_finetuned_model/
 
 ## Architecture
 
-The application is intentionally split into a small set of responsibilities:
+The application is split into a small set of responsibilities:
 
 1. `src/dataset.py` prepares training examples and applies the shared prompt format.
 2. `src/train_lora.py` fine-tunes the base model with LoRA and saves the adapter artifacts.
 3. `src/inference.py` loads the saved model once and reuses it for repeated requests.
 4. `src/api.py` exposes the inference service over HTTP with explicit request validation.
-5. `main.py` can run either the CLI or the API server.
+5. `main.py` runs either the CLI or the API server.
 
-This makes the repository straightforward to explain in an HLD review: model training, model serving, and client interaction are separated and independently replaceable.
+This separation keeps the repository easy to explain in an HLD review and makes the training, serving, and client layers independently replaceable.
 
 ## Getting Started
 
-### 1. Install dependencies
+### Install dependencies
 
 ```bash
 py -3.11 -m pip install -r requirements.txt
 ```
 
-### 2. Configure the environment
+### Configure the environment
 
 Copy [.env.example](.env.example) to `.env` and adjust values for your machine or deployment target. The application loads environment variables automatically at startup.
 
@@ -81,13 +69,13 @@ Common settings:
 - `MODEL_MAX_NEW_TOKENS`, `MODEL_TEMPERATURE`, `MODEL_TOP_P`, and `MODEL_REPETITION_PENALTY` control generation behavior.
 - Training values such as `BATCH_SIZE`, `NUM_EPOCHS`, and `LEARNING_RATE` are documented in `.env.example` for reproducibility.
 
-### 3. Train the adapter
+### Train the adapter
 
 ```bash
 python -m src.train_lora
 ```
 
-### 4. Start the service
+### Start the service
 
 ```bash
 python main.py --serve
@@ -154,6 +142,12 @@ curl -X POST http://localhost:8000/generate \
 ## Support
 
 This repository is intended as a self-contained portfolio project and reference implementation for a small model-serving workflow.
+
+## Security Notes
+
+- Environment-specific values should remain in `.env` or deployment secrets, not in source control.
+- The service validates request sizes and generation bounds at the API layer.
+- The model is loaded once and reused to reduce startup churn and repeated disk I/O.
 
 ## Author
 

@@ -34,3 +34,4 @@ Train the adapter with `python -m src.train_lora`, then serve it with `python ma
 - Technique: LoRA fine-tuning via PEFT
 - Intended use: internal inference and local experimentation
 - Runtime configuration is loaded from the root `.env` file if present.
+- This directory is a generated artifact and should remain out of source edits unless the training pipeline changes.

@@ -14,8 +14,12 @@ from .config import (
     OUTPUT_DIR,
     BATCH_SIZE,
     GRADIENT_ACCUMULATION_STEPS,
+    TARGET_MODULES,
     NUM_EPOCHS,
     LEARNING_RATE,
+    LORA_ALPHA,
+    LORA_DROPOUT,
+    LORA_R,
 )
 from .dataset import load_fastapi_dataset, tokenize_dataset
 
@@ -27,15 +31,17 @@ def prepare_model_and_tokenizer():
 
     model = AutoModelForCausalLM.from_pretrained(
         BASE_MODEL_NAME,
-        dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
         device_map="auto" if torch.cuda.is_available() else None,
     )
+    model.config.use_cache = False
 
     # LoRA configuration
     lora_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        lora_dropout=0.05,
+        r=LORA_R,
+        lora_alpha=LORA_ALPHA,
+        lora_dropout=LORA_DROPOUT,
+        target_modules=TARGET_MODULES,
         bias="none",
         task_type="CAUSAL_LM",
     )
@@ -69,6 +75,12 @@ def main():
         learning_rate=LEARNING_RATE,
         weight_decay=0.0,
         logging_dir=os.path.join(OUTPUT_DIR, "logs"),
+        logging_steps=1,
+        save_strategy="epoch",
+        eval_strategy="epoch",
+        save_total_limit=2,
+        report_to="none",
+        load_best_model_at_end=False,
     )
 
     trainer = Trainer(

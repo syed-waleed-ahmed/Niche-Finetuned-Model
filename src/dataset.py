@@ -24,15 +24,10 @@ SYSTEM_PROMPT = (
 )
 
 
-def format_example(example: Dict) -> str:
+def build_prompt(instruction: str, input_text: str = "", output: str | None = None) -> str:
     """
-    Turn an instruction/input/output example into a single chat-style string.
-    You can customize this to experiment with prompt formats.
+    Build the chat-style prompt used for both training and inference.
     """
-    instruction = example["instruction"]
-    input_text = example.get("input", "")
-    output = example["output"]
-
     if input_text:
         user_part = f"Instruction: {instruction}\nInput: {input_text}"
     else:
@@ -41,9 +36,24 @@ def format_example(example: Dict) -> str:
     prompt = (
         f"<s>[SYSTEM] {SYSTEM_PROMPT}\n"
         f"[USER] {user_part}\n"
-        f"[ASSISTANT] {output}</s>"
+        f"[ASSISTANT]"
     )
+
+    if output is not None:
+        prompt = f"{prompt} {output}</s>"
+
     return prompt
+
+
+def format_example(example: Dict) -> str:
+    """
+    Turn an instruction/input/output example into a single chat-style string.
+    You can customize this to experiment with prompt formats.
+    """
+    instruction = example["instruction"]
+    input_text = example.get("input", "")
+    output = example["output"]
+    return build_prompt(instruction, input_text=input_text, output=output)
 
 
 def tokenize_dataset(tokenizer: PreTrainedTokenizerBase, dataset):
@@ -58,8 +68,11 @@ def tokenize_dataset(tokenizer: PreTrainedTokenizerBase, dataset):
             max_length=MAX_SEQ_LENGTH,
             padding="max_length",
         )
-        # For causal LM, labels are the same as input_ids
-        tokenized["labels"] = tokenized["input_ids"].copy()
+        # Ignore padding tokens during loss computation.
+        tokenized["labels"] = [
+            token_id if attention_mask == 1 else -100
+            for token_id, attention_mask in zip(tokenized["input_ids"], tokenized["attention_mask"])
+        ]
         return tokenized
 
     tokenized_ds = dataset.map(

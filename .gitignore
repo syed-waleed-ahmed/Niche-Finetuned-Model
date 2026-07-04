@@ -17,6 +17,7 @@ htmlcov/
 # Local environment files
 .env
 .env.*
+!.env.example
 
 # Operating system noise
 .DS_Store

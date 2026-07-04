@@ -30,3 +30,4 @@ It is not intended to be treated as a published model artifact.
 - Base model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
 - Technique: LoRA fine-tuning via PEFT
 - Intended use: local checkpointing during training
+- Runtime and training overrides should be managed through the root `.env` file or environment-specific deployment variables.

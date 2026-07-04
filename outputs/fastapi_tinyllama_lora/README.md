@@ -33,3 +33,4 @@ Train the adapter with `python -m src.train_lora`, then serve it with `python ma
 - Base model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
 - Technique: LoRA fine-tuning via PEFT
 - Intended use: internal inference and local experimentation
+- Runtime configuration is loaded from the root `.env` file if present.

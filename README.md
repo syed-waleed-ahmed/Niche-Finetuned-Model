@@ -71,13 +71,23 @@ This makes the repository straightforward to explain in an HLD review: model tra
 py -3.11 -m pip install -r requirements.txt
 ```
 
-### 2. Train the adapter
+### 2. Configure the environment
+
+Copy [.env.example](.env.example) to `.env` and adjust values for your machine or deployment target. The application loads environment variables automatically at startup.
+
+Common settings:
+
+- `API_HOST` and `API_PORT` control the HTTP service binding.
+- `MODEL_MAX_NEW_TOKENS`, `MODEL_TEMPERATURE`, `MODEL_TOP_P`, and `MODEL_REPETITION_PENALTY` control generation behavior.
+- Training values such as `BATCH_SIZE`, `NUM_EPOCHS`, and `LEARNING_RATE` are documented in `.env.example` for reproducibility.
+
+### 3. Train the adapter
 
 ```bash
 python -m src.train_lora
 ```
 
-### 3. Start the service
+### 4. Start the service
 
 ```bash
 python main.py --serve
@@ -123,6 +133,7 @@ curl -X POST http://localhost:8000/generate \
 - Health endpoints make it easier to wire the app into Docker, Kubernetes, or a load balancer.
 - The service uses explicit request validation and bounded generation parameters.
 - The repository is structured so the API layer, training job, and CLI can evolve independently.
+- Configuration is loaded from the environment so production secrets and deployment-specific settings stay out of source control.
 
 ## Repository Conventions
 

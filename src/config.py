@@ -1,27 +1,32 @@
 import os
 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 
 def _env_int(name: str, default: int) -> int:
-	value = os.getenv(name)
-	if value is None:
-		return default
-	try:
-		return int(value)
-	except ValueError as exc:
-		raise ValueError(f"{name} must be an integer, got {value!r}") from exc
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {value!r}") from exc
 
 
 def _env_float(name: str, default: float) -> float:
-	value = os.getenv(name)
-	if value is None:
-		return default
-	try:
-		return float(value)
-	except ValueError as exc:
-		raise ValueError(f"{name} must be a number, got {value!r}") from exc
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number, got {value!r}") from exc
 
 # Base model (small open-source chat model)
-BASE_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+BASE_MODEL_NAME = os.getenv("BASE_MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
 
 # Paths
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))

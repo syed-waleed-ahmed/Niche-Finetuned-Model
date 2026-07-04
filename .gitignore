@@ -26,5 +26,5 @@ Thumbs.db
 # Notebook checkpoints
 .ipynb_checkpoints/
 
-# Generated analysis artifacts
-graphify-out/
+# Generated analysis cache
+graphify-out/cache/

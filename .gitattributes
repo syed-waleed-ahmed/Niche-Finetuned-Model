@@ -1,0 +1,45 @@
+# Normalize line endings: store as LF in the repo and check out as LF on every
+# platform. This makes the repository deterministic regardless of a contributor's
+# local core.autocrlf setting.
+* text=auto eol=lf
+
+# Explicit text types (defensive; covered by the rule above).
+*.py     text
+*.pyi    text
+*.md     text
+*.txt    text
+*.toml   text
+*.cfg    text
+*.ini    text
+*.json   text
+*.jsonl  text
+*.yml    text
+*.yaml   text
+*.jinja  text
+*.env    text
+Dockerfile   text
+Makefile     text
+*.sh     text eol=lf
+
+# Windows-only scripts must keep CRLF.
+*.bat    text eol=crlf
+*.ps1    text eol=crlf
+
+# Binary artifacts: never convert line endings, never attempt to diff/merge.
+*.safetensors binary
+*.pt     binary
+*.pth    binary
+*.bin    binary
+*.onnx   binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary
+
+# Generated knowledge-graph outputs: exclude from GitHub language stats and
+# collapse them in diffs (they are produced by the graphify tooling).
+graphify-out/** linguist-generated=true

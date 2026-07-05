@@ -1,6 +1,6 @@
 # FastAPI Niche Assistant
 
-A **production-oriented, LoRA fine-tuned TinyLlama** model that answers FastAPI
+A production-oriented, LoRA fine-tuned TinyLlama model that answers FastAPI
 questions, served as a standalone HTTP microservice with health probes, structured
 logging, typed configuration, tests, and containerization.
 
@@ -8,68 +8,79 @@ logging, typed configuration, tests, and containerization.
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-> This repository is a portfolio-grade reference implementation of a small
-> model-serving workflow: fine-tune a focused open-source model, then expose it as
-> a clean, testable, deployable service. See **[ARCHITECTURE.md](ARCHITECTURE.md)**
-> for the full high-level design.
+This repository is a portfolio-grade reference implementation of a small
+model-serving workflow: fine-tune a focused open-source model, then expose it as a
+clean, testable, deployable service. See [ARCHITECTURE.md](ARCHITECTURE.md) for the
+full high-level design.
 
 ## Why this project
 
-Most "fine-tune a model" repos stop at a training notebook. This one is built like
-a service you would actually run:
+Most "fine-tune a model" repositories stop at a training notebook. This one is
+built like a service you would actually run:
 
 - **Correct model serving.** The on-disk artifact is a LoRA *adapter*, not a full
-  model — so the base model is loaded and the adapter is applied via `peft`
+  model, so the base model is loaded and the adapter is applied via `peft`
   (a common bug that breaks naive implementations). If no adapter exists, the base
   model is served with a warning (graceful degradation).
 - **Native chat template.** Training and inference share one prompt format built
   from the tokenizer's own chat template, preserving the base model's alignment.
 - **Completion-only training.** Loss is masked to the answer tokens, the correct
   objective for instruction tuning.
-- **Operable.** Typed config, `/health` + `/ready` probes, request IDs, structured
-  JSON logs, optional API-key auth, bounded generation parameters.
-- **Tested & CI'd.** The full HTTP surface is tested with a fake engine (no model
-  download), and GitHub Actions runs lint + tests on 3.10 and 3.11.
+- **Operable.** Typed configuration, `/health` and `/ready` probes, request IDs,
+  structured JSON logs, optional API-key auth, and bounded generation parameters.
+- **Tested and CI-verified.** The full HTTP surface is tested with a fake engine
+  (no model download), and GitHub Actions runs lint plus tests on 3.10 and 3.11.
 
 ## Architecture at a glance
 
-```
-Client ──HTTP──▶ FastAPI (api.py)
-                   │  middleware: request-id + timing · CORS · API-key auth
-                   │  routes: /health · /ready · /generate
-                   ▼
-              AssistantEngine (inference.py)
-                   │  load once (base model + LoRA adapter) · generate (locked)
-                   ▼
-              torch + transformers + peft
+```mermaid
+flowchart LR
+    Client["Client<br/>curl / SDK / CLI"]
 
-Offline:  data/*.jsonl ─▶ tokenize+mask (data.py) ─▶ LoRA train (training.py) ─▶ outputs/ adapter
+    subgraph Service["FastAPI service"]
+        API["api.py (FastAPI)<br/>middleware: request-id + timing<br/>CORS, API-key auth<br/>routes: /health, /ready, /generate"]
+        Engine["inference.py<br/>AssistantEngine<br/>load once, generate (locked)"]
+        Runtime["torch + transformers + peft"]
+        API --> Engine --> Runtime
+    end
+
+    Client -->|"HTTP + JSON"| API
+```
+
+Offline build pipeline:
+
+```mermaid
+flowchart LR
+    Data["data/*.jsonl"] --> Tok["data.py<br/>tokenize + mask"]
+    Tok --> Train["training.py<br/>LoRA fine-tune"]
+    Train --> Adapter[("outputs/<br/>LoRA adapter")]
 ```
 
 Full component responsibilities, request lifecycle, concurrency model, scaling
-strategy, and the decision log are in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+strategy, and the decision log are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Project structure
 
 ```text
-niche_finetuned_model/
+Niche-Finetuned-Model/
 ├── src/fastapi_assistant/
-│   ├── config.py          # Typed settings (pydantic-settings)
-│   ├── logging_config.py  # Human / JSON structured logging
-│   ├── prompts.py         # Shared chat format (training == inference)
-│   ├── data.py            # JSONL loading + completion-only tokenization
-│   ├── training.py        # LoRA fine-tuning entrypoint
+│   ├── config.py           # Typed settings (pydantic-settings)
+│   ├── logging_config.py   # Human / JSON structured logging
+│   ├── prompts.py          # Shared chat format (training == inference)
+│   ├── data.py             # JSONL loading + completion-only tokenization
+│   ├── training.py         # LoRA fine-tuning entrypoint
 │   ├── inference.py        # AssistantEngine: load once, generate safely
-│   ├── schemas.py         # Pydantic request/response contracts
-│   ├── api.py             # FastAPI app factory, routes, middleware
-│   ├── cli.py             # Interactive terminal chat
-│   └── __main__.py        # `python -m fastapi_assistant`
-├── data/                  # FastAPI Q&A dataset (JSONL)
-├── tests/                 # Pytest suite (no model/network needed)
-├── main.py                # Convenience entrypoint (`python main.py`)
-├── Dockerfile             # Container image
-├── pyproject.toml         # Packaging, deps, ruff + pytest config
-├── ARCHITECTURE.md        # High-level design
+│   ├── schemas.py          # Pydantic request/response contracts
+│   ├── api.py              # FastAPI app factory, routes, middleware
+│   ├── cli.py              # Interactive terminal chat
+│   ├── _compat.py          # transformers 4.x/5.x compatibility helpers
+│   └── __main__.py         # python -m fastapi_assistant
+├── data/                   # FastAPI Q&A dataset (JSONL)
+├── tests/                  # Pytest suite (no model/network needed)
+├── main.py                 # Convenience entrypoint (python main.py)
+├── Dockerfile              # Container image
+├── pyproject.toml          # Packaging, dependencies, ruff + pytest config
+├── ARCHITECTURE.md         # High-level design
 └── requirements.txt
 ```
 
@@ -80,7 +91,7 @@ Requires Python 3.10 or 3.11.
 ```bash
 # 1. Clone and create an isolated environment
 git clone https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model.git
-cd niche_finetuned_model
+cd Niche-Finetuned-Model
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |    macOS/Linux: source .venv/bin/activate
 
@@ -99,14 +110,14 @@ python -m fastapi_assistant --serve      # or: make serve
 python -m fastapi_assistant              # or: make cli
 ```
 
-`python main.py [--serve|--train]` works too, without installing the package.
+`python main.py [--serve|--train]` also works without installing the package.
 
-Open http://localhost:8000/docs for interactive Swagger UI.
+Open http://localhost:8000/docs for the interactive Swagger UI.
 
 > **Note:** `outputs/` (the trained adapter) is a build artifact and is
-> git-ignored. Run `make train` to (re)generate it. The base model
-> (`TinyLlama/TinyLlama-1.1B-Chat-v1.0`, ~2.2 GB) is downloaded from Hugging Face
-> on first training/serving.
+> git-ignored. Run `make train` to generate it. The base model
+> (`TinyLlama/TinyLlama-1.1B-Chat-v1.0`, about 2.2 GB) is downloaded from Hugging
+> Face on first training or serving. Set `HF_TOKEN` to avoid anonymous rate limits.
 
 ## Run with Docker
 
@@ -126,7 +137,7 @@ and loads the model lazily so it becomes healthy quickly.
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness: process is up (does not load the model). |
-| `GET` | `/ready` | Readiness: ensures the model can be loaded → 503 if not. |
+| `GET` | `/ready` | Readiness: ensures the model can be loaded, else 503. |
 | `POST` | `/generate` | Generate an answer to a FastAPI question. |
 | `GET` | `/docs` | Swagger UI. `GET /openapi.json` for the schema. |
 
@@ -160,11 +171,12 @@ All settings are environment variables (see `.env.example`), validated at startu
 | `WARMUP_ON_STARTUP` | `true` | Load model at boot vs. on first request. |
 | `LOG_LEVEL` / `LOG_JSON` | `INFO` / `false` | Logging verbosity / JSON output. |
 | `MODEL_MAX_NEW_TOKENS` | `256` | Default generation length cap. |
-| `MODEL_TEMPERATURE` | `0.4` | Sampling temperature (`0` = greedy). |
+| `MODEL_TEMPERATURE` | `0.4` | Sampling temperature (`0` means greedy). |
 | `MODEL_TOP_P` | `0.9` | Nucleus sampling. |
 | `MODEL_REPETITION_PENALTY` | `1.05` | Repetition penalty. |
 | `NUM_EPOCHS`, `BATCH_SIZE`, `LEARNING_RATE`, `MAX_SEQ_LENGTH`, `LORA_*` | see `.env.example` | Training hyperparameters. |
 | `DATA_DIR` / `OUTPUT_DIR` | `./data` / `./outputs/...` | Overridable paths. |
+| `HF_TOKEN` | *(unset)* | Optional Hugging Face token for higher download rate limits. |
 
 ## Development
 
@@ -175,25 +187,25 @@ make fmt     # ruff format
 ```
 
 The test suite injects a fake engine via the `create_app` factory, so it runs in
-under a second with no model download or network access. CI runs the same on
+under a second with no model download or network access. CI runs the same checks on
 Python 3.10 and 3.11.
 
 ## Training details
 
 `python -m fastapi_assistant --train` loads TinyLlama, attaches LoRA adapters
-(`q_proj`, `v_proj`), tokenizes the FastAPI Q&A dataset with **completion-only
-masking** and **dynamic padding**, fine-tunes with the HF `Trainer`, and saves the
+(`q_proj`, `v_proj`), tokenizes the FastAPI Q&A dataset with completion-only masking
+and dynamic padding, fine-tunes with the Hugging Face `Trainer`, and saves the
 adapter to `OUTPUT_DIR`. Hyperparameters are configurable via the environment.
 
 ## Roadmap
 
 - Expand the dataset with hundreds more curated Q&A pairs.
-- Optional RAG over the official FastAPI docs.
-- Push the adapter to the Hugging Face Hub as a versioned release.
+- Optional retrieval-augmented generation over the official FastAPI docs.
+- Publish the adapter to the Hugging Face Hub as a versioned release.
 - Quantized inference (GGUF / GPTQ) for faster local use.
-- Swap `AssistantEngine` for a vLLM/TGI backend behind the same HTTP contract.
+- Swap `AssistantEngine` for a vLLM or TGI backend behind the same HTTP contract.
 - Per-request rate limiting and token/latency metrics (Prometheus).
 
 ## License
 
-[MIT](LICENSE) © Syed Waleed Ahmed
+[MIT](LICENSE). Copyright (c) 2026 Syed Waleed Ahmed.

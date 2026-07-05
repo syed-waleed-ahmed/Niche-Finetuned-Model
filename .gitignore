@@ -28,6 +28,14 @@ outputs/
 .env.*
 !.env.example
 
+# IDE and editor settings
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
 # Operating system noise
 .DS_Store
 Thumbs.db
@@ -35,5 +43,5 @@ Thumbs.db
 # Notebook checkpoints
 .ipynb_checkpoints/
 
-# Generated analysis cache
-graphify-out/cache/
+# Generated knowledge-graph analysis (local tooling artifact)
+graphify-out/

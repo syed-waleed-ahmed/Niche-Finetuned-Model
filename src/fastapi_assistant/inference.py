@@ -22,6 +22,7 @@ import threading
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from ._compat import dtype_kwargs
 from .config import Settings
 from .prompts import build_messages, encode_chat
 
@@ -87,8 +88,8 @@ class AssistantEngine:
         log.info("Loading base model %s (dtype=%s, cuda=%s)", s.base_model_name, dtype, on_cuda)
         model = AutoModelForCausalLM.from_pretrained(
             s.base_model_name,
-            torch_dtype=dtype,
             device_map=device_map,
+            **dtype_kwargs(dtype),
         )
 
         if has_adapter:

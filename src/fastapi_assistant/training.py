@@ -20,6 +20,7 @@ from transformers import (
     TrainingArguments,
 )
 
+from ._compat import dtype_kwargs
 from .config import Settings, get_settings
 from .data import load_raw_dataset, tokenize_dataset
 from .logging_config import configure_logging
@@ -36,8 +37,8 @@ def prepare_model_and_tokenizer(settings: Settings):
     on_cuda = torch.cuda.is_available()
     model = AutoModelForCausalLM.from_pretrained(
         settings.base_model_name,
-        torch_dtype=torch.float16 if on_cuda else torch.float32,
         device_map="auto" if on_cuda else None,
+        **dtype_kwargs(torch.float16 if on_cuda else torch.float32),
     )
     # Disable KV cache during training (incompatible with gradient checkpointing
     # and unnecessary for the forward/backward pass).
@@ -78,7 +79,6 @@ def train(settings: Settings | None = None) -> None:
         num_train_epochs=settings.num_epochs,
         learning_rate=settings.learning_rate,
         weight_decay=0.0,
-        logging_dir=str(settings.output_dir / "logs"),
         logging_steps=1,
         save_strategy="epoch",
         eval_strategy="epoch",

@@ -13,6 +13,15 @@ env/
 .ruff_cache/
 .coverage
 htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Model build artifacts (adapters, checkpoints). Regenerate with `make train`.
+outputs/
+
+# Hugging Face model cache (if kept in-repo)
+.hf_cache/
 
 # Local environment files
 .env

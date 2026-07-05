@@ -1,26 +1,24 @@
-import argparse
+"""Backwards-compatible entrypoint.
 
-from src.api import app
-from src.cli import interactive_chat
-from src.config import API_HOST, API_PORT
+Allows running the app directly from a clone without installing the package::
 
+    python main.py            # interactive CLI
+    python main.py --serve    # run the HTTP API
+    python main.py --train    # fine-tune the LoRA adapter
 
-def serve_api() -> None:
-    import uvicorn
+For installed usage, prefer ``python -m fastapi_assistant`` or the
+``fastapi-assistant`` console script.
+"""
 
-    uvicorn.run(app, host=API_HOST, port=API_PORT, reload=False)
+from __future__ import annotations
 
+import sys
+from pathlib import Path
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="FastAPI niche assistant")
-    parser.add_argument("--serve", action="store_true", help="Run the FastAPI service instead of the CLI")
-    args = parser.parse_args(argv)
+# Ensure the src-layout package is importable when running from source.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-    if args.serve:
-        serve_api()
-    else:
-        interactive_chat()
-
+from fastapi_assistant.__main__ import main  # noqa: E402
 
 if __name__ == "__main__":
     main()

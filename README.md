@@ -1,112 +1,134 @@
-# Niche Fine-Tuned Model
-### Production-oriented FastAPI assistant built with TinyLlama and LoRA
+# FastAPI Niche Assistant
 
-This repository demonstrates an end-to-end workflow for fine-tuning a focused open-source language model and exposing it as a standalone service.
+A **production-oriented, LoRA fine-tuned TinyLlama** model that answers FastAPI
+questions, served as a standalone HTTP microservice with health probes, structured
+logging, typed configuration, tests, and containerization.
 
-The domain is FastAPI. The resulting model answers framework-specific questions with code examples, health checks, and a reusable API surface suitable for deployment.
+![CI](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+> This repository is a portfolio-grade reference implementation of a small
+> model-serving workflow: fine-tune a focused open-source model, then expose it as
+> a clean, testable, deployable service. See **[ARCHITECTURE.md](ARCHITECTURE.md)**
+> for the full high-level design.
 
-The project includes:
-- A custom JSONL dataset of FastAPI questions and expert answers
-- LoRA fine-tuning using `transformers` and `peft`
-- A reproducible training pipeline that works locally or in Colab
-- A cached inference layer so the model is loaded once and reused
-- A FastAPI service with health and readiness endpoints
-- An interactive CLI for local experimentation
-- A modular project structure that is easy to deploy and extend
+## Why this project
 
-## Project Structure
+Most "fine-tune a model" repos stop at a training notebook. This one is built like
+a service you would actually run:
+
+- **Correct model serving.** The on-disk artifact is a LoRA *adapter*, not a full
+  model — so the base model is loaded and the adapter is applied via `peft`
+  (a common bug that breaks naive implementations). If no adapter exists, the base
+  model is served with a warning (graceful degradation).
+- **Native chat template.** Training and inference share one prompt format built
+  from the tokenizer's own chat template, preserving the base model's alignment.
+- **Completion-only training.** Loss is masked to the answer tokens, the correct
+  objective for instruction tuning.
+- **Operable.** Typed config, `/health` + `/ready` probes, request IDs, structured
+  JSON logs, optional API-key auth, bounded generation parameters.
+- **Tested & CI'd.** The full HTTP surface is tested with a fake engine (no model
+  download), and GitHub Actions runs lint + tests on 3.10 and 3.11.
+
+## Architecture at a glance
+
+```
+Client ──HTTP──▶ FastAPI (api.py)
+                   │  middleware: request-id + timing · CORS · API-key auth
+                   │  routes: /health · /ready · /generate
+                   ▼
+              AssistantEngine (inference.py)
+                   │  load once (base model + LoRA adapter) · generate (locked)
+                   ▼
+              torch + transformers + peft
+
+Offline:  data/*.jsonl ─▶ tokenize+mask (data.py) ─▶ LoRA train (training.py) ─▶ outputs/ adapter
+```
+
+Full component responsibilities, request lifecycle, concurrency model, scaling
+strategy, and the decision log are in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+## Project structure
 
 ```text
 niche_finetuned_model/
-│
-├── data/
-│ ├── fastapi_qa_train.jsonl
-│ └── fastapi_qa_eval.jsonl
-│
-├── src/
-│ ├── config.py # Model paths and hyperparameters
-│ ├── dataset.py # Loads and tokenizes the JSONL dataset
-│ ├── train_lora.py # LoRA training script
-│ ├── inference.py # Loads and generates answers
-│ ├── api.py # FastAPI service layer
-│ ├── cli.py # Interactive terminal chat
-│ └── __init__.py
-│
-├── main.py # CLI and service entrypoint
-├── requirements.txt
-└── README.md
+├── src/fastapi_assistant/
+│   ├── config.py          # Typed settings (pydantic-settings)
+│   ├── logging_config.py  # Human / JSON structured logging
+│   ├── prompts.py         # Shared chat format (training == inference)
+│   ├── data.py            # JSONL loading + completion-only tokenization
+│   ├── training.py        # LoRA fine-tuning entrypoint
+│   ├── inference.py        # AssistantEngine: load once, generate safely
+│   ├── schemas.py         # Pydantic request/response contracts
+│   ├── api.py             # FastAPI app factory, routes, middleware
+│   ├── cli.py             # Interactive terminal chat
+│   └── __main__.py        # `python -m fastapi_assistant`
+├── data/                  # FastAPI Q&A dataset (JSONL)
+├── tests/                 # Pytest suite (no model/network needed)
+├── main.py                # Convenience entrypoint (`python main.py`)
+├── Dockerfile             # Container image
+├── pyproject.toml         # Packaging, deps, ruff + pytest config
+├── ARCHITECTURE.md        # High-level design
+└── requirements.txt
 ```
 
-## Architecture
+## Quickstart
 
-The application is split into a small set of responsibilities:
-
-1. `src/dataset.py` prepares training examples and applies the shared prompt format.
-2. `src/train_lora.py` fine-tunes the base model with LoRA and saves the adapter artifacts.
-3. `src/inference.py` loads the saved model once and reuses it for repeated requests.
-4. `src/api.py` exposes the inference service over HTTP with explicit request validation.
-5. `main.py` runs either the CLI or the API server.
-
-This separation keeps the repository easy to explain in an HLD review and makes the training, serving, and client layers independently replaceable.
-
-## Getting Started
-
-### Install dependencies
+Requires Python 3.10 or 3.11.
 
 ```bash
-py -3.11 -m pip install -r requirements.txt
+# 1. Clone and create an isolated environment
+git clone https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model.git
+cd niche_finetuned_model
+python -m venv .venv
+# Windows: .venv\Scripts\activate    |    macOS/Linux: source .venv/bin/activate
+
+# 2. Install (runtime + dev tools)
+pip install -e ".[dev]"
+
+# 3. Configure (optional)
+cp .env.example .env      # then edit as needed
+
+# 4. Fine-tune the LoRA adapter (downloads the base model on first run)
+python -m fastapi_assistant --train      # or: make train
+
+# 5. Serve the API
+python -m fastapi_assistant --serve      # or: make serve
+#    Interactive CLI instead:
+python -m fastapi_assistant              # or: make cli
 ```
 
-### Configure the environment
+`python main.py [--serve|--train]` works too, without installing the package.
 
-Copy [.env.example](.env.example) to `.env` and adjust values for your machine or deployment target. The application loads environment variables automatically at startup.
+Open http://localhost:8000/docs for interactive Swagger UI.
 
-Common settings:
+> **Note:** `outputs/` (the trained adapter) is a build artifact and is
+> git-ignored. Run `make train` to (re)generate it. The base model
+> (`TinyLlama/TinyLlama-1.1B-Chat-v1.0`, ~2.2 GB) is downloaded from Hugging Face
+> on first training/serving.
 
-- `API_HOST` and `API_PORT` control the HTTP service binding.
-- `MODEL_MAX_NEW_TOKENS`, `MODEL_TEMPERATURE`, `MODEL_TOP_P`, and `MODEL_REPETITION_PENALTY` control generation behavior.
-- Training values such as `BATCH_SIZE`, `NUM_EPOCHS`, and `LEARNING_RATE` are documented in `.env.example` for reproducibility.
-
-### Train the adapter
+## Run with Docker
 
 ```bash
-python -m src.train_lora
+docker build -t fastapi-assistant:latest .
+docker run --rm -p 8000:8000 \
+  -v "$PWD/outputs:/app/outputs" \      # mount a trained adapter
+  -v hf-cache:/models/hf \              # cache base weights across runs
+  fastapi-assistant:latest
 ```
 
-### Start the service
+The container runs as a non-root user, emits JSON logs, exposes a `HEALTHCHECK`,
+and loads the model lazily so it becomes healthy quickly.
 
-```bash
-python main.py --serve
-```
+## API reference
 
-The interactive CLI is available with `python main.py`.
-
-## Training Workflow
-
-The training command loads TinyLlama, formats the FastAPI dataset, applies LoRA adapters, runs a short supervised fine-tuning pass, and saves the resulting adapter artifacts to `outputs/fastapi_tinyllama_lora/`.
-
-## Runtime Usage
-
-- CLI mode: `python main.py`
-- API mode: `python main.py --serve`
-- API docs: `http://localhost:8000/docs`
-
-Example interaction:
-
-```text
-You: How do I define a POST endpoint in FastAPI?
-Assistant: Use @app.post and a Pydantic model...
-```
-
-## API Endpoints
-
-- `GET /health` - basic liveness check
-- `GET /ready` - verifies the model can be loaded
-- `POST /generate` - returns a model answer for a question
-
-Example request:
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness: process is up (does not load the model). |
+| `GET` | `/ready` | Readiness: ensures the model can be loaded → 503 if not. |
+| `POST` | `/generate` | Generate an answer to a FastAPI question. |
+| `GET` | `/docs` | Swagger UI. `GET /openapi.json` for the schema. |
 
 ```bash
 curl -X POST http://localhost:8000/generate \
@@ -114,41 +136,64 @@ curl -X POST http://localhost:8000/generate \
   -d '{"question":"How do I define a POST endpoint in FastAPI?","max_new_tokens":200}'
 ```
 
-## Production Notes
+```json
+{
+  "question": "How do I define a POST endpoint in FastAPI?",
+  "answer": "Use @app.post with a Pydantic model ...",
+  "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "uses_adapter": true
+}
+```
 
-- Model loading is cached so repeat requests do not reload weights.
-- Training masks padding tokens so loss is computed only on real tokens.
-- Health endpoints make it easier to wire the app into Docker, Kubernetes, or a load balancer.
-- The service uses explicit request validation and bounded generation parameters.
-- The repository is structured so the API layer, training job, and CLI can evolve independently.
-- Configuration is loaded from the environment so production secrets and deployment-specific settings stay out of source control.
+If `API_KEY` is set, include `-H "X-API-Key: <key>"` on `/generate`.
 
-## Repository Conventions
+## Configuration
 
-- Keep shared prompt logic in `src/dataset.py` so training and inference stay aligned.
-- Keep service settings in `src/config.py` so deployment changes stay centralized.
-- Treat generated model artifacts under `outputs/` as build outputs rather than source code.
+All settings are environment variables (see `.env.example`), validated at startup.
 
-## Future Enhancements
+| Variable | Default | Description |
+| --- | --- | --- |
+| `BASE_MODEL_NAME` | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | Hugging Face base model. |
+| `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | HTTP bind address. |
+| `API_KEY` | *(unset)* | If set, `/generate` requires `X-API-Key`. |
+| `CORS_ALLOW_ORIGINS` | `["*"]` | JSON list of allowed origins. |
+| `WARMUP_ON_STARTUP` | `true` | Load model at boot vs. on first request. |
+| `LOG_LEVEL` / `LOG_JSON` | `INFO` / `false` | Logging verbosity / JSON output. |
+| `MODEL_MAX_NEW_TOKENS` | `256` | Default generation length cap. |
+| `MODEL_TEMPERATURE` | `0.4` | Sampling temperature (`0` = greedy). |
+| `MODEL_TOP_P` | `0.9` | Nucleus sampling. |
+| `MODEL_REPETITION_PENALTY` | `1.05` | Repetition penalty. |
+| `NUM_EPOCHS`, `BATCH_SIZE`, `LEARNING_RATE`, `MAX_SEQ_LENGTH`, `LORA_*` | see `.env.example` | Training hyperparameters. |
+| `DATA_DIR` / `OUTPUT_DIR` | `./data` / `./outputs/...` | Overridable paths. |
 
-- Expand dataset with hundreds more Q&A samples
-- Add RAG support for external FastAPI docs
-- Package final model for HF Hub
-- Create a Streamlit UI for the niche assistant
-- Add quantized inference (GGUF / GPTQ) for faster local use
-- Add rate limiting and auth for exposed deployments
-- Add observability hooks for request latency and token counts
+## Development
 
-## Support
+```bash
+make test    # pytest
+make lint    # ruff check
+make fmt     # ruff format
+```
 
-This repository is intended as a self-contained portfolio project and reference implementation for a small model-serving workflow.
+The test suite injects a fake engine via the `create_app` factory, so it runs in
+under a second with no model download or network access. CI runs the same on
+Python 3.10 and 3.11.
 
-## Security Notes
+## Training details
 
-- Environment-specific values should remain in `.env` or deployment secrets, not in source control.
-- The service validates request sizes and generation bounds at the API layer.
-- The model is loaded once and reused to reduce startup churn and repeated disk I/O.
+`python -m fastapi_assistant --train` loads TinyLlama, attaches LoRA adapters
+(`q_proj`, `v_proj`), tokenizes the FastAPI Q&A dataset with **completion-only
+masking** and **dynamic padding**, fine-tunes with the HF `Trainer`, and saves the
+adapter to `OUTPUT_DIR`. Hyperparameters are configurable via the environment.
 
-## Author
+## Roadmap
 
-Created by Syed Waleed Ahmed
+- Expand the dataset with hundreds more curated Q&A pairs.
+- Optional RAG over the official FastAPI docs.
+- Push the adapter to the Hugging Face Hub as a versioned release.
+- Quantized inference (GGUF / GPTQ) for faster local use.
+- Swap `AssistantEngine` for a vLLM/TGI backend behind the same HTTP contract.
+- Per-request rate limiting and token/latency metrics (Prometheus).
+
+## License
+
+[MIT](LICENSE) © Syed Waleed Ahmed

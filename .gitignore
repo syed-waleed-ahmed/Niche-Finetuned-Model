@@ -43,5 +43,5 @@ Thumbs.db
 # Notebook checkpoints
 .ipynb_checkpoints/
 
-# Generated knowledge-graph analysis (local tooling artifact)
-graphify-out/
+# Knowledge-graph outputs are tracked; only the regenerable cache is ignored.
+graphify-out/cache/

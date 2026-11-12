@@ -1,0 +1,158 @@
+# Deployment and Operations
+
+How to take the repository from `git clone` to a running, monitored, multi-origin
+deployment using only free tiers, and how to operate it. Every platform step is
+optional and independent: the release pipeline skips any platform whose variables
+are not set, so you can adopt them one at a time.
+
+## 1. Free-tier budget
+
+Allowances as published in November 2026; check each provider before relying on them.
+
+| Need | Service | Free allowance | What this project uses |
+| --- | --- | --- | --- |
+| Training GPU | Kaggle | about 30 GPU hours/week (not officially published) | about 1 hour per training run |
+| Weights registry | Hugging Face Hub | free public repos | adapter (about 20 MB) + GGUF (about 0.7 GB) per release |
+| Primary origin | Google Cloud Run | 180k vCPU-s, 360k GiB-s, 2M requests per month (request-based billing) | about 25 vCPU-s per uncached answer on 2 vCPU, so roughly 6,000-7,000 answers/month |
+| Image storage | Artifact Registry | 0.5 GB | one amd64 image (cleanup policy keeps two) |
+| Backup origin | Oracle Cloud Always Free | Ampere A1: 2 OCPU / 12 GB total (halved in 2026) | one VM |
+| Edge | Cloudflare Workers | 100k requests/day, 10 ms CPU per request | about 1 ms CPU per request |
+| Cache and rate limits | Upstash Redis | about 500k commands/month | 3-5 commands per request |
+| Database | Neon Postgres | 0.5-1 GB storage, compute scales to zero | keys, usage, feedback, optional pgvector index |
+| Metrics and logs | Grafana Cloud | 10k active series, 50 GB logs, 14-day retention | about 150 series |
+| Errors | Sentry | developer plan | optional |
+| CI/CD | GitHub Actions + GHCR | free for public repositories | build, eval, deploy, uptime |
+
+Capacity, honestly: one CPU replica generates about 10-15 tokens/s, so an uncached
+256-token answer takes 15-25 s. Free tiers support hundreds to a few thousand
+uncached answers per day; the cache, extra origins, and back-pressure make that
+capacity predictable. Scaling beyond it is a configuration change (section 9).
+
+## 2. Accounts and where each value goes
+
+| Value | Where it comes from | Where it goes |
+| --- | --- | --- |
+| `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA` | printed by `deploy/gcp/bootstrap.sh` | GitHub variables |
+| `CLOUD_RUN_MAX_INSTANCES` | your choice (default 2; the hard cost cap) | GitHub variable |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard | GitHub variable |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare: API token with "Edit Cloudflare Workers" | GitHub secret |
+| `EDGE_ORIGINS` | Cloud Run URL, then backup URLs, comma-separated | GitHub variable |
+| `EDGE_URL` | the deployed Worker URL | GitHub variable |
+| `ORIGIN_SHARED_SECRET` | printed by bootstrap (also in Secret Manager) | GitHub secret, VM `.env`, Space secret |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash console, REST API section | GitHub secrets |
+| `DATABASE_URL` | Neon connection string (`sslmode=require`) | Secret Manager `database-url`, VM `.env` |
+| `METRICS_TOKEN` | printed by bootstrap | Grafana scrape job, VM `.env` |
+| `SENTRY_DSN` | Sentry project settings | Secret Manager `sentry-dsn`, VM `.env` |
+| `SMOKE_API_KEY` | `fastapi-assistant keys create smoke-test` | GitHub secret |
+| `HF_NAMESPACE` | your Hugging Face user or org | GitHub variable |
+| `HF_TOKEN` | Hugging Face token with write access | Kaggle secret attached to the kernel |
+| `KAGGLE_USERNAME` + `KAGGLE_KEY` (or `KAGGLE_API_TOKEN`) | Kaggle account settings, API | GitHub secrets |
+
+## 3. Database (Neon)
+
+1. Create a Neon project and copy the pooled connection string.
+2. Apply migrations and issue your first key:
+
+   ```bash
+   export DATABASE_URL='postgresql://...neon.tech/neondb?sslmode=require'
+   fastapi-assistant db migrate
+   fastapi-assistant keys create my-laptop      # printed once; store it
+   ```
+3. Optional, for shared retrieval across replicas:
+   `RAG_BACKEND=pgvector fastapi-assistant rag build --target pgvector`.
+   The default is a local index baked into the image, which needs no database.
+
+## 4. Primary origin (Cloud Run)
+
+1. Create a project with billing enabled (the free tier still requires a billing
+   account), then run:
+
+   ```bash
+   PROJECT_ID=... BILLING_ACCOUNT=... GITHUB_REPO=owner/Niche-Finetuned-Model \
+     bash deploy/gcp/bootstrap.sh
+   printf '%s' "$DATABASE_URL" | gcloud secrets versions add database-url --data-file=-
+   printf '%s' "$SENTRY_DSN"   | gcloud secrets versions add sentry-dsn --data-file=-
+   ```
+2. Add the printed values as GitHub variables, then push to `main` or run the
+   Release workflow. It builds the image, copies the amd64 variant into Artifact
+   Registry, renders `deploy/cloudrun/service.yaml` from `model-release.json`, and
+   deploys. The job ends by polling `/ready` on the new revision.
+3. Direct requests to the Cloud Run URL get 403: only the Worker (which sends the
+   origin secret) can use it. `/health` and `/ready` stay open for probes.
+
+## 5. Edge (Cloudflare Worker + Upstash)
+
+1. Create an Upstash Redis database; copy the REST URL and token.
+2. Set the Cloudflare and Upstash values from section 2, with `EDGE_ORIGINS` set to
+   the Cloud Run URL. Run Release; the Worker deploys as `fastapi-assistant-edge`.
+3. Set `EDGE_URL` to the Worker URL and `SMOKE_API_KEY` to a key from section 3.
+   From now on every release ends with a k6 smoke test through the edge, and
+   `uptime.yml` probes it every 10 minutes.
+
+Check it:
+
+```bash
+curl -s "$EDGE_URL/generate" -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"question":"How do I declare a path parameter?"}' -D - -o /dev/null | grep -i -E 'x-cache|x-served-by|x-ratelimit'
+```
+
+The second identical call returns `X-Cache: HIT` in milliseconds.
+
+## 6. Backup origin (Oracle VM)
+
+1. Create an Ampere A1 instance (Ubuntu 24.04, 2 OCPU / 12 GB) with
+   `deploy/vm/cloud-init.yaml` as user data. No inbound ports are needed.
+2. In Cloudflare Zero Trust, create a tunnel and route a hostname (for example
+   `origin-vm.example.com`) to `http://app:8080`.
+3. On the VM: `cp /opt/fastapi-assistant/.env.example /opt/fastapi-assistant/.env`,
+   fill it in, then `sudo systemctl start fastapi-assistant`.
+4. Append `https://origin-vm.example.com` to `EDGE_ORIGINS` and re-run Release.
+
+Oracle may reclaim Always Free instances that stay nearly idle for a week, and A1
+capacity is often unavailable in popular regions; treat this origin as best effort.
+An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
+
+## 7. Observability
+
+- Grafana Cloud: for Cloud Run, add a "Metrics Endpoint" scrape job for
+  `https://<cloud-run-url>/metrics` with bearer token `METRICS_TOKEN`. The VM ships
+  its own metrics and logs through Alloy. Import `deploy/grafana/dashboard.json`
+  and load `deploy/grafana/alerts.yaml`
+  (`mimirtool rules load deploy/grafana/alerts.yaml`).
+- Cloud Run's own request, latency, and instance metrics are free in Cloud
+  Monitoring and can be added to Grafana as a Google Cloud Monitoring data source.
+- Sentry receives unhandled errors once `SENTRY_DSN` is set.
+
+## 8. Releasing a new model
+
+1. Grow the data: `fastapi-assistant data generate --out drafts.jsonl --pages 30`
+   drafts doc-grounded pairs with Claude (needs Anthropic credentials and costs one
+   request per page). Review them, then merge with
+   `fastapi-assistant data merge drafts.jsonl --split train` and run
+   `fastapi-assistant data validate`.
+2. Run the "Train on Kaggle" workflow. It trains on a free GPU, requires the
+   fine-tune to beat the base model, exports and publishes the GGUF, re-scores it
+   with the production backend, and opens a PR that updates `model-release.json`
+   and `eval/baseline.json`.
+3. Review the eval table in the PR and merge. Release redeploys every origin and
+   bumps the Worker's cache namespace.
+
+## 9. Runbook
+
+| Situation | Action |
+| --- | --- |
+| Bad model in production | Revert the release PR (restores the previous `model-release.json`); Release redeploys. Weights are immutable tags, so rollback never re-trains. |
+| Leaked API key | `fastapi-assistant keys revoke fa_AbC123`. Origins stop accepting it within `KEY_CACHE_TTL_S` (60 s); cached edge answers stop within `KEY_VERIFIED_TTL_SECONDS` (300 s). |
+| Sustained 429s (`AssistantSaturated`) | Raise `CLOUD_RUN_MAX_INSTANCES` (costs money beyond the free tier), add an origin, or lower `RATE_LIMIT_PER_MINUTE`. |
+| Model never becomes ready | Check the logs for the download or load error (`load_state: failed`); verify the revision in `model-release.json` exists on the Hub. |
+| Rotate the origin secret | Add a new Secret Manager version, update the GitHub secret and the VM `.env`, then run Release. Brief 403s are possible while origins and edge disagree. |
+| Unexpected bill | `maxScale` is the hard cap; the budget alert only notifies. Set `CLOUD_RUN_MAX_INSTANCES=1` and re-run Release. |
+| Postgres outage | Static `API_KEY` traffic keeps working; per-user keys fail closed. Usage writes are dropped and logged. |
+
+## 10. Scaling beyond free tiers
+
+In order: raise `maxScale` (no code change); add origins behind the Worker; move
+inference to a GPU server running vLLM or TGI with the merged model and set
+`ENGINE_BACKEND=remote` and `REMOTE_BASE_URL` (the service keeps auth, admission,
+metrics, and the API); and fine-tune a larger base model by setting `base_model`
+when running the Kaggle workflow. The eval gate decides whether a larger model ships.

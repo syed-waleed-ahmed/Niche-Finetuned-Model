@@ -1,191 +1,263 @@
 # Architecture (High-Level Design)
 
-This document describes the design of the FastAPI Niche Assistant, a LoRA
-fine-tuned TinyLlama model packaged as a standalone inference service. It is
-intended to be readable in an HLD review: it states responsibilities, data flow,
-the concurrency and scaling model, failure handling, and the trade-offs behind each
-decision.
+This document describes the FastAPI Assistant as a production system: a small
+fine-tuned language model served behind an edge layer, across several free-tier
+origins, with a gated model-release pipeline. It is written for an HLD review: it
+states responsibilities, data flow, the scaling and failure model, and the
+trade-offs behind each decision.
 
 ## 1. Goals and non-goals
 
 **Goals**
 
-- Serve a domain-specialized (FastAPI) chat model behind a clean HTTP API.
-- Keep training, serving, and the client cleanly separated and independently
-  replaceable.
-- Be operationally boring: typed config, health/readiness probes, structured logs,
-  graceful degradation, and containerization.
-- Be reproducible: one command trains the adapter, one command serves it.
+- Answer FastAPI questions with a fine-tuned small model behind a stable HTTP API
+  (native and OpenAI-compatible).
+- Run at zero cost on free tiers, while keeping the architecture that scales by
+  adding capacity rather than by redesign.
+- Make model quality a release gate: no model ships unless it beats the one it
+  replaces on a held-out evaluation.
+- Degrade gracefully: overload produces fast, explicit back-pressure (429 +
+  `Retry-After`), not timeouts; a failed origin is routed around.
 
 **Non-goals**
 
-- Not a general-purpose LLM gateway. It serves a single fine-tuned model.
-- Not a distributed training platform. Fine-tuning is a single-node LoRA job.
-- High-throughput multi-tenant inference is delegated to a dedicated inference
-  server (see section 6, Scaling), not built into this process.
+- High-throughput multi-tenant inference on free hardware. One CPU replica
+  produces roughly 10-15 tokens/s; capacity grows with replicas or a GPU server
+  (section 8), not inside this process.
+- General-purpose chat. The service answers FastAPI questions with one system
+  prompt.
 
-## 2. Component overview
-
-```mermaid
-flowchart TB
-    Clients["Clients<br/>curl, SDKs, web UI, CLI"]
-
-    subgraph Service["Service process"]
-        API["api.py (FastAPI)<br/>middleware: request-id + timing<br/>CORS, API-key auth<br/>routes: /health, /ready, /generate"]
-        Engine["inference.py - AssistantEngine<br/>load once (lock)<br/>base model + LoRA adapter<br/>generate (lock)"]
-        Prompts["prompts.py<br/>chat template + encode_chat"]
-        Runtime["transformers / peft / torch"]
-        API --> Engine
-        Engine --> Prompts
-        Engine --> Runtime
-    end
-
-    Clients -->|"HTTP / JSON"| API
-```
-
-Offline (build time):
+## 2. System overview
 
 ```mermaid
 flowchart LR
-    Data["data/*.jsonl"] --> Tok["data.py<br/>tokenize + completion-only mask"]
-    Tok --> Train["training.py<br/>LoRA fine-tune"]
-    Train --> Adapter[("outputs/<br/>LoRA adapter")]
+    Client["Clients<br/>curl, OpenAI SDKs, apps"]
+
+    subgraph Edge["Cloudflare Worker (edge)"]
+        W["key check, rate limit,<br/>shared answer cache,<br/>origin failover, origin lock"]
+    end
+
+    Redis[("Upstash Redis<br/>rate counters,<br/>cached answers")]
+
+    subgraph Origins["Origins (same image, stateless)"]
+        CR["Cloud Run<br/>primary, scale-to-zero"]
+        VM["Oracle Ampere VM<br/>backup, via Cloudflare Tunnel"]
+        HF["HF Space<br/>optional backup"]
+    end
+
+    PG[("Neon Postgres<br/>API keys, usage,<br/>feedback, pgvector")]
+    Hub[("Hugging Face Hub<br/>versioned adapter + GGUF")]
+    Obs["Grafana Cloud + Sentry"]
+
+    Client -->|HTTPS| W
+    W <--> Redis
+    W -->|X-Origin-Secret| CR
+    W -.->|on 429/5xx/timeout| VM
+    W -.-> HF
+    CR & VM & HF --> PG
+    CR & VM & HF -->|pinned revision| Hub
+    CR & VM -.-> Obs
 ```
 
-Every component has one job:
+Model build pipeline (offline):
 
-| Module | Responsibility |
+```mermaid
+flowchart LR
+    Docs["FastAPI docs<br/>(pinned release)"] --> Gen["data generate<br/>(Claude, drafts)"]
+    Gen --> Review["human review<br/>+ data validate"]
+    Review --> Data[("data/*.jsonl")]
+    Data --> Train["Kaggle GPU<br/>LoRA fine-tune"]
+    Train --> G1{"beats base<br/>model?"}
+    G1 -->|yes| Export["merge + GGUF Q4_K_M"]
+    Export --> Hub[("HF Hub<br/>tagged release")]
+    Hub --> G2{"CI eval gate<br/>(production backend)"}
+    G2 -->|yes| PR["PR: model-release.json<br/>+ eval/baseline.json"]
+    PR --> Deploy["merge = deploy"]
+```
+
+## 3. Components
+
+| Component | Responsibility |
 | --- | --- |
-| `config.py` | Typed, validated settings from env/`.env` (single source of truth). |
-| `logging_config.py` | Human or JSON structured logging with request-scoped fields. |
-| `prompts.py` | The shared chat format used by both training and inference. |
-| `data.py` | Load JSONL, tokenize with completion-only masking (training only). |
-| `training.py` | LoRA fine-tuning; writes the adapter to `outputs/`. |
-| `inference.py` | Own the model; load once, generate safely (`AssistantEngine`). |
-| `schemas.py` | Pydantic request/response contracts (drive validation + OpenAPI). |
-| `api.py` | FastAPI app factory, routes, middleware, auth, health/readiness. |
-| `_compat.py` | Cross-version transformers helpers (for example the dtype kwarg). |
-| `cli.py` / `__main__.py` | Local REPL and the process entrypoint. |
+| `deploy/cloudflare-worker` | Edge: API-key presence check, per-key and per-IP rate limits, shared answer cache, ordered origin failover, injects `X-Origin-Secret`. |
+| `api.py` | App factory, routes (`/generate`, `/v1/chat/completions`, `/v1/models`, `/v1/feedback`, probes, `/metrics`), middleware (request id, origin lock, access log, metrics), error mapping. |
+| `service.py` | One code path for both APIs: retrieval, admission, generation, metrics, usage accounting. |
+| `admission.py` | Bounded concurrency plus bounded wait queue; rejects with `Retry-After`. |
+| `engines/` | `Engine` contract with three backends: `transformers` (torch + LoRA), `llamacpp` (GGUF on CPU, production), `remote` (OpenAI-compatible server such as vLLM). |
+| `prompts.py` | The single definition of the prompt format, shared by training, evaluation, and serving. |
+| `retrieval.py`, `docs_corpus.py` | Documentation index (local NumPy or pgvector) and the docs loader/chunker. |
+| `auth.py`, `storage/` | Static key or per-user hashed keys in Postgres (TTL-cached), usage events, feedback, SQL migrations. |
+| `evaluation.py` | Eval harness and release gate. |
+| `datasets_tools.py`, `datagen.py` | Dataset validation (including train/eval leakage) and Claude-assisted drafting from the docs. |
+| `training.py`, `export.py`, `kaggle/`, `scripts/export_gguf.sh` | Fine-tuning, merging, GGUF conversion, Hub publishing, release manifest. |
 
-The prompt format lives in exactly one place (`prompts.py`). This is the most
-important invariant in the system: if training and serving disagree on the prompt
-format, quality silently collapses. Both call `build_messages()` and
-`encode_chat()`.
+The most important invariant: **the prompt format lives in `prompts.py` only.**
+Training, evaluation, and serving all call `build_messages` / `normalize_chat`, and
+the GGUF converter embeds the same tokenizer chat template. If any of them diverged,
+quality would silently collapse.
 
-## 3. Request lifecycle
+## 4. Request lifecycle
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant M as Middleware (request-id, timing)
-    participant A as Auth (X-API-Key)
-    participant E as AssistantEngine
-    participant T as torch/transformers
+    participant W as Worker
+    participant R as Upstash
+    participant O as Origin
+    participant A as Admission
+    participant E as Engine
 
-    C->>M: POST /generate {question}
-    M->>M: attach request_id, start timer
-    M->>A: validate API key (if configured)
-    A-->>M: ok
-    M->>E: generate(question, params)
-    alt model not loaded
-        E->>T: load base model + apply LoRA adapter (once, under lock)
+    C->>W: POST /generate (X-API-Key)
+    W->>W: no key? 401 (no Redis, no origin)
+    W->>R: pipeline: INCR rate counter, GET cached answer, GET key marker
+    alt over limit
+        W-->>C: 429 + Retry-After
+    else cache hit and key verified recently
+        W-->>C: 200 cached (X-Cache: HIT)
+    else
+        W->>O: forward + X-Origin-Secret
+        O->>O: origin secret, key auth (Postgres, TTL cache)
+        O->>O: retrieve docs (optional)
+        O->>A: acquire slot
+        alt queue full
+            A-->>W: 429 + Retry-After
+            W->>O: try next origin
+        else slot granted
+            A->>E: generate (worker thread, deadline)
+            E-->>O: answer + token counts
+            O-->>W: 200 JSON (or SSE stream)
+            W->>R: SET cache, SET key marker (waitUntil)
+            W-->>C: 200 (X-Cache: MISS)
+        end
     end
-    E->>E: build_messages() + encode_chat()
-    E->>T: model.generate() (under generation lock)
-    T-->>E: token ids
-    E-->>M: decoded answer (new tokens only)
-    M-->>C: 200 {answer} + X-Request-ID + X-Process-Time-Ms
 ```
 
-## 4. Model loading and the adapter bug this design fixes
+Streaming responses (`stream: true`) bypass the cache and are passed through
+unbuffered. If the client disconnects mid-stream, a cancellation event stops the
+engine at the next token and the slot is released.
 
-The fine-tuned artifact on disk is a LoRA adapter, not a full model: it has no
-`config.json` or base weights. A naive
-`AutoModelForCausalLM.from_pretrained(output_dir)` therefore fails at runtime.
-`AssistantEngine` loads the base model first, then applies the adapter with
-`peft.PeftModel.from_pretrained`. If no adapter is present it serves the base model
-directly (graceful degradation) and logs a warning, so the service still answers
-while pointing you at `make train`.
+## 5. Back-pressure and concurrency
 
-## 5. Concurrency model
+- An origin runs at most `MAX_CONCURRENCY` generations (1 on CPU) and lets at most
+  `MAX_QUEUE` more wait, each for at most `QUEUE_TIMEOUT_S`. Anything beyond is
+  rejected immediately with 429 and a `Retry-After` estimated from the moving
+  average service time.
+- Overload is therefore visible (metric `assistant_admission_rejections_total`),
+  cheap (no work done), and actionable: the edge retries the next origin, and
+  clients back off.
+- Each generation has a wall-clock budget (`GENERATION_TIMEOUT_S`) enforced inside
+  the decode loop (`finish_reason: "timeout"`), so one long request cannot hold a
+  slot indefinitely.
+- Model loading is load-once under a lock and runs in the background at startup.
+  `/ready` is non-blocking: 503 until loaded, so platform probes never time out
+  while weights download.
 
-- FastAPI runs synchronous path operations in a threadpool, so multiple requests
-  can arrive concurrently.
-- Model loading is guarded by a lock with a double-checked flag: the weights are
-  loaded exactly once even under a thundering herd of first requests.
-- Model generation is serialized by a second lock. A single `transformers` model
-  instance is not safe to drive from multiple threads simultaneously, and on CPU
-  concurrent generation only causes contention. Serializing keeps correctness
-  simple and predictable.
+## 6. Caching and its safety rule
 
-The cost of serialization is throughput: one process generates one response at a
-time. That is an intentional trade-off, resolved by scaling out (section 6) rather
-than by sharing one model across threads.
+The edge caches non-streaming answers in Redis for `CACHE_TTL_SECONDS`, keyed by
+`MODEL_VERSION` and the canonical request body, and shared across users (answers do
+not depend on the caller). A shared cache must not become an authentication bypass,
+so a hit is served only to a key the origin accepted within the last
+`KEY_VERIFIED_TTL_SECONDS`. Unknown keys always reach the origin. Releasing a new
+model changes `MODEL_VERSION`, which moves the cache namespace.
 
-## 6. Scaling strategy
+## 7. Data model (Postgres)
 
-The service is deliberately stateless (no session state; the only in-memory state
-is the read-only model), which makes horizontal scaling straightforward:
+| Table | Purpose |
+| --- | --- |
+| `api_keys` | `key_hash` (SHA-256, unique), display prefix, active flag. Plaintext keys are shown once and never stored. |
+| `usage_events` | Per request: key, endpoint, status, prompt/completion tokens, latency, finish reason, model version. Question/answer text only if `STORE_TRANSCRIPTS=true`. |
+| `feedback` | Rating (+1/-1) and comment, joined to usage by request id: the raw material for the next dataset iteration. |
+| `doc_chunks` | Documentation chunks with `vector(384)` embeddings and an HNSW cosine index (pgvector backend). |
 
-1. **Replicate the process** behind a load balancer. Each replica loads its own
-   copy of the model; requests are distributed round-robin. This is the primary
-   scaling lever and works today with multiple workers or containers.
-2. **Offload inference** to a dedicated, batched server (vLLM, TGI, or Triton) when
-   throughput/latency demands continuous batching and a paged KV cache.
-   `AssistantEngine` becomes a thin client; the HTTP contract is unchanged.
-3. **Quantize** (GGUF/GPTQ/AWQ) to shrink memory and increase per-replica density.
-4. **Autoscale** on request latency or queue depth; the `/ready` probe gates new
-   replicas until their model is loaded.
+Migrations are ordered SQL files applied by `fastapi-assistant db migrate`.
 
-```mermaid
-flowchart TB
-    LB["Load Balancer / Ingress"]
-    LB --> R1["replica 1<br/>model copy"]
-    LB --> R2["replica 2<br/>model copy"]
-    LB --> R3["replica N<br/>model copy"]
-```
+## 8. Scaling path
 
-## 7. Configuration and secrets
+The origins are stateless (the only in-memory state is the read-only model and
+short-lived auth cache), so capacity scales by replication. In order of cost:
 
-All configuration is read once through `pydantic-settings` (`config.py`) and
-validated with bounds (ports, token limits, sampling ranges). Secrets such as
-`API_KEY` come from the environment or a secrets manager, never from source
-control. Filesystem paths (`DATA_DIR`, `OUTPUT_DIR`) are overridable so the same
-image runs unchanged across environments.
+1. **Cache** (free): repeated questions never reach a model.
+2. **More free origins**: Cloud Run instances (`maxScale`), the Oracle VM, a Space.
+   The edge fails over on 429/5xx/timeouts, so replicas absorb each other's load.
+3. **Paid CPU capacity**: raise `maxScale`; no code change.
+4. **GPU inference server**: run vLLM or TGI with the merged model and set
+   `ENGINE_BACKEND=remote`. Continuous batching raises throughput by orders of
+   magnitude; the service keeps auth, admission, metrics, and the API contract.
+5. **Bigger base model**: the training pipeline is base-model agnostic
+   (`BASE_MODEL_NAME`); the eval gate decides whether it ships.
 
-## 8. Observability
+## 9. Model lifecycle and release gates
 
-- **Structured logging** (`LOG_JSON=true`) emits one JSON object per log line with
-  `request_id`, `method`, `path`, `status_code`, and `duration_ms`, ready for
-  ingestion by Loki, the ELK stack, or a cloud logging backend.
-- Every response carries `X-Request-ID` (propagated if the client sends one) and
-  `X-Process-Time-Ms` for tracing and latency budgets.
-- `/health` (liveness) and `/ready` (readiness, which forces a model load)
-  integrate directly with Kubernetes probes and load-balancer health checks.
+1. Data: hand-written and Claude-drafted pairs from the pinned docs, reviewed, then
+   `data validate` (schema, parseable code, duplicates, eval leakage) in CI.
+2. Train on a free Kaggle GPU (`train.yml` -> `kaggle/pipeline.py`).
+3. Gate 1 (Kaggle): the fine-tune must beat the base model on the eval set.
+4. Export: merge, convert, quantize to Q4_K_M, push adapter and GGUF to the Hub
+   under an immutable tag.
+5. Gate 2 (CI, `eval.yml`): score the GGUF with the production backend; it must not
+   regress more than 0.02 against the model on `main`.
+6. Release: a PR updates `model-release.json` (pinned revisions) and
+   `eval/baseline.json`. Merging deploys; reverting rolls back.
 
-## 9. Failure modes
+## 10. Observability
+
+- Metrics (`/metrics`, Prometheus): request rate/latency by route template,
+  generation latency, tokens/s, prompt/completion tokens, finish reasons, queue
+  depth, in-flight, admission rejections, retrieval latency, model loaded, build
+  info. Scraped by Alloy on the VM, and by Grafana Cloud's metrics endpoint job for
+  Cloud Run. Dashboard and alert rules live in `deploy/grafana/`.
+- Logs: one JSON line per request with request id, status, and duration; the Worker
+  logs cache status, origin, attempts, and rate-limit identity type (never keys).
+- Errors: Sentry (optional), with release `fastapi-assistant@<version>+<model>`.
+- Uptime: a 10-minute synthetic probe through the edge (`uptime.yml`).
+
+## 11. Security
+
+- Edge rejects missing keys; origins validate keys (hashed, constant-time static
+  comparison) and reject requests without the shared origin secret.
+- CORS never allows credentials; auth is header-based.
+- Secrets live in Secret Manager / Worker secrets / GitHub secrets; CI deploys
+  through Workload Identity Federation (no long-lived cloud keys). Third-party
+  Actions are pinned to commit SHAs.
+- Images: non-root user, no compiler, hash-pinned dependencies, Trivy scan (fails
+  on fixable critical CVEs), CodeQL, gitleaks, Dependabot.
+- Generated code is only executed by the evaluator when explicitly enabled
+  (`--execute-code`), and only in disposable environments.
+
+## 12. Failure modes
 
 | Failure | Behavior |
 | --- | --- |
-| Model files missing or corrupt | `load()` raises `ModelNotReadyError`; `/ready` and `/generate` return 503. Startup does not crash. |
-| No fine-tuned adapter | Base model served with a warning; `uses_adapter=false` in responses. |
-| Invalid request | Pydantic returns 422 with a precise error location. |
-| Missing or invalid API key | 401 before any model work. |
-| Generation exception | Logged with request id; client gets a generic 500 (no stack-trace leak). |
+| Origin overloaded | 429 + `Retry-After`; edge tries the next origin. |
+| Origin down or slow | Edge times out (`ORIGIN_TIMEOUT_MS`) and fails over; 502 if every origin fails. |
+| Model not loaded yet | `/ready` 503 (platform holds traffic); requests get 503 + `Retry-After`. |
+| Weights download fails | Load state `failed`; retried on the next `/ready` or request. |
+| Postgres unavailable | Static-key requests keep working; per-user keys fail closed (401/500); usage writes are logged and dropped. |
+| Retrieval fails | Answer without context; logged and counted. |
+| Redis unavailable | Edge fails open: no rate limiting or caching, traffic still flows. |
+| Generation exceeds budget | Truncated with `finish_reason: "timeout"`. |
+| Bad model release | Blocked by the eval gates; otherwise revert `model-release.json`. |
 
-## 10. Key design decisions (trade-off log)
+## 13. Decision log
 
-- **Native chat template over a bespoke prompt format.** Using
-  `tokenizer.apply_chat_template` preserves the base model's instruction-following
-  alignment and is what any reviewer expects. Cost: the format is coupled to the
-  tokenizer, handled by centralizing it in `prompts.py`.
-- **Completion-only loss masking.** Prompt tokens are labeled `-100` so the model
-  is trained only to produce the answer. This is the correct objective for
-  instruction tuning and materially improves output quality on small datasets.
-- **Adapter as a build artifact, not source.** `outputs/` is git-ignored and
-  regenerated by `make train`; weights belong in a registry or release, not git.
-- **Serialize generation, scale by replication.** Simpler and more predictable than
-  sharing one model across threads; the stateless design makes it cheap.
-- **App factory (`create_app`).** Enables dependency injection of a fake engine in
-  tests, so the full HTTP surface is tested without loading a model or hitting the
-  network.
+- **llama.cpp GGUF for production, torch for training.** Q4_K_M is about 0.7 GB and
+  several times faster than fp32 torch on CPU, which is what makes free CPU
+  instances usable. torch remains the reference backend for training-time eval.
+- **Admission control over unbounded queuing.** Fast 429s keep latency honest and
+  let the edge spread load; unbounded queues only move the timeout elsewhere.
+- **Shared edge cache with a verified-key rule.** Maximizes hit rate across users
+  without letting cache hits bypass authentication.
+- **Release manifest in git.** Deployed weights are a reviewed, revertable change
+  pinned to immutable Hub tags, not "latest".
+- **Eval gate on the production backend.** Quantization changes outputs; gating the
+  fp16 adapter alone would not catch a bad GGUF.
+- **OpenAI-compatible API.** Existing SDKs and tools work unchanged, and the same
+  contract fronts a future vLLM backend.
+- **Retrieval through the training `context` slot, opt-in by default.** RAG uses the
+  exact layout the model saw for context examples, and its effect is measured by
+  `eval --rag`, not assumed. On the base model it raised keyword recall (+0.08) but
+  lowered code validity (-0.14) and added about 60% latency, so it ships opt-in per
+  request until a release shows a net gain.
+- **App factory with injected engine/store/retriever.** The full HTTP surface is
+  tested without a model, database, or network.

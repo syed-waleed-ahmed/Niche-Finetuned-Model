@@ -1,0 +1,1680 @@
+{
+  "meta": {
+    "backend": "llamacpp",
+    "model": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+    "uses_adapter": false,
+    "max_new_tokens": 256,
+    "retrieval": true,
+    "model_version": "base-tinyllama-q4km",
+    "data": "D:\\Projects & Stuff\\niche_finetuned_model\\data\\fastapi_qa_eval.jsonl"
+  },
+  "summary": {
+    "items": 108,
+    "score": 0.4001,
+    "keyword_recall": 0.4985,
+    "code_valid": 0.4006,
+    "code_runs": null,
+    "rouge_l": 0.3026,
+    "latency_p50_s": 11.629,
+    "latency_p95_s": 23.178
+  },
+  "by_category": {
+    "async": {
+      "items": 3,
+      "score": 0.3704
+    },
+    "background_tasks": {
+      "items": 2,
+      "score": 0.6959
+    },
+    "caching": {
+      "items": 1,
+      "score": 0.6021
+    },
+    "cors": {
+      "items": 3,
+      "score": 0.44
+    },
+    "database": {
+      "items": 5,
+      "score": 0.2227
+    },
+    "debugging": {
+      "items": 5,
+      "score": 0.4987
+    },
+    "dependencies": {
+      "items": 6,
+      "score": 0.3897
+    },
+    "deployment": {
+      "items": 3,
+      "score": 0.4036
+    },
+    "errors": {
+      "items": 4,
+      "score": 0.5649
+    },
+    "extra_types": {
+      "items": 1,
+      "score": 0.4585
+    },
+    "headers_cookies": {
+      "items": 2,
+      "score": 0.4661
+    },
+    "httpx": {
+      "items": 2,
+      "score": 0.3351
+    },
+    "lifespan": {
+      "items": 2,
+      "score": 0.2726
+    },
+    "logging": {
+      "items": 1,
+      "score": 0.4338
+    },
+    "middleware": {
+      "items": 4,
+      "score": 0.255
+    },
+    "openapi": {
+      "items": 5,
+      "score": 0.4834
+    },
+    "openapi_docs": {
+      "items": 2,
+      "score": 0.2127
+    },
+    "parameters": {
+      "items": 2,
+      "score": 0.3722
+    },
+    "path_params": {
+      "items": 1,
+      "score": 0.6431
+    },
+    "performance": {
+      "items": 1,
+      "score": 0.3686
+    },
+    "query_params": {
+      "items": 1,
+      "score": 0.8171
+    },
+    "rate_limiting": {
+      "items": 2,
+      "score": 0.4826
+    },
+    "request_body": {
+      "items": 3,
+      "score": 0.586
+    },
+    "request_object": {
+      "items": 2,
+      "score": 0.5466
+    },
+    "request_state": {
+      "items": 2,
+      "score": 0.4423
+    },
+    "response_classes": {
+      "items": 2,
+      "score": 0.5254
+    },
+    "response_model": {
+      "items": 1,
+      "score": 0.809
+    },
+    "responses": {
+      "items": 1,
+      "score": 0.8057
+    },
+    "routing": {
+      "items": 1,
+      "score": 0.6134
+    },
+    "security": {
+      "items": 8,
+      "score": 0.2567
+    },
+    "settings": {
+      "items": 3,
+      "score": 0.3167
+    },
+    "shutdown": {
+      "items": 1,
+      "score": 0.2517
+    },
+    "static_files": {
+      "items": 2,
+      "score": 0.6606
+    },
+    "status_codes": {
+      "items": 2,
+      "score": 0.3601
+    },
+    "streaming": {
+      "items": 5,
+      "score": 0.2838
+    },
+    "structure": {
+      "items": 3,
+      "score": 0.1932
+    },
+    "templates": {
+      "items": 1,
+      "score": 0.5753
+    },
+    "testing": {
+      "items": 5,
+      "score": 0.2754
+    },
+    "timeouts": {
+      "items": 1,
+      "score": 0.2553
+    },
+    "uploads": {
+      "items": 2,
+      "score": 0.484
+    },
+    "websockets": {
+      "items": 5,
+      "score": 0.2891
+    }
+  },
+  "items": [
+    {
+      "id": "seed-001",
+      "category": "openapi",
+      "keyword_recall": 0.5,
+      "code_valid": null,
+      "code_runs": null,
+      "rouge_l": 0.13523131672597866,
+      "score": 0.31761565836298933,
+      "latency_s": 13.032,
+      "answer": "To find FastAPI documentation for your endpoint, you can navigate to the \"Interactive API docs\" section of the FastAPI documentation website at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). You can also use the Swagger UI provided by the FastAPI documentation to explore your API endpoints and generate code snippets.\n\nTo build a Docker image for FastAPI, you can follow these steps:\n\n1. Create an `app` directory and enter it.\n2. Create an empty file `__init__.py`.\n3. Create a `main.py` file with:\n\n```Python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/\")\ndef read_root():\n     return {\"Hello\": \"World\"}\n\n@app.get(\"/items/{item_id}\")\ndef read_item(item_id: int, q: str | None = None):\n     return {\"item_id\": item_id, \"q\": q}\n```\n\n4. First Step: Copy that to a file",
+      "missing": [
+        "/redoc"
+      ]
+    },
+    {
+      "id": "seed-002",
+      "category": "parameters",
+      "keyword_recall": 1.0,
+      "code_valid": 0.5,
+      "code_runs": null,
+      "rouge_l": 0.31715210355987056,
+      "score": 0.6057173678532902,
+      "latency_s": 16.31,
+      "answer": "To make a query parameter required in FastAPI, you can set the default value to `None` or any other valid value. However, if you want to make a query parameter required, you should not declare a default value and instead set it as `None`.\n\nHere's an example:\n\n```py\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_user_item(item_id: str, needy: str):\n     item = {\"item_id\": item_id, \"needy\": needy}\n     return item\n```\n\nIn this example, the query parameter `needy` is a required query parameter of type `str`. If you open a URL like:\n\n```\nhttp://127.0.0.1:8000/items/foo-item\n```\n\n...without adding the required parameter `needy`, you will see an error like:\n\n```JSON\n{\n   \"detail\": [\n     {\n       \"type\": \"missing\",\n       \"loc\": [\n         \"query\",\n         \"needy\"",
+      "missing": []
+    },
+    {
+      "id": "seed-003",
+      "category": "responses",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4169611307420495,
+      "score": 0.8056537102473498,
+      "latency_s": 14.773,
+      "answer": "To return a plain HTML response from FastAPI, you can use the `HTMLResponse` class provided by FastAPI. Here's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.response import HTMLResponse\n\napp = FastAPI()\n\n@app.get(\"/items/\", response_class=HTMLResponse)\nasync def read_items():\n    html_content = \"\"\"\n    <html>\n        <head>\n            <title>Some HTML in here</title>\n        </head>\n        <body>\n            <h1>Look ma! HTML!</h1>\n        </body>\n    </html>\n    \"\"\"\n    return HTMLResponse(content=html_content, status_code=200)\n```\n\nThis will return a plain text response with the content of the HTML file at `/items/`. You can also use the `HTMLResponse` class directly in your *path operation function* to return a plain text response.\n\nNote that the `Content-Type` header and status code will be automatically generated by FastAPI, but you may need to add additional headers or content types if you want to control",
+      "missing": []
+    },
+    {
+      "id": "seed-004",
+      "category": "parameters",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.415929203539823,
+      "score": 0.13864306784660765,
+      "latency_s": 6.999,
+      "answer": "To access the `Request` object directly, you can use the `request` parameter provided by FastAPI. Here's an example:\n\n```python\nfrom fastapi import FastAPI, Request\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_root(item_id: str, request: Request):\n    # Get the request object here\n    # Use it to access the request parameters and data\n```\n\nIn this example, we're using the `request` parameter provided by FastAPI to get the `Request` object. This way, you can access the request parameters and data directly, without having to use the `Request` object in your code.",
+      "missing": [
+        "Header"
+      ]
+    },
+    {
+      "id": "seed-005",
+      "category": "routing",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.34029850746268653,
+      "score": 0.6134328358208955,
+      "latency_s": 10.999,
+      "answer": "To set a custom prefix for all routes in FastAPI, you can use the `prefix` keyword argument when creating an instance of the `APIRouter` class. For example:\n\n```python\nfrom fastapi import APIRouter, FastAPI\n\napp = FastAPI()\nrouter = APIRouter(prefix=\"/admin\")\n\n@router.post(\"/\")\nasync def update_admin():\n     return {\"message\": \"Admin getting schwifty\"}\n```\n\nIn this example, the `prefix` is set to \"/admin\". This will ensure that all routes in FastAPI starting with `/admin` are handled by the `APIRouter` instance.\n\nYou can also add custom tags and responses to the `APIRouter` instance. For example:\n\n```python\nfrom fastapi import APIRouter, FastAPI\n\napp = FastAPI()\nrouter = APIRouter(tags=[\"admin\", \"security\"], responses={200: {\"description\": \"Admin getting schwifty\"}})\n\n@router.post(\"/\")\nasync def update_admin():\n     return {\"message\": \"Admin getting schwifty\"}\n```\n\nIn this example, the `tags` and `",
+      "missing": [
+        "include_router"
+      ]
+    },
+    {
+      "id": "seed-006",
+      "category": "errors",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.4573378839590444,
+      "score": 0.48577929465301484,
+      "latency_s": 11.468,
+      "answer": "To handle validation errors globally in FastAPI, you can override the default excpeption handlers using the `@app.exception_handler(RequestValidationError)` decorator. This will catch any exceptions that occur during the request validation process and return a response with a specific status code and error message.\n\nHere's an example of how to handle this in your FastAPI app:\n\n```python\nfrom fastapi import FastAPI, Request, HTTPException\nfrom fastapi.exceptions import RequestValidationError\n\napp = FastAPI()\n\n@app.exception_handler(RequestValidationError)\nasync def validation_exception_handler(request: Request, exc: RequestValidationError):\n     return HTTPException(status_code=422, detail=exc.errors(), headers={\"Content-Type\": \"application/json\"}, body=exc.body)\n\nclass Item(BaseModel):\n     title: str\n     size: int\n\n@app.post(\"/items/\"):\n    item = Item()\n    item.title = \"towel\"\n    item.size = \"XL\"\n    return item\n```\n\nIn this example, the `validation_",
+      "missing": []
+    },
+    {
+      "id": "seed-007",
+      "category": "static_files",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.42424242424242425,
+      "score": 0.8080808080808081,
+      "latency_s": 13.386,
+      "answer": "To serve static files with FastAPI, you can use the `StaticFiles` class provided by Static Files. Here's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.staticfiles import StaticFiles\n\napp = FastAPI()\n\napp.mount(\"/static\", StaticFiles(directory=\"static\"), name=\"static\")\n```\n\nIn this example, we're using the `FastAPI` class to create a new instance of FastAPI, and then mounting a `StaticFiles` instance in a specific path (`/static`) with the `directory` parameter set to `\"static\"`.\n\nYou can also use `from fastapi.staticfiles import StaticFiles` if you prefer to use the same `starlette.staticfiles` as `fastapi.staticfiles`.\n\nTo serve static files with a frontend tool like React or Vue, you can use `app.frontend()` or `router.frontend()`. This is useful for frontend tools that generate static files, like React with Vitest, TanStack Router, Astro, Vue, Svelte, Angular, Solid, and others.\n\nWith these tools, you",
+      "missing": []
+    },
+    {
+      "id": "seed-008",
+      "category": "openapi",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.2993630573248408,
+      "score": 0.7664543524416136,
+      "latency_s": 11.477,
+      "answer": "To deprecate an endpoint in the FastAPI docs, you can pass the `deprecated` keyword argument to the `get_endpoint()` function. For example:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/items/{id}\", tags=[\"items\"])\nasync def read_item(id: int):\n    return {\"name\": \"Foo\", \"price\": 42}\n\n@app.get(\"/users/{username}\", tags=[\"users\"])\nasync def read_user(username: str):\n    return {\"username\": username}\n\n@app.get(\"/elements/{item_id}\", tags=[\"items\"], deprecated=True)\nasync def read_element(item_id: str):\n    return {\"item_id\": item_id}\n```\n\nIn this example, the `deprecated` keyword argument is set to True for the endpoint `/items/{id}` and `/users/{username}`. This will make it appear as deprecated in the interactive docs.\n\nTo enable the endpoint again, you can remove the `deprecated` keyword argument from the `get_endpoint()` function. For example",
+      "missing": []
+    },
+    {
+      "id": "core_http-001",
+      "category": "path_params",
+      "keyword_recall": 1.0,
+      "code_valid": 0.5,
+      "code_runs": null,
+      "rouge_l": 0.4293785310734463,
+      "score": 0.6431261770244822,
+      "latency_s": 12.019,
+      "answer": "To capture a value that contains slashes, such as a file path, you can use a path parameter with the `path` option. This option specifies that the parameter should match any *path* using a URL like:\n\n```\n/files/{file_path:path}\n```\n\nIn this case, the name of the parameter is `file_path`, and the last part, `:path`, tells it that the parameter should match any *path*.\n\nFor example, if you have a path parameter named `file_path` with a value of `/home/johndoe/myfile.txt`, you can use it in your function like this:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/files/{file_path:path}\")\nasync def read_file(file_path: str):\n     return {\"file_path\": file_path}\n```\n\nIn this example, the value of `file_path` is passed to your function as the argument `file_path`.\n\nNote that the `path` option is case-sensitive, so you should use the exact name of the parameter in",
+      "missing": []
+    },
+    {
+      "id": "core_http-002",
+      "category": "query_params",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4514435695538058,
+      "score": 0.8171478565179352,
+      "latency_s": 12.035,
+      "answer": "To accept a query parameter named `item-query` that is not a valid Python identifier, you can declare an alias for it and use it in your query parameters. Here's an example:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Query\n\napp = FastAPI()\n\n@app.get(\"/items/\" + Query(alias=\"item-query\"))\nasync def read_items(q: Annotaed[str | None, Query(alias=\"item-query\")] = None):\n     results = {\"items\": [{...}, {...}]}\n     if q:\n         results.update({\"q\": q})\n     return results\n```\n\nIn this example, the `item-query` query parameter is declared as an alias for the `q` query parameter. This means that when you call the endpoint with a query parameter value of `\"foo\"` (i.e., without the `item-query` alias), FastAPI will use the `q` query parameter value instead.\n\nNote that this approach is not recommended, as it can lead to unexpected behavior and may cause issues in the future. Instead, you should use a",
+      "missing": []
+    },
+    {
+      "id": "core_http-003",
+      "category": "request_body",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.6333333333333332,
+      "score": 0.8777777777777778,
+      "latency_s": 11.351,
+      "answer": "To make FastAPI expect a JSON with a key \"item\" and inside of it the model contents, as it does when you declare extra body parameters, you can use the special `Body` parameter `embed`:\n\n```Python\nfrom typing import Annotaed\n\nfrom fastapi import Body, FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Item(BaseModel):\n     name: str\n     description: str | None = None\n     price: float\n     tax: float | None = None\n\n@app.put(\"/items/{item_id}\")\nasync def update_item(item_id: int, item: Annotaed[Item, Body(embed=True)]):\n     results = {\"item_id\": item_id, \"item\": item}\n     return results\n```\n\nIn this case, **FastAPI** will expect a body like:\n\n```JSON hl_lines=\"2\"\n{\n     \"item\": {\n         \"name\": \"Foo\",\n         \"description\": \"The pretender\",\n         \"price\": 42.0,\n         \"tax\": 3.",
+      "missing": []
+    },
+    {
+      "id": "core_http-004",
+      "category": "request_body",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3016759776536313,
+      "score": 0.4338919925512104,
+      "latency_s": 11.707,
+      "answer": "To accept a JSON array of objects as the whole request body, you can use the `add_schema_object` method provided by the OpenAPI specification. This method adds a new schema object to the `schemas` property of the `competencies` object in the response.\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI, Request, Response\nfrom fastapi.responses import JSONResponse\nfrom fastapi.templating import Jinja2Templates\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Competency(BaseModel):\n    id: int\n    message: str\n\nclass Item(BaseModel):\n    id: int\n    value: str\n\nclass ValidationError(BaseModel):\n    loc: List[str]\n    msg: str\n    type: str\n\napp.add_routes([\n    FastAPI.post(\"/\", response_model=ValidationError),\n])\n\ntemplates = Jinja2Templates(directory=\"templates\")\n\n@app.get(\"/\")\nasync def read_competencies():\n    competencies = [\n        Competency(id=1, message",
+      "missing": []
+    },
+    {
+      "id": "core_http-005",
+      "category": "extra_types",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.37542662116040953,
+      "score": 0.4584755403868032,
+      "latency_s": 24.32,
+      "answer": "To accept a UUID as a path parameter, you can declare it using the `Path` annotation and pass it as the first parameter of the function. For example:\n\n```python\nfrom fastapi import FastAPI, Path\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_items(item_id: UUID, q: str):\n    results = {\"item_id\": item_id}\n     if q:\n         results.update({\"q\": q})\n     return results\n```\n\nIn this example, the `UUID` type is declared using the `Path` annotation and passed as the first parameter of the function. The `q` query parameter is declared using the `Path` annotation and passed as the second parameter.\n\nThis approach ensures that all the parameters are declared as keyword arguments (key-value pairs) and not as default values, which is a common practice in Python.",
+      "missing": []
+    },
+    {
+      "id": "core_http-006",
+      "category": "response_model",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.42702702702702705,
+      "score": 0.8090090090090091,
+      "latency_s": 30.195,
+      "answer": "To leave one field out of the response for a single endpoint without creating a new model, you can use the `response_model_exclude` parameter in the `path` operation decorator. This will exclude that field from the response, but it will still be included in the JSON schema generated by OpenAPI (and the docs).\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Item(BaseModel):\n    name: str\n    description: str | None = None\n    price: float\n    tax: float = 10.5\n    tags: list[str] = []\n\nitems = {\n    \"foo\": {\"name\": \"Foo\", \"price\": 50.2},\n    \"bar\": {\"name\": \"Bar\", \"description\": \"The bartenders\", \"price\": 62, \"tax\": 20.2},\n}\n\n@app.get(\"/items\")\nasync def read_items():\n    return {\"items\": items}\n```\n\nIn this example, the `response_model_exclude",
+      "missing": []
+    },
+    {
+      "id": "core_http-007",
+      "category": "headers_cookies",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.2831858407079646,
+      "score": 0.4277286135693215,
+      "latency_s": 38.442,
+      "answer": "To remove a cookie from the client, you can use the `Cookie` class provided by FastAPI. Here's an example:\n\n```python\nfrom fastapi import Cookie, FastAPI\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Cookies(BaseModel):\n    model_config: dict = {\"extra\": \"forbid\"}\n\n    session_id: str\n    feed_tracking: str | None = None\n    goga_tracking: str | None = None\n\n@app.get(\"/items/\")\nasync def read_items(cookies: Cookie):\n    return cookies\n```\n\nIn this example, we're using the `Cookie` class provided by FastAPI to set the `extra` field to `forbid`. This will prevent the client from sending any extra cookies.\n\nYou can also use the `Cookie` class to set the `extra` field to a specific value, such as `\"forbid_all\"`, which will prevent all extra cookies from being sent.\n\nNote that this is just one example of how you can use the `Cookie` class in your API. You can customize the `",
+      "missing": [
+        "delete_cookie",
+        "Response"
+      ]
+    },
+    {
+      "id": "core_http-008",
+      "category": "errors",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.27586206896551724,
+      "score": 0.7586206896551725,
+      "latency_s": 33.853,
+      "answer": "Yes, the detail of an HTTPException can be a structured object instead of a string. This is because the `HTTPException` class in FastAPI provides a `detail` parameter that can be used to pass any value that can be converted to JSON as the error message. You can pass a `dict`, a `list`, etc. As the detail parameter, and it will be automatically converted to JSON and included in the response.\n\nInside your code, you can raise an HTTPException with the additional data relevant for APIs. For example:\n\n```python\nfrom fastapi import HTTPException\n\nasync def my_path_operation(item_id: str):\n    try:\n        item = await Item.get(item_id)\n        return {\"item\": item}\n    except ItemNotFoundError as e:\n        raise HTTPException(detail=e.message)\n```\n\nIn this example, the `ItemNotFoundError` is a custom exception that is raised when the requested item does not exist in the database. Inside the `raise` statement, you can pass the `HTTPException` with the additional data relevant for APIs. In this case, the `detail` parameter will contain the error message.",
+      "missing": []
+    },
+    {
+      "id": "core_http-009",
+      "category": "status_codes",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.30522088353413657,
+      "score": 0.2684069611780455,
+      "latency_s": 9.752,
+      "answer": "To return a 204 No Content from a DELETE endpoint, you can use the `RequestValidationError` body as mentioned in [1]. Here's an example:\n\n```Python hl_lines=\"1-2\"\n@app.delete(\"/towels\")\nasync def delete_towel():\n    raise RequestValidationError(\"Invalid towel size\")\n```\n\nIn this example, the `RequestValidationError` body is used to return a 204 No Content response. You can also use other status codes, such as `201`, `202`, or `203`, depending on your needs.",
+      "missing": [
+        "status_code"
+      ]
+    },
+    {
+      "id": "core_http-010",
+      "category": "response_classes",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3368983957219251,
+      "score": 0.6122994652406417,
+      "latency_s": 12.627,
+      "answer": "To redirect the browser to a new page after creating something using FastAPI, you can use the `RedirectResponse` class. Here's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.response import RedirectResponse\n\napp = FastAPI()\n\n@app.get(\"/create\", response_class=RedirectResponse(url=\"https://example.com/success\"))\nasync def create_handler():\n    return {\"message\": \"Successfully created a new item\"}\n```\n\nIn this example, the `RedirectResponse` class is used to redirect the browser to the URL specified in the `url` parameter of the `response_class` attribute. The `success` URL is provided as an example. You can replace it with your own URL.\n\nTo return a `RedirectResponse` directly from your `get` function, you can use the `response_class` parameter:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.response import RedirectResponse\n\napp = FastAPI()\n\n@app.get(\"/create\", response_class=RedirectResponse(url=\"https://example.com/success\"))\nasync def create_",
+      "missing": [
+        "303"
+      ]
+    },
+    {
+      "id": "core_http-011",
+      "category": "response_classes",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3152941176470588,
+      "score": 0.4384313725490196,
+      "latency_s": 23.178,
+      "answer": "To let users download a file from disk under a specific filename, you can use the `DownloadFile` class provided by FastAPI. Here's an example:\n\n```py\nfrom fastapi import UploadFile\n\nclass DownloadFile(UploadFile):\n    def __init__(self, filename: str):\n        self.filename = filename\n\n@app.get(\"/download/{filename}\")\nasync def download_file(filename: DownloadFile):\n    with filename.open(\"rb\") as f:\n        response = await f.read()\n        return Response(response, mimetype=\"application/octet-stream\")\n```\n\nIn this example, the `DownloadFile` class defines a `filename` parameter that receives the name of the file to be downloaded. The `open()` method is used to open the file in binary mode, and the `read()` method is used to read the contents of the file. Finally, the response is returned as a `Response` object, which can be used to send the file to the client.\n\nTo use this class, you can import it directly from `fastapi`:\n\n```py\nfrom fastapi import UploadFile\n```\n\nAnd",
+      "missing": [
+        "FileResponse",
+        "filename="
+      ]
+    },
+    {
+      "id": "core_http-012",
+      "category": "request_object",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.4000000000000001,
+      "score": 0.46666666666666673,
+      "latency_s": 44.611,
+      "answer": "To get the IP address of the client making a request, you can use the `request.client.host` property. This property returns the hostname or IP address of the client making the request.\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI, Request\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\ndef read_root(item_id: str, request: Request):\n    client_host = request.client.host\n     return {\"client_host\": client_host, \"item_id\": item_id}\n```\n\nIn this example, the `request` object is passed as a parameter to the `read_root` function. The `request` object has the `client` property, which returns the hostname or IP address of the client making the request.\n\nYou can also access the `request` object directly if you prefer. For example:\n\n```python\nfrom fastapi import FastAPI, Request\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\ndef read_root(item_id: str, request: Request):",
+      "missing": []
+    },
+    {
+      "id": "core_http-013",
+      "category": "request_object",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.37980769230769224,
+      "score": 0.6266025641025641,
+      "latency_s": 13.85,
+      "answer": "To build the absolute URL of another endpoint from inside a request handler, you can use the `request.scope.get(\"root_path\")` method. This method returns the absolute path of the current request, including any query parameters and any additional paths that have been added by the request handler.\n\nHere's an example:\n\n```python\nimport fastapi\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/items/{id}\")\nasync def read_item(id: int, root_path: str = \"items\"):\n    return {\"id\": id, \"root_path\": root_path}\n\nif __name__ == \"main\":\n    app.run()\n```\n\nIn this example, the `root_path` parameter is set to `\"items\"` in the `app.get()` method. This means that the absolute URL of the endpoint `/items/123` will be generated as `/items/123`.\n\nNote that the `root_path` parameter is optional, and if it's not specified, the `request.scope.get(\"root_path\")` method will return the absolute path of the current request without",
+      "missing": [
+        "url_for"
+      ]
+    },
+    {
+      "id": "core_http-014",
+      "category": "openapi_docs",
+      "keyword_recall": 0.33333333333333337,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.1805869074492099,
+      "score": 0.17130674692751444,
+      "latency_s": 14.959,
+      "answer": "To offer several named example payload options in Swagger UI's dropdown for one request body, you can declare multiple `examples` in the JSON Schema, as shown in the example provided. This will allow you to show multiple examples in the docs UI, each with its own additional information.\n\nTo use this feature, you need to declare the `examples` field in the OpenAPI specification, which is a separate section from the JSON Schema. This field goes inside the `details` object for each path operation, not inside the JSON Schema itself.\n\nHere's an example of how to declare multiple `examples` in the OpenAPI specification:\n\n```yaml\nopenapi: 3.0.1\ninfo:\n  title: Example API\n  version: \"1.0.0\"\n  description: This is a sample API for testing purposes.\n  contact:\n    name: Example Contact\n    email: example@example.com\n  license:\n    name: MIT License\n    url: https://example.com/license\nservers:\n- url: http://example.com/api\n  description: This is a sample API for testing purposes.\npaths:",
+      "missing": [
+        "openapi_examples",
+        "value"
+      ]
+    },
+    {
+      "id": "core_http-015",
+      "category": "openapi_docs",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.26229508196721313,
+      "score": 0.2540983606557377,
+      "latency_s": 12.794,
+      "answer": "To keep an internal endpoint working but hide it from the OpenAPI docs, you can:\n\n1. Hide the endpoint by setting its URL to a different value in your settings file. For example:\n\n   ```python\n   from fastapi import FastAPI\n   from pydantic_settings import BaseSettings\n\n   class Settings(BaseSettings):\n       openapi_url: str = \"/internal_endpoint\"\n\n   app = FastAPI()\n   ```\n\n2. Use conditional OpenAPI generation to hide the internal endpoint from the generated OpenAPI documentation. For example, you can use the `openapi_url` setting to generate a different URL for the internal endpoint:\n\n   ```python\n   from fastapi import FastAPI\n   from pydantic_settings import BaseSettings\n\n   class Settings(BaseSettings):\n       openapi_url: str = \"/internal_endpoint\"\n\n   app = FastAPI()\n   ```\n\n3. Use conditional OpenAPI generation to hide the internal endpoint from the generated OpenAPI documentation, but still include it in the generated documentation for other endpoints. For example, you can use the `openapi_url` setting to generate a",
+      "missing": [
+        "include_in_schema=False"
+      ]
+    },
+    {
+      "id": "core_http-016",
+      "category": "headers_cookies",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.5134328358208956,
+      "score": 0.5044776119402985,
+      "latency_s": 20.238,
+      "answer": "To receive all the values from the duplicate header `X-Token` that can appear more than once, you can declare it as a list in the type declaration.\n\nFor example, to declare a header of `X-Token` that can appear more than once, you can write:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Header\n\napp = FastAPI()\n\n@app.get(\"/items/\"):\n    x_token: Annotaed[list[str] | None, Header()] = None\n    return {\"X-Token values\": x_token}\n```\n\nIf you communicate with that *path operation* sending two HTTP headers like:\n\n```\nX-Token: foo\nX-Token: bar\n```\n\nThe response would be like:\n\n```JSON\n{\n    \"X-Token values\": [\n        \"bar\",\n        \"foo\"\n    ]\n}\n```\n\n[2] Server-Seent Events (SSE) > Resuming with `Last-Event-ID`\nWhen a browser reconnects after a connection drop, it sends the last received `id` in",
+      "missing": []
+    },
+    {
+      "id": "core_http-017",
+      "category": "errors",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.47282608695652173,
+      "score": 0.49094202898550726,
+      "latency_s": 12.459,
+      "answer": "To log request validation errors but still send FastAPI's normal 422 response, you can use the `PlainTextResponse` class provided by Starlette. Here's an example:\n\n```python\nfrom fastapi import FastAPI, Request\nfrom fastapi.exceptions import RequestValidationError\nfrom fastapi.response import JSONResponse\nfrom starlette.responses import PlainTextResponse\n\napp = FastAPI()\n\n@app.exception_handler(RequestValidationError)\nasync def validation_exception_handler(request: Request, exc: RequestValidationError):\n     return PlainTextResponse(\n         status_code=422,\n         content=jsonable_encoder({\"detail\": exc.errors(), \"body\": exc.body}),\n     )\n\nclass Item(BaseModel):\n     title: str\n     size: int\n\n@app.post(\"/items/\"):\nasync def create_item(item: Item):\n     return item\n```\n\nIn this example, the `PlainTextResponse` class is used to log the validation errors and send them back to the user. You can customize the content of the response by",
+      "missing": []
+    },
+    {
+      "id": "core_http-018",
+      "category": "errors",
+      "keyword_recall": 0.33333333333333337,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.24,
+      "score": 0.5244444444444445,
+      "latency_s": 11.171,
+      "answer": "To customize the 404 response for URLs that don't match any route, you can modify the `app.frontend` function in your FastAPI application. Here's an example:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\napp.frontend(\"/\", directory=\"dist\", fallback=\"404.html\")\n```\n\nIn this example, the `fallback` argument is set to `\"404.html\"`, which will serve a static 404 page for missing frontend paths. You can also modify the `fallback` argument to serve a different file, such as a custom 404 page or a 500 error page.\n\nTo customize the status code of the 404 response, you can modify the `app.frontend` function in your FastAPI application. Here's an example:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\napp.frontend(\"/\", directory=\"dist\", fallback=\"404.html\", status_code=404)\n```\n\nIn this example, the `",
+      "missing": [
+        "starlette.exceptions",
+        "exception_handler"
+      ]
+    },
+    {
+      "id": "core_http-019",
+      "category": "request_body",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3391521197007481,
+      "score": 0.4463840399002494,
+      "latency_s": 10.995,
+      "answer": "To validate that one body field depends on another, you can use the `Field` decorator to declare a validation rule. Here's an example:\n\n```python\nfrom fastapi import FastAPI, Body, Field, Query, Path\nfrom pydantic import BaseModel\n\nclass User(BaseModel):\n    id: int\n    name: str\n    join_date: str = Field(..., validate_non_none=True)\n\napp = FastAPI()\n\n@app.get(\"/users\")\nasync def read_users():\n    users = [User(id=i, name=f\"{i} Doe\", join_date=f\"{i}-{i+1}\") for I in range(10)]\n    return users\n\n@app.post(\"/users\")\nasync def create_user(user: User):\n    user.join_date = f\"{user.id}-{user.name}\"\n    return user\n```\n\nIn this example, the `join_date` field is required and must be a string containing a date in the format \"YYYY-MM-DD\". The `validate_non_none` decorator ens",
+      "missing": [
+        "validator",
+        "ValueError"
+      ]
+    },
+    {
+      "id": "core_http-020",
+      "category": "status_codes",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3553008595988538,
+      "score": 0.45176695319961796,
+      "latency_s": 14.953,
+      "answer": "To return a 201 status code when updating an existing record, you can modify the `upsert_item` endpoint as follows:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Body, FastAPI, status\nfrom fastapi.response import JSONResponse\n\napp = FastAPI()\n\nitems = {\"foo\": {\"name\": \"Fighters\", \"size\": 6}, \"bar\": {\"name\": \"Tender\", \"size\": 3}}\n\n@app.put(\"/items/{item_id}\")\nasync def upsert_item(\n    item_id: str,\n    name: Annotaed[str | None, Body()] = None,\n    size: Annotaed[int | None, Body()] = None,\n):\n    if item_id in items:\n        item = items[item_id]\n        item[\"name\"] = name\n        item[\"size\"] = size\n        return JSONResponse(status_code=status.HTTP_201_CREATED, content=item)\n    else:\n        return JSONResponse(status_code=status.HTTP_404_NOT_",
+      "missing": []
+    },
+    {
+      "id": "core_http-021",
+      "category": "debugging",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.4222222222222222,
+      "score": 0.3074074074074074,
+      "latency_s": 14.97,
+      "answer": "The GET /users/me endpoint returns a 422 error because the current user is not authorized to access it. The reason for this is that the GET request is for a resource that requires authentication, and the current user is not authenticated.\n\nTo fix this issue, you can add the `Security` middleware to your app, which will ensure that only authenticated users can access protected resources. Here's an example of how to add it:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.security import Security, HTTPBasic, OAuth2PasswordBearer\nfrom fastapi.testclient import TestClient\n\napp = FastAPI()\n\n@app.get(\"/users/me\")\nasync def read_current_user():\n    return {\"user_id\": \"the current user\"}\n\n@app.get(\"/users\")\ndef read_all_users():\n    return {\"users\": [{\"id\": user_id, \"name\": name} for user_id, name in users]}\n\n@app.post(\"/token\")\nasync def login_for_access_token(form_data: OAuth2PasswordRequestForm):\n    user =",
+      "missing": [
+        "/users/{user_id}"
+      ]
+    },
+    {
+      "id": "core_http-022",
+      "category": "debugging",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.5230769230769231,
+      "score": 0.341025641025641,
+      "latency_s": 16.278,
+      "answer": "To fix the `TypeError: Object of type datetime is not JSON serializable` error, you can modify your endpoint to handle the `datetime` object as a string instead of a `datetime` object. Here's an updated version of your endpoint that does this:\n\n```python\nfrom datetime import datetime, timezone\n\nfrom fastapi import FastAPI, Response\nfrom fastapi.response import JSONResponse\n\napp = FastAPI()\n\n\n@app.get(\"/now\")\nasync def now():\n    data = {\"server_time\": datetime.now(timezone.utc)}\n     return JSONResponse(content=data, headers={\"X-Source\": \"clock\"}), 200\n```\n\nThis version of your endpoint will handle the `datetime` object as a string, and return it as the response body. You can test this endpoint by running it with the following command:\n\n```bash\npython -m http.server 8000\n```\n\nIn this example, the `now()` function returns a dictionary containing the server time in UTC format. This dictionary is then serialized to JSON using the `jsonable_encode` function, and returned as the response body",
+      "missing": [
+        "jsonable_encoder"
+      ]
+    },
+    {
+      "id": "core_http-023",
+      "category": "debugging",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4489795918367347,
+      "score": 0.8163265306122449,
+      "latency_s": 9.64,
+      "answer": "Calling GET /items/5 returns 422 complaining that a query parameter `id` is missing.\n\nThe error message you are seeing is because the path parameter `id` is a path parameter, and not a query parameter. In FastAPI, query parameters are optional, while path parameters are required.\n\nTo fix this issue, you need to update your GET /items/{item_id} route to include a query parameter `id`. For example:\n\n```python\nfrom fastapi import FastAPI, Path\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_item(item_id: int, q: str | None = None):\n     if q:\n         return {\"item_id\": item_id, \"q\": q}\n     return {\"item_id\": item_id}\n```\n\nIn this updated route, the `q` query parameter is optional, and will be `None` by default.",
+      "missing": []
+    },
+    {
+      "id": "core_http-024",
+      "category": "debugging",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.17391304347826086,
+      "score": 0.2246376811594203,
+      "latency_s": 7.38,
+      "answer": "Why does this endpoint answer with status 200 when the item doesn't exist?\n\nThe status code `200` is used for successful responses, which means that the endpoint returned a response with a body. In this case, the endpoint returned a response with a body because it found the requested item in the items dictionary. If the item was not found, the status code would be `404`, which means \"Not Found\".\n\nThe reason why the item doesn't exist is that the item_id parameter passed to the endpoint is not in the items dictionary. This is because the item_id is a string and not an integer, which is what the items dictionary is expecting.",
+      "missing": [
+        "raise HTTPException"
+      ]
+    },
+    {
+      "id": "core_http-025",
+      "category": "debugging",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4117647058823529,
+      "score": 0.8039215686274509,
+      "latency_s": 12.745,
+      "answer": "To answer your question, the cookie is never set because the `set_cookie()` method is called directly in the `create_cookie()` function, and it does not return a response. The `response` parameter is used to return the response directly, without setting any cookies.\n\nTo set cookies, you need to use the `set_cookie()` method of the `Response` object returned by the `JSONResponse()` function. You can then set the cookie parameters using the `set_cookie()` method of the `response` object.\n\nHere's an example of how to set cookies:\n\n```python\nfrom fastapi import FastAPI, Response\nfrom fastapi.response import JSONResponse\n\napp = FastAPI()\n\n@app.post(\"/login\")\nasync def login(response: Response):\n     response.set_cookie(key=\"session_id\", value=\"abc123\", httponly=True)\n     return JSONResponse(content={\"message\": \"logged in\"}, status_code=200)\n\n@app.get(\"/\")\nasync def root():\n    return {\"message\": \"Welcome to FastAPI!\"}\n```\n\nIn",
+      "missing": []
+    },
+    {
+      "id": "deps_security-001",
+      "category": "dependencies",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2938388625592417,
+      "score": 0.3201685097419695,
+      "latency_s": 12.501,
+      "answer": "To write a dependency that loads an item by its path parameter and returns 404 if it doesn't exist, you can use the `fastapi_router` library. Here's an example:\n\n```python\nfrom fastapi import FastAPI, Depends, status_code\nfrom fastapi_router import Router, Dependency\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_item(item_id: str, @dependency(\"tags\") tags: List[str]):\n    if item_id not in tags:\n        return {\"status\": status_code.HTTP_404_NOT_FOUND}, 404\n\n    return {\"item_id\": item_id, \"name\": \"The great Plumbus\"}\n```\n\nIn this example, the `tags` dependency is added to all the *path operation decorators* in the router. This ensures that any request made to a path with an item ID will be passed through the `tags` dependency, which will filter out any items that don't match the specified tags.\n\nThe `tags` parameter is a list of strings,",
+      "missing": [
+        "HTTPException"
+      ]
+    },
+    {
+      "id": "deps_security-002",
+      "category": "dependencies",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3157894736842105,
+      "score": 0.4385964912280702,
+      "latency_s": 11.315,
+      "answer": "If one dependency with yield depends on another dependency with yield, in what order do their setup and teardown code run?\n\nIn the context of FastAPI, dependencies with yield > sub-dependencies with `yield` will run in the correct order. This is because FastAPI uses context managers to manage the lifecycle of dependencies.\n\nFor example, `dependency_c` can have a dependency on `dependency_b`, and `dependency_b` on `dependency_a`:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Depends\n\nasync def dependency_a():\n    dep_a = generate_dep_a()\n    try:\n        yield dep_a\n     finally:\n         dep_a.close()\n\nasync def dependency_b(dep_a: Annotaed[DepA, Depends(dependency_a)]):\n    dep_b = generate_dep_b()\n    try:\n        yield dep_b\n     finally:\n         dep_b.close(dep_a)\n\nasync def dependency_c(dep_b: Annotaed[DepB, Depends(dependency_",
+      "missing": []
+    },
+    {
+      "id": "deps_security-003",
+      "category": "dependencies",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3211009174311927,
+      "score": 0.27370030581039756,
+      "latency_s": 11.142,
+      "answer": "To require a valid token on all of the routes provided by the `APIRouter` when using a third-party package, you can add the `Depends` decorator to the `APIRouter` and specify the `get_token_header` function as the argument. Here's an example:\n\n```python\nfrom fastapi import APIRouter, Depends, HTTPException\n\nfrom .dependencies import get_token_header\n\nrouter = APIRouter(\n    prefix=\"/items\",\n    tags=[\"items\"],\n    dependencies=[Depends(get_token_header)],\n    responses={404: {\"description\": \"Not found\"}, 418: {\"description\": \"I'm a teapot\"}},\n)\n\nfake_items_db = {\"plumbus\": {\"name\": \"Plumbus\"}, \"gun\": {\"name\": \"Portal Gun\"}}\n\n@router.get(\"/\")\nasync def read_items():\n    return fake_items_db\n\n@router.get(\"/{item_id}\")\nasync def read_item(item_id: str):\n     if item_id not in fake",
+      "missing": [
+        "include_router"
+      ]
+    },
+    {
+      "id": "deps_security-004",
+      "category": "dependencies",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4016913319238901,
+      "score": 0.6894526661968522,
+      "latency_s": 10.626,
+      "answer": "To commit when the request succeeds and roll back when the endpoint raises an exception, you can use the `with` statement provided by the `yield` dependency. Here's an example:\n\n```python\nimport time\nfrom typing import Annotaed\n\nfrom fastapi import Depends, FastAPI, HTTPException\nfrom fastapi.response import StreamingResponse\nfrom sqlmodel import Field, SQLModel, create_engine\n\nengine = create_engine(\"postgresql+psycopg://postgres:postgres@localhost/db\")\n\nclass User(SQLModel, table=True):\n     id: int | None = Field(default=None, primary_key=True)\n     name: str\n\napp = FastAPI()\n\ndef get_session():\n    with Session(engine) as session:\n        yield session.query(User).all()\n\n@app.get(\"/generate\", dependencies=[Depends(get_user)])\nasync def generate(query: str):\n     return StreamingResponse(content=generate_stream(query))\n```\n\nIn this example, the `with` statement is used to create a new session for each",
+      "missing": [
+        "rollback"
+      ]
+    },
+    {
+      "id": "deps_security-005",
+      "category": "dependencies",
+      "keyword_recall": 0.33333333333333337,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.30131004366812225,
+      "score": 0.5448811256671519,
+      "latency_s": 13.647,
+      "answer": "Dependency that requires an X-Tenant-ID header and expose it as a reusable type for multiple endpoint(s)\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Header, HTTPException\n\nasync def get_token_header(x_token: Annotaed[str, Header()]) -> str:\n    if x_token != \"fake-super-secret-token\":\n        raise HTTPException(status_code=400, detail=\"X-Token header invaliad\")\n\n    return x_token\n\nasync def get_query_token(token: str) -> str:\n    if token != \"jessica\":\n        raise HTTPException(status_code=400, detail=\"No Jessica token provided\")\n\n    return token\n```\n\nTip:\nWe are using an invented header to simplify this example. But in real cases you will get better results using the integrated [Security utilities](security/index.md).\n\n[1] Bigger Application - Multiple Files > Dependencies\nWe see that we are going to need some dependencies used in several places of the application.\n\nSo we put",
+      "missing": [
+        "Annotated",
+        "Depends"
+      ]
+    },
+    {
+      "id": "deps_security-006",
+      "category": "security",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.1368653421633554,
+      "score": 0.04562178072111847,
+      "latency_s": 10.975,
+      "answer": "To ensure that a JWT was issued for your API and by your auth server, you can follow these steps:\n\n1. Use the `get_current_user` function to retrieve the current user from the database. This function should return a `User` object with the `username` property set to the username of the authenticated user.\n\n2. Use the `get_current_active_user` function to retrieve the current active user from the database. This function should return a `User` object with the `disabled` property set to False.\n\n3. Check if the current user is the same as the active user. If they are the same, then the JWT was issued by your auth server.\n\n4. If the current user is not the same as the active user, then the JWT was issued by your API.\n\nHere's an example of how to use these functions:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi_jwt_auth import OAuth2PasswordBearer, get_current_user, get_current_active_user\nfrom fastapi_jwt_auth.exceptions import CredentialsException\n\napp = FastAPI()",
+      "missing": [
+        "audience",
+        "issuer",
+        "decode"
+      ]
+    },
+    {
+      "id": "deps_security-007",
+      "category": "security",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.1947261663286004,
+      "score": 0.3982420554428668,
+      "latency_s": 10.104,
+      "answer": "To let admin users view a user's profile while regular users can only view their own, you can modify the `read_users_me` function to return a list of items instead of a single item. This will allow admins to view the user's profile and any items they have created or owned.\n\nHere's an updated version of your `read_users_me` function that returns a list of items:\n\n```python\n@app.get(\"/users/me/items/\")\nasync def read_own_items(current_user: Annotaated[User, Security(get_current_active_user, scope=[\"items\"])],):\n    return [{item_id: item.id for item in current_user.items.all()} for item in current_user.items.all()]\n```\n\nTo allow admins to view a user's profile, you can modify the `read_system_status` function to return a dictionary instead of a string. This will allow admins to see the status of the system and any errors that may have occurred.\n\nHere's an updated version of your `read_system_status` function:\n\n```python",
+      "missing": [
+        "403",
+        "Depends"
+      ]
+    },
+    {
+      "id": "deps_security-008",
+      "category": "security",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2962962962962963,
+      "score": 0.3209876543209877,
+      "latency_s": 6.696,
+      "answer": "If an endpoint uses Security(get_active_user, scope=[\"items:write\"]) and get_active_user depends on Security(get_current_user, scope=[\"profile\"]), which scope does get_current_user see in SecurityScope?\n\nThe `Security(get_active_user, scope=[\"items:write\"])` dependency declares that the `get_active_user` function should be called with a `scope` of `\"items:write\"`, which is included in the list of required scopes passed to `get_current_user`. Therefore, get_current_user will see this scope as well.",
+      "missing": [
+        "SecurityScopes"
+      ]
+    },
+    {
+      "id": "deps_security-009",
+      "category": "security",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2584493041749503,
+      "score": 0.308371990280539,
+      "latency_s": 9.915,
+      "answer": "To put the Swagger UI at `/docs` and the OpenAPI schema behind HTTP Basic auth using HTTPBasic, you can modify the `app.mount()` method in your `main.py` file to include the following code:\n\n```python\n@app.mount(\"/static\", StaticFiles(directory=\"static\"), name=\"static\")\n```\n\nThis will mount the static files directory at `/static` and use it as a mount point for the Swagger UI.\n\nTo put the Swagger UI behind HTTP Basic auth, you can modify the `app.mount()` method in your `main.py` file to include the following code:\n\n```python\n@app.get(\"/docs\", include_in_schema=Faals)\nasync def custom_swagger_ui_html():\n     return get_swagger_ui_html(\n         openapi_url=app.openapi_url,\n         title=app.title + \" - Swagger UI\",\n         oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,\n         swagger_js_url=\"/static/swagger-ui-bundle.js\",\n         sw",
+      "missing": [
+        "compare_digest"
+      ]
+    },
+    {
+      "id": "deps_security-010",
+      "category": "security",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2622222222222222,
+      "score": 0.4207407407407407,
+      "latency_s": 13.211,
+      "answer": "To store and check API keys sent in the X-API-Key header, you can use a library like FastAPI's built-in `Security` class. Here's an example:\n\n```python\nfrom fastapi import Security, HTTPException\nfrom fastapi_security import OAuth2PasswordBearer\n\nclass Token(BaseModel):\n    access_token: str\n    token_type: str\n\nclass User(BaseModel):\n    username: str\n    email: str | None = None\n    full_name: str | None = None\n    disabled: bool | None = None\n\nclass UserInDB(User):\n    hashed_password: str\n\nclass PasswordHash:\n    def __init__(self, salt_length=16):\n        self.salt_length = salt_length\n\n    def generate_hash(self, password: str) -> str:\n        return PasswordHash.recommended().hash(password)\n\nclass SecurityConfig:\n    def __init__(self, secret_key: str):\n        self.secret_key = secret_key\n\nclass App:\n    security_config: SecurityConfig",
+      "missing": []
+    },
+    {
+      "id": "deps_security-011",
+      "category": "security",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.22757111597374177,
+      "score": 0.07585703865791392,
+      "latency_s": 9.724,
+      "answer": "To build a login endpoint that accepts a JSON body with username and password instead of form data and returns a bearer token, you can follow these steps:\n\n1. First, create a new FastAPI application and add the necessary dependencies for authentication and authorization.\n\n   ```python\n   from fastapi import FastAPI\n   from fastapi.security import OAuth2PasswordBearer\n   from fastapi.middleware.cors import CORSMiddleware\n\n   app = FastAPI(middlewares=[CORSMiddleware])\n\n   # Add authentication middleware\n   app.include_router(authentication_router, prefix=\"/authentication\")\n\n   # Add authorization middleware\n   app.include_router(authorization_router, prefix=\"/authorization\")\n   ```\n\n2. Create a new route in the `authentication_router` that handles the login endpoint.\n\n   ```python\n   from fastapi import HTTPException\n   from fastapi.security import OAuth2PasswordBearer\n   from fastapi.middleware.cors import CORSMiddleware\n\n   @app.get(\"/login\")\n   async def login():\n       # Get the",
+      "missing": [
+        "BaseModel",
+        "access_token"
+      ]
+    },
+    {
+      "id": "deps_security-012",
+      "category": "middleware",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.25833333333333336,
+      "score": 0.41944444444444445,
+      "latency_s": 10.31,
+      "answer": "To handle requests that exceed 1 MB in size, you can use the `GZipMiddleware` middleware provided by the `fastapi` library. This middleware will compress responses that are larger than the specified minimum size (in bytes) and compress level (between 1 and 9).\n\nHere's an example of how to add this middleware to your FastAPI application:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.middleware.gzip import GZipMiddleware\n\napp = FastAPI()\n\napp.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)\n\n@app.get(\"/\")\nasync def main():\n     return \"somebigcontent\"\n```\n\nThis will add the `GZipMiddleware` to your application's `app` object, and it will compress responses that are larger than the specified minimum size (in bytes) and compress level (between 1 and 9).\n\nYou can also customize the compression settings by passing arguments to the `GZipMiddleware` constructor. For example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi",
+      "missing": [
+        "scope",
+        "413",
+        "content-length"
+      ]
+    },
+    {
+      "id": "deps_security-013",
+      "category": "middleware",
+      "keyword_recall": 0.33333333333333337,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.293398533007335,
+      "score": 0.20891062211355613,
+      "latency_s": 10.881,
+      "answer": "To add security headers like X-Content-Type-Options and Strict-Transport-Security to every response, you can use the `forbid` keyword in the `model_config` of your `CommonHeaders` class. Here's an example:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Header\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass CommonHeaders(BaseModel):\n     model_config = {\"extra\": \"forbid\"}\n\n     host: str\n     save_data: bool\n     if_modified_since: str | None = None\n     traceparent: str | None = None\n     x_tag: list[str] = []\n\n@app.get(\"/items/\"):\n    headers: Annotaed[CommonHeaders, Header()]\n    response: Response\n    try:\n        headers = CommonHeaders(**headers.dict())\n        return Response(status_code=200, headers=headers)\n    except Exception as e:\n        raise e\n```\n\nIn this example, the `forbid` keyword is used to restrict the `",
+      "missing": [
+        "middleware",
+        "nosniff"
+      ]
+    },
+    {
+      "id": "deps_security-014",
+      "category": "middleware",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.32080200501253137,
+      "score": 0.10693400167084378,
+      "latency_s": 9.761,
+      "answer": "To make an `@app.midlware(\"http\")` function act only on paths under `/api`, you can add the `tags` parameter to the decorator:\n\n```python\nfrom fastapi import FastAPI, Depends, APIRouter\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom fastapi.staticfiles import StaticFiles\nfrom fastapi.templating import Jinja2Templates\n\napp = FastAPI(\n    title=\"My FastAPI Application\",\n    description=\"A simple web application\",\n    version=\"1.0.0\",\n    redoc_url=\"/redoc\",  # Optional, defaults to /docs\n)\n\napp.mount(\"/static\", StaticFiles(directory=\"static\"), name=\"static\")\n\napp.middleware(\"cors\")\n\nrouter = APIRouter()\n\n@app.get(\"/\")\ndef read_root():\n    return {\"message\": \"Welcome to My FastAPI Application\"}\n\n@app.get(\"/api/items/{item_id}\")\ndef read_item(item_id: int, dependencies: Depends(tags=[\"items\", \"item_id={",
+      "missing": [
+        "call_next",
+        "startswith"
+      ]
+    },
+    {
+      "id": "deps_security-015",
+      "category": "request_state",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3511777301927195,
+      "score": 0.4503925767309065,
+      "latency_s": 9.485,
+      "answer": "To pass a value back to a midlware, you can use the `Security` decorator and specify the scope(s) that the value should be available for. For example:\n\n```python\nfrom fastapi import Security, Depends, SecurityScope\nfrom fastapi_jwt_auth import get_current_active_user\n\napp = FastAPI()\n\n@app.get(\"/users/me/items/\")\nasync def read_own_items(current_user: Annotaed[User, Depends(get_current_active_user, Security(SecurityScope.scope(\"items\")))]):\n    return [{...}]\n\n@app.get(\"/status/\")\nasync def read_system_status(current_user: Annotaed[User, Depends(get_current_user, Security(SecurityScope.scope(\"status\")))]):\n    return {\"status\": \"ok\"}\n```\n\nIn this example, the `SecurityScope.scope(\"items\")` scope is used to ensure that the value is only available for items, while the `SecurityScope.scope(\"status\")` scope is used to ensure that the value is only available for the status endpoint.",
+      "missing": [
+        "request.state",
+        "call_next"
+      ]
+    },
+    {
+      "id": "deps_security-016",
+      "category": "request_state",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.30260047281323876,
+      "score": 0.43420015760441294,
+      "latency_s": 7.116,
+      "answer": "To get the client's IP address/host, you can access it directly from the `Request` object.\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI, Request\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\ndef read_root(item_id: str, request: Request):\n    ip_address = request.headers[\"X-Real-IP\"] or request.remote_addr\n    return {\"ip_address\": ip_address}\n```\n\nIn this example, we're using the `Request` object to get the client's IP address/host. We're then returning it as a dictionary in the response.\n\nNote that this is just an example and you may need to modify it based on your specific use case.",
+      "missing": [
+        "ContextVar",
+        "X-Request-ID"
+      ]
+    },
+    {
+      "id": "deps_security-017",
+      "category": "rate_limiting",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.15126050420168066,
+      "score": 0.3837535014005602,
+      "latency_s": 5.83,
+      "answer": "To answer your question, a rate-limit dependency can send X-RateLimit-Limit and X-RateLimit-Remaining headers on successful responses. This is because the `HTTPException` raised by the dependency with `yield` will be passed to the dependencies with yield, including the `HTTPException`. In most cases, you will want to re-raise that same exception or a new one from the dependency with `yield` to make sure it's properly handled.\n\nNote that this is not the same as sending X-RateLimit-Remaining and X-RateLimit-Reset headers, which are sent by FastAPI on successful requests. These headers are sent by FastAPI to indicate the remaining and reset time for rate limits, respectively.",
+      "missing": []
+    },
+    {
+      "id": "deps_security-018",
+      "category": "rate_limiting",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.24416517055655296,
+      "score": 0.5813883901855177,
+      "latency_s": 9.317,
+      "answer": "To implement a token-bucket rate limiter as a FastAPI dependency, you can use the `Depends` annotation to specify that the rate limiting function should be called after the response has finished sending data. Here's an example:\n\n```python\nfrom fastapi import Depends, FastAPI, HTTPException\nfrom fastapi.response import StreamingResponse\n\napp = FastAPI()\n\n@app.get(\"/\")\nasync def read_resource():\n    return {\"hello\": \"world\"}\n\n@app.post(\"/api/v1/rate_limit\")\nasync def rate_limit(request: Request, token: str):\n    if request.headers.get(\"Authorization\") != token:\n        raise HTTPException(status_code=403, detail=\"Invalid token\")\n\n    # Call the rate limiting function after sending the response\n    await asyncio.sleep(1)\n    return {\"rate_limited\": True}\n```\n\nIn this example, the `Depends` annotation is used to specify that the `rate_limit` function should be called after the response has finished sending data. The `asyncio.sleep()` function is used to simulate",
+      "missing": [
+        "429"
+      ]
+    },
+    {
+      "id": "deps_security-019",
+      "category": "cors",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.21538461538461537,
+      "score": 0.23846153846153847,
+      "latency_s": 14.208,
+      "answer": "To configure CORS for your frontend to communicate with the backend at `http://localhost`, you need to add the following headers to your request:\n\n1. Authorization header: `Authorization: Bearer <CORS_TOKEN>`\n2. Origin header: `Origin: http://localhost`\n\nThis will ensure that the CORS preflight check is performed, and the backend will allow communication from the frontend at `http://localhost`.\n\nHere's an example of how to add these headers to your request:\n\n```\ncurl -X POST \\\n  -H 'Content-Type: application/json' \\\n  -H 'Authorization: Bearer <CORS_TOKEN>' \\\n  -H 'Origin: http://localhost' \\\n  -d '{ \"method\": \"GET\", \"params\": { \"id\": 123 } }' \\\n  http://localhost:8000/v1/agent/multivac\n```\n\nNote that the `Content-Type` header should be set to `application/json`, and the `Origin` header should be set to `http://localhost`.",
+      "missing": [
+        "allow_headers"
+      ]
+    },
+    {
+      "id": "deps_security-020",
+      "category": "cors",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.38000000000000006,
+      "score": 0.6266666666666667,
+      "latency_s": 11.629,
+      "answer": "To enable CORS for only part of your API, you can specify the allowed origin list as a string in the `allow_origin` parameter of the `CORSMiddleware`. For example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\n\napp = FastAPI()\n\norigin_list = [\"http://localhost.tiangolo.com\", \"https://localhost.tiangolo.com\"]\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origin=origin_list,\n)\n\n@app.get(\"/\")\nasync def main():\n     return {\"message\": \"Hello World\"}\n```\n\nIn this example, the `CORSMiddleware` will only allow communication from the specified origin list (`[\"http://localhost.tiangolo.com\", \"https://localhost.tiangolo.com\"]`). If you want to allow all origins, you can specify `\"*\"` as the value for the `allow_origin` parameter.\n\nYou can also specify whether your backend allows:\n\n* Credentials (Authorization headers, Cookies,",
+      "missing": [
+        "mount"
+      ]
+    },
+    {
+      "id": "deps_security-021",
+      "category": "dependencies",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.21476510067114096,
+      "score": 0.07158836689038033,
+      "latency_s": 10.631,
+      "answer": "Under load our pool runs out of connections, and it seems to happen after requests that raise errors. This is a common issue with FastAPI's ConnectionPool, which is designed to handle multiple requests simultaneously.\n\nThe problem lies in the way the ConnectionPool works. When a request raises an error, the pool tries to reacquire a connection from the pool. However, if there are no connections available, the pool will wait for one to become available before attempting to acquire it. This can cause the pool to run out of connections, leading to errors such as \"Connection refused\" or \"Too many connections\".\n\nTo solve this issue, we can use a different type of connection pool, such as a Redis-based pool. Redis is a popular NoSQL database that supports multiple connections, making it ideal for handling large amounts of concurrent requests.\n\nHere's an example of how to use a Redis-based pool with FastAPI:\n\n```python\nfrom fastapi import Depends, FastAPI\nfrom redis import Redis\n\napp = FastAPI()\n\n@app.get(\"/rows\")\ndef rows(conn: Redis = Depends(get_redis_connection)):",
+      "missing": [
+        "try",
+        "finally",
+        "yield"
+      ]
+    },
+    {
+      "id": "deps_security-022",
+      "category": "security",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.16470588235294117,
+      "score": 0.054901960784313725,
+      "latency_s": 19.969,
+      "answer": "[1] \u26d4\ufe0f Don't do this > Check it\nYou should be able to check it in your Docker container's URL, for example: [http://192.168.99.100/items/5?q=somequery](http://192.168.99.100/items/5?q=somequery) or [http://127.0.0.1/items/5?q=somequery](http://127.0.0.1/items/5?q=somequery) (or equivalent, using your Docker host).\n\nYou will see something like:\n\n```JSON\n{\"item_id\": 5, \"q\": \"somequery\"}\n```\n\n[2] Security - First Stepes > What it does\nIt will go and look in the request for that `Authorization` header, check if the value is `Bearer ` plus some token, and will return the token as a `str`.\n\nIf it doesn't see an `Authorization` header, or the value doesn't have a `Bearer ` token, it will",
+      "missing": [
+        "exp",
+        "jwt.encode"
+      ]
+    },
+    {
+      "id": "deps_security-023",
+      "category": "middleware",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3542857142857143,
+      "score": 0.28476190476190477,
+      "latency_s": 17.197,
+      "answer": "The `TypeError: 'NoneType' object is not callable` error you are seeing after adding the middleware is due to the fact that the `add_server_header` function is trying to access the `X-Served-By` header, which is a nonexistent property of the `request` object. This is because the `add_server_header` function is being called on a request object that does not have this header set.\n\nTo fix this issue, you need to modify the `add_server_header` function to check if the `X-Served-By` header exists before attempting to access it. Here's an updated version of the function that does this:\n\n```python\nimport time\n\nfrom fastapi import FastAPI, Request\n\napp = FastAPI()\n\n@app.middleware(\"http\")\nasync def add_process_time_header(request: Request, call_next):\n    \n    # Check if X-Served-By header exists\n    if \"X-Served-By\" not in request.headers:\n        raise ValueError(\"No X-Served-By header found\")",
+      "missing": [
+        "return response"
+      ]
+    },
+    {
+      "id": "deps_security-024",
+      "category": "security",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.2857142857142857,
+      "score": 0.42857142857142855,
+      "latency_s": 12.186,
+      "answer": "Token without the users:delete scope can still call this endpoint.\n\nThe token without the \"users:delete\" scope is not sufficient to access the \"/users/me/\" endpoint. This endpoint requires the \"users:read\" scope, which is not included in the token without the \"users:delete\" scope.\n\nTo fix this issue, you need to add the \"users:read\" scope to the token with the users:delete scope. You can do this by adding it to the `scope` parameter of the `get_current_user` function.\n\nFor example, if your token without the \"users:delete\" scope looks like this:\n\n```python\noauth2_scheme = OAuth2PasswordBearer(tokenUrl=\"token\", scope=[\"users:read\"])\n```\n\nThen you need to add the \"users:read\" scope to the `scope` parameter of the `get_current_user` function like this:\n\n```python\n@app.delete(\"/users/{user_id}\")\ndef delete_user(\n    user_id: int,\n    user: Annotaed[dict, Security(get_current_user, scope=[\"users:",
+      "missing": [
+        "SecurityScopes",
+        ".scopes"
+      ]
+    },
+    {
+      "id": "deps_security-025",
+      "category": "cors",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.36480686695278974,
+      "score": 0.4549356223175966,
+      "latency_s": 14.163,
+      "answer": "The browser reports a CORS error for every request from app.example.com, even when a valid token is sent. This is because the browser doesn't trigger a CORS preflight request because it doesn't have any authentication to send. The browser thinks that it's not sending JSON (because of the missing `Content-Type` header), which is not true since the API at `http://localhost:8000/v1/agent` sends JSON data.\n\nTo fix this issue, you need to add a CORS middleware to your app that checks the Content-Type header of the request. You can do this by adding the `allow_credentials=True` and `allow_methods=[...]` options to the CORSMiddleware class. For example:\n\n```python\nfrom fastapi import FastAPI, Request, Response\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom fastapi.responses import JSONResponse\n\napp = FastAPI()\napp.add_middleware(CORSMiddleware, allow_origins=[\"https://example.com\"], allow_methods=[\"*\"], allow_headers=[\"Authorization\"])\n\n@",
+      "missing": []
+    },
+    {
+      "id": "async_io-001",
+      "category": "async",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.25791855203619907,
+      "score": 0.4193061840120664,
+      "latency_s": 12.226,
+      "answer": "To give a blocking function its own concurrency limit using AnyIO, separate from FastAPI's default thread pool, you can use the `AnyIO.block()` method. This method blocks the current thread until the specified number of bytes have been read or written to the specified file object.\n\nHere's an example:\n\n```python\nimport asyncio\nimport anyio\n\nasync def get_file(filename: str) -> bytes:\n    with open(filename, \"rb\") as file:\n        data = await file.read()\n        return data\n\nasync def write_to_file(filename: str, data: bytes) -> None:\n    with open(filename, \"wb\") as file:\n        await file.write(data)\n\nasync def main():\n    async with anyio.create_eventloop() as loop:\n        loop.run_until_complete(get_file(\"example.txt\"))\n        loop.run_until_complete(write_to_file(\"example.txt\", b\"hello world!\"))\n\nloop = anyio.get_event_loop()\nloop.run_until_complete(main())\n```",
+      "missing": [
+        "CapacityLimiter",
+        "to_thread"
+      ]
+    },
+    {
+      "id": "async_io-002",
+      "category": "async",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.13747228381374724,
+      "score": 0.045824094604582415,
+      "latency_s": 9.247,
+      "answer": "To avoid lost updates, you can use a combination of concurrency and async / await. Here's how:\n\n1. Use `async def` to declare your path operation functions, which are functions that communicate with external resources (such as databases or APIs) and wait for their responses.\n\n2. Declare your functions with `await` inside, but only if you need to use `await` to communicate with the external resource. For example, if you don't need to use `await`, you can declare your functions without `await`.\n\n3. Use concurrency by using multiple threads or processes to execute your code concurrently. This allows your code to handle multiple requests simultaneously, reducing the risk of losing updates.\n\n4. Use parallelism by using asynchronous methods such as `asyncio.run()` or `asyncio.get_event_loop().run_until_complete()`. This allows your code to execute multiple tasks in parallel, reducing the risk of blocking the main thread.\n\n5. Use a combination of concurrency and async / await to ensure that your code is well-designed and optimized for concurrency and parallelism.\n\nHere's an example of how to use concurrency and",
+      "missing": [
+        "asyncio.Lock",
+        "async with"
+      ]
+    },
+    {
+      "id": "async_io-003",
+      "category": "httpx",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.24839400428265526,
+      "score": 0.6383535569831074,
+      "latency_s": 12.602,
+      "answer": "To configure a shared httpx client with a base URL and a default Authorization header for calls to a partner API, you can use the `ClientBuilder` class provided by the `httpx` library. Here's an example:\n\n```python\nimport httpx\n\n# Create a ClientBuilder instance\nbuilder = httpx.ClientBuilder()\n\n# Set the base URL of the partner API\nbuilder.base_url(\"https://example.com\")\n\n# Set the Authorization header for calls to the partner API\nbuilder.headers.update({\"Authorization\": \"Bearer my_access_token\"})\n\n# Create a Client instance with the Builder instance\nclient = httpx.Client(builder)\n```\n\nIn this example, we're setting the base URL of the partner API to `https://example.com` and setting the Authorization header to bearer my_access_token. You can customize the base URL and Authorization header according to your partner API's requirements.\n\nNote that this configuration is specific to the partner API you're using, and you may need to adjust it for other APIs as well.",
+      "missing": [
+        "AsyncClient"
+      ]
+    },
+    {
+      "id": "async_io-004",
+      "category": "async",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.4377880184331797,
+      "score": 0.6459293394777266,
+      "latency_s": 11.173,
+      "answer": "To fix the `TypeError` raised by the code, you can modify the `get_username()` function to return a string instead of an integer. Here's an updated version of the function that returns a string:\n\n```python\ndef get_username():\n     try:\n         yield \"Rick\"\n     except Exception as e:\n         raise HTTPException(status_code=400, detail=str(e))\n```\n\nThis will ensure that the `get_username()` function returns a string instead of an integer, which is what the `asyncio.gather` function expects.\n\nYou can then modify the `stock()` function to call the `get_username()` function with the `n` argument:\n\n```python\n@app.get(\"/stock\")\nasync def stock(request: Request, n: int):\n     client = request.app.state.http\n     tasks = [client.get(f\"https://warehouse-{n}.example.com/stock\") for n in range(3)]\n     response_list = await asyncio.gather(tasks)\n     return response_list\n```\n\nThis will",
+      "missing": [
+        "asyncio.gather(*"
+      ]
+    },
+    {
+      "id": "async_io-005",
+      "category": "lifespan",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.1483375959079284,
+      "score": 0.21611253196930946,
+      "latency_s": 9.155,
+      "answer": "In the context of Uvicorn with Workers > Multiple Workers, the answer to your question is that your life span runs once or four times, depending on the value of the `--worker_connections` option. The default value is 100, which means that Uvicorn will start 100 worker processes. If you set the `--worker_connections` option to a higher value (e.g., 200), then Uvicorn will start 200 worker processes.\n\nIn the context of FastAPI, running one process with Uvicorn can serve multiple clients concurrently. However, running multiple worker processes at the same time can improve the application's performance and scalability. This is because each worker process can handle multiple requests simultaneously, which can help reduce server load and improve response times.\n\nIn summary, the answer to your question is that your life span runs once or four times, depending on the value of the `--worker_connections` option.",
+      "missing": [
+        "lifespan"
+      ]
+    },
+    {
+      "id": "async_io-006",
+      "category": "lifespan",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.32079207920792085,
+      "score": 0.3291529152915292,
+      "latency_s": 9.656,
+      "answer": "To create an async database connection pool at startup and hand out connections to endpoint requests through a dependency, you can use the `yield` keyword in the `get_db()` function. This will yield a database session object that can be used to access the database.\n\nHere's an example of how to use this with FastAPI:\n\n```python\nfrom fastapi import Depends, FastAPI, HTTPException\nfrom yield import DBSession\n\napp = FastAPI()\n\n@app.get(\"/generate\", dependencies=[Depends(get_user)])\nasync def generate(query: str):\n    with DBSession() as db:\n        try:\n            yield db.execute(\"SELECT * FROM users WHERE name = $1\", (query,))\n        except Exception as e:\n            raise HTTPException(status_code=500, detail=str(e))\n\n```\n\nIn this example, the `get_db()` function is used to create a database session object. This function will be called before each endpoint request and will yield a database session object that can be used to access the database.\n\nIf you need to use this with a dependency that does not have",
+      "missing": [
+        "lifespan"
+      ]
+    },
+    {
+      "id": "async_io-007",
+      "category": "background_tasks",
+      "keyword_recall": 1.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.431554524361949,
+      "score": 0.8105181747873164,
+      "latency_s": 9.636,
+      "answer": "To pass keyword arguments to a function declared in a *path operation function* or dependency function with the type `BackgroundTasks`, you can use the `kwargs` parameter of the `add_task()` method.\n\nHere's an example:\n\n```python\nfrom fastapi import BackgroundTasks, FastAPI\n\napp = FastAPI()\n\ndef write_notification(email: str, message: str, **kwargs):\n     with open(\"log.txt\", mode=\"w\") as email_file:\n         content = f\"notification for {email}: {message}\"\n         email_file.write(content)\n\n@app.post(\"/send-notification/{email}\", kwargs={\"message\": \"some notification\"})\nasync def send_notification(email: str, background_tasks: BackgroundTasks):\n     background_tasks.add_task(write_notification, email, message=\"some notification\")\n     return {\"message\": \"Notification sent in the background\"}\n```\n\nIn this example, the `kwargs` parameter is used to pass the keyword arguments `message=\"some notification\"` to the `write_notification()` function.",
+      "missing": []
+    },
+    {
+      "id": "async_io-008",
+      "category": "websockets",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.23266219239373603,
+      "score": 0.24422073079791198,
+      "latency_s": 10.314,
+      "answer": "To send a WebSocket message to a specific user instead of broadcasting to everyone, you can use the `sendMessage()` function in the `ws` object. Here's an example:\n\n```python\nfrom fastapi import FastAPI, WebSocket, WebSocketDisconnect\nfrom fastapi.response import HTMLResponse\n\napp = FastAPI()\n\nhtml = \"\"\"\n<!DOCTYPE html>\n<html>\n     <head>\n         <title>Chat</title>\n     </head>\n     <body>\n         <h1>WebSocket ChaT</h1>\n         <h2>Your ID: </h2>\n         <form action=\"\" onsubmit=\"sendMessage(event)\" >\n             <input type=\"text\" id=\"messageText\" autocomplete=\"off\"/>\n             <button>Send</button>\n         </form>\n         <ul id='messages'>\n         </ul>\n         <script>\n             var client_id = Date.now()\n             document.querySelector(\"#ws-id\").textContent = client_id;\n             var ws = new WebSocket(`ws://localhost:8000/ws/$",
+      "missing": [
+        "send_"
+      ]
+    },
+    {
+      "id": "async_io-009",
+      "category": "websockets",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.270893371757925,
+      "score": 0.590297790585975,
+      "latency_s": 11.243,
+      "answer": "Client 1 connects to the WebSocket endpoint and sends a message:\n\n```python\nasync with websocket(WebSocket()) as ws:\n    await ws.send(b\"Hello, World!\")\n```\n\nClient 2 connects to the same endpoint and receives the message:\n\n```python\nasync with websocket(WebSocket()) as ws:\n    await ws.send(b\"Hello, World!\")\n    await ws.recv()\n    print(await ws.recv())\n```\n\nClient 3 connects to the endpoint and sends a message:\n\n```python\nasync with websocket(WebSocket()) as ws:\n    await ws.send(b\"Hello, World!\")\n    await ws.send(b\"Hello, World!\")\n    await ws.recv()\n    print(await ws.recv())\n```\n\nClient 4 connects to the endpoint and sends a message:\n\n```python\nasync with websocket(WebSocket()) as ws:\n    await ws.send(b\"Hello, World!\")\n    await ws.send(b\"Hello,",
+      "missing": [
+        "accept()"
+      ]
+    },
+    {
+      "id": "async_io-010",
+      "category": "websockets",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.271356783919598,
+      "score": 0.25711892797319935,
+      "latency_s": 21.472,
+      "answer": "To reject WebSocket connections that come from an origin other than your own site, you can add a header to the request sent by the frontend to the backend. This header should contain the origin of the WebSocket connection, which in this case would be `http://localhost:8080`.\n\nHere's an example of how to add this header to the request:\n\n```html\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/ws-clients/1.0.0/ws-clients.min.js\"></script>\n<script>\n  const ws = new WebSocket('ws://localhost:8080/websocket');\n  ws.onopen = () => {\n    console.log('WebSocket connection established');\n  };\n  ws.onmessage = (event) => {\n    console.log(event.data);\n  };\n  ws.onerror = (error) => {\n    console.error(error);\n  };\n  ws.onclose = () => {\n    console.log('WebSocket connection closed');\n  };\n</script>\n```\n\nIn this example, we'",
+      "missing": [
+        "headers"
+      ]
+    },
+    {
+      "id": "async_io-011",
+      "category": "websockets",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2594339622641509,
+      "score": 0.25314465408805026,
+      "latency_s": 12.722,
+      "answer": "To accept the WebSocket connection in FastAPI, you can use the `accept()` method of the `WebSocket` object. Here's an example:\n\n```python\nfrom fastapi import FastAPI, WebSocket\nfrom fastapi.response import HTMLResponse\n\napp = FastAPI()\n\nhtml = \"\"\"\n<!DOCTYPE html>\n<html>\n     <head>\n         <title>Chat</title>\n     </head>\n     <body>\n         <h1>WebSocket ChaT</h1>\n         <form action=\"\" onsubmit=\"sendMessage(event)\">\n             <input type=\"text\" id=\"messageText\" autocomplete=\"off\"/>\n             <button>Send</button>\n         </form>\n         <ul id='messages'>\n         </ul>\n         <script>\n             var ws = new WebSocket(\"ws://localhost:8000/ws\");\n             ws.onmessage = function(event) {\n                 var messages = document.getElementById('messages')\n                 var message = document.createElement('li')\n                 var content = document.createTextNode(event.data)\n                 message.appendChild(",
+      "missing": [
+        "subprotocol"
+      ]
+    },
+    {
+      "id": "async_io-012",
+      "category": "websockets",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.30188679245283023,
+      "score": 0.10062893081761008,
+      "latency_s": 15.603,
+      "answer": "To consume incoming WebSocket JSON messages instead of writing a `while True` loop, you can use the `async def` syntax and define a function that takes an event object as input. This function will be called when a new message is received:\n\n```python\nimport asyncio\nfrom fastapi import FastAPI, WebSocket\nfrom fastapi.response import HTMLResponse\n\napp = FastAPI()\n\nasync def receive_message(event: WebSocketEvent):\n    # Handle incoming message\n    print(\"Received message:\", event.data)\n\nasync def main():\n    # Start websocket server\n    await app.listen(8080)\n\nasync def send_message(event: WebSocketEvent):\n    # Send message to WebSocket client\n    await event.client.send(\"Hello, world!\")\n\nasync def handle_error(event: WebSocketEvent):\n    # Handle errors\n    print(\"Error occurred:\", event.exception())\n\nasync def main():\n    # Start websocket server\n    await asyncio.gather(receive_message(WebSocket()), send_message(WebSocket()))\n    await handle_error(Web",
+      "missing": [
+        "iter_json",
+        "async for"
+      ]
+    },
+    {
+      "id": "async_io-013",
+      "category": "background_tasks",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.24409448818897636,
+      "score": 0.5813648293963255,
+      "latency_s": 15.7,
+      "answer": "To kick off a long job with `BackgroundTasks` and let the client poll for its status, you can use the `start_polling()` method of the `BackgroundTasks` object. This method will start a background task that will run continuously until it is stopped by calling `stop_polling()`.\n\nHere's an example:\n\n```py\nfrom fastapi import BackgroundTasks\n\nasync def my_long_job():\n    # Your long job code here\n    return True\n\nasync def start_job():\n    task = BackgroundTasks().start_task(my_long_job)\n    await task.wait_for_completion()\n\nasync def main():\n    tasks = [start_job() for _ in range(10)]\n    await asyncio.gather(*tasks)\n\nif __name__ == \"__main__\":\n    asyncio.run(main())\n```\n\nIn this example, we define a `start_job()` function that starts a background task to run the long job. We then create a list of `tasks` to be executed, and run them all at once using the `gather()` method. Finally, we",
+      "missing": [
+        "add_task"
+      ]
+    },
+    {
+      "id": "async_io-014",
+      "category": "streaming",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2574712643678161,
+      "score": 0.08582375478927202,
+      "latency_s": 12.43,
+      "answer": "To stop waiting early if the client has already gone away, you can set the `last_event_id` header to a non-None value. This will cause FastAPI to resume the stream from where the client left off.\n\nHere's an example of how to do this:\n\n```python\nfrom collections.abc import AsyncIterable\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Header\nfrom fastapi.sse import EventSourceResponse, ServerSentEvent\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Item(BaseModel):\n     name: str\n     price: float\n\nitems = [\n     Item(name=\"Plumbus\", price=32.99),\n     Item(name=\"Portal Gun\", price=999.99),\n     Item(name=\"Meeseeks Box\", price=49.99),\n]\n\n@app.get(\"/items/stream\", response_class=EventSourceResponse)\nasync def stream_items(\n     last_event_id: Annotaed[int | None, Header()] =",
+      "missing": [
+        "is_disconnected",
+        "Request"
+      ]
+    },
+    {
+      "id": "async_io-015",
+      "category": "streaming",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.270042194092827,
+      "score": 0.09001406469760899,
+      "latency_s": 10.532,
+      "answer": "To build a simple live feed using FastAPI and Server-Sent Events, you can follow these steps:\n\n1. Create a new FastAPI app with the `app` function:\n\n   ```python\n   from fastapi import FastAPI\n\n   app = FastAPI()\n   ```\n\n2. Define a class for your chat model:\n\n   ```python\n   class Prompt(BaseModel):\n       text: str\n   ```\n\n3. Create a function to handle the `POST` request:\n\n   ```python\n   @app.post(\"/chat/stream\", response_class=EventSourceResponse)\n   async def stream_chat(prompt: Prompt) -> AsyncIterable[ServerSentEvent]:\n       words = prompt.text.split()\n       for word in words:\n           yield ServerSentEvent(data=word, event=\"token\")\n       yield ServerSentEvent(raw_data=\"[DONE]\", event=\"done\")\n   ```\n\n4. Create a function to handle the `GET` request:\n\n   ```python\n   @app.get(\"/chat/stream\")\n   async def get_",
+      "missing": [
+        "StreamingResponse",
+        "text/event-stream"
+      ]
+    },
+    {
+      "id": "async_io-016",
+      "category": "streaming",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2875816993464052,
+      "score": 0.2625272331154684,
+      "latency_s": 10.37,
+      "answer": "When a browser reconnects after a connection drop, it sends the last received `id` in the `Last-Event-ID` header. This header parameter is a unique identifier for each event sent by the client.\n\nTo resume the stream from where the client left off, you can read the `Last-Event-ID` header parameter and use it to resume the stream from that point. You can do this by sending a new `ping` comment every 15 seconds, as suggested in the HTML specification.\n\nHere's an example of how to implement this feature using FastAPI:\n\n```python\nfrom collections.abc import AsyncIterable\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Header\nfrom fastapi.sse import EventSourceResponse, ServerSeentEvent\nfrom pydantic import BaseModel\n\napp = FastAPI()\n\nclass Item(BaseModel):\n     name: str\n     price: float\n\nitems = [\n     Item(name=\"Plumbus\", price=32.99),\n     Item(name=\"Portal Gun\", price=999.99),\n     Item(name=\"",
+      "missing": [
+        "text/event-stream"
+      ]
+    },
+    {
+      "id": "async_io-017",
+      "category": "streaming",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.14933333333333332,
+      "score": 0.3831111111111111,
+      "latency_s": 6.703,
+      "answer": "To delete a temporary ZIP file for each download, you can use the `rm` command. Here's an example:\n\n```\n# Delete a temporary ZIP file\nrm /path/to/temp/file.zip\n```\n\nIn this example, the `/path/to/temp/file.zip` file is deleted from the current working directory. If you want to delete the file from a different location, you can use the `pwd` command to get the current working directory and then use the `rm` command with the full path to the file.\n\nNote that deleting a temporary ZIP file does not delete the original file on your computer. You should delete the original file manually after using the `rm` command.",
+      "missing": [
+        "FileResponse",
+        "BackgroundTask"
+      ]
+    },
+    {
+      "id": "async_io-018",
+      "category": "streaming",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.29230769230769227,
+      "score": 0.5974358974358974,
+      "latency_s": 8.031,
+      "answer": "To fix the `AttributeError: 'dict' object has no attribute 'encode'` error, you can modify your code as follows:\n\n```python\n@app.get(\"/rows\")\nasync def stream_rows():\n     return StreamingResponse(rows(), media_type=\"application/json\")\n\n# ...\n\ndef rows():\n     for i in range(1000):\n         yield {\"id\": i, \"value\": i * i}\n```\n\nThis modification will ensure that the `rows()` function returns a `AsyncIterable` instead of a `Dict` object. This will allow FastAPI to properly encode the data bytes as they are returned by the function.\n\nNote that this modification is not necessary if you are using a different type of data returned by the `rows()` function, such as a `List[int]` or a `Tuple[str, int]`. In this case, the `encode()` method will be called automatically by FastAPI, and the data bytes will be properly encoded.",
+      "missing": [
+        "dumps"
+      ]
+    },
+    {
+      "id": "async_io-019",
+      "category": "uploads",
+      "keyword_recall": 0.33333333333333337,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.31232876712328766,
+      "score": 0.5485540334855404,
+      "latency_s": 11.885,
+      "answer": "To compute the SHA-256 checksum of an uploaded file without reading the entire file into memory, you can use the `File` and `bytes` types from the `fastapi.files` module. Here's an example:\n\n```python\nfrom fastapi import File, UploadFile\nfrom typing import Any, Optional\n\nclass User:\n    def __init__(self, username: str):\n        self.username = username\n\n@app.get(\"/users/me/items/\")\nasync def read_own_items(current_user: User, file: UploadFile) -> Any:\n    return [{\n        \"item_id\": \"Foo\",\n        \"owner\": current_user.username,\n    }]\n```\n\nIn this example, we first import the `fastapi.files` module and create a `User` class with a `username` property. We then define a function `read_own_items` that takes an `UploadedFile` object as input and returns a list of dictionaries containing the `item_id` and `owner` properties.\n\nThis function uses the `current_user` property to check if the uploaded",
+      "missing": [
+        "hashlib",
+        "read("
+      ]
+    },
+    {
+      "id": "async_io-020",
+      "category": "uploads",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.25806451612903225,
+      "score": 0.41935483870967744,
+      "latency_s": 13.017,
+      "answer": "To process an uploaded CSV row by row instead of loading the entire file, you can use the `File` and `bytes` types to declare files to be uploaded in the request, sent as form data.\n\nHere's an example:\n\n```python\nimport csv\nfrom fastapi import File, UploadFile, Body, Request, Response\nfrom typing import List\n\n# Define a file to be uploaded\nclass MyFile(File):\n    def __init__(self, filename: str) -> None:\n        self.filename = filename\n\n    async def open(self) -> bytes:\n        return await self.file.read()\n\n# Define a form field for uploading files\nclass MyForm(Form):\n    file: UploadFile = File(..., filename_template=\"my_{0}.{1}\")\n\n# Define a function to process uploaded files\nasync def handle_uploaded_files(files: List[MyFile]) -> None:\n    for file in files:\n        with file.open() as f:\n            content = await f.read()\n            # Process the uploaded file here\n\n# Define a function to handle form data\nasync def handle",
+      "missing": []
+    },
+    {
+      "id": "async_io-021",
+      "category": "timeouts",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2660098522167488,
+      "score": 0.25533661740558294,
+      "latency_s": 12.48,
+      "answer": "To make a request fail fast with a 503 status code if the call to a slow authentication service takes longer than 1 second, you can use the `Depends` annotation in your FastAPI route. Here's an example:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Depends, FastAPI, HTTPException\nfrom fastapi.response import StreamingResponse\nfrom sqlmodel import Field, SQLModel, create_engine\n\nengine = create_engine(\"postgresql+psycopg://postgres:postgres@localhost/db\")\n\napp = FastAPI()\n\n@app.get(\"/auth\")\nasync def auth():\n    # Authenticate user and return a token\n    pass\n\n@app.exception_handler(HTTPException)\nasync def handle_exception(exc: HTTPException):\n    if exc.status_code == 503:\n        # Check if the authentication call took longer than 1 second\n        time_taken = time.time() - exc.detail[\"request_started_at\"]\n        if time_taken > 1:\n            raise HTTPException(\n                status_code",
+      "missing": [
+        "timeout"
+      ]
+    },
+    {
+      "id": "async_io-022",
+      "category": "httpx",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.0955223880597015,
+      "score": 0.031840796019900496,
+      "latency_s": 8.37,
+      "answer": "[1] Deployment Concepts > Resource Utilization\n\nIn this case, it would be better to get one extra server and run some processes on it so that they all have enough RAM and CPU time. There's also the chance that for some reason you have a spike in usage of your API. Maybe it went viral, or maybe some other services or bots start using it. And you might want to have extra resources to be safe in those cases.\n\n[2] Async Tests > In Detail\n\nThe equivalent to `TestClient` is `LifeSpanManager`. It allows you to trigger events that are specific to your application, such as when a request is made or when a response is received. You can use it to ensure that these events are triggered correctly.",
+      "missing": [
+        "AsyncClient",
+        "yield"
+      ]
+    },
+    {
+      "id": "async_io-023",
+      "category": "shutdown",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.25510204081632654,
+      "score": 0.25170068027210885,
+      "latency_s": 11.734,
+      "answer": "In your code, you have defined a `lifespan` function that starts and cleans up items. However, the `startup` and `shutdown` events are not mentioned in your code. It is recommended to use the `startup` and `shutdown` events together to simulate the lifecycle of an application.\n\nHere's how you can modify your code to include these events:\n\n```python\nfrom contextlib import asynccontextmanager\n\nfrom fastapi import FastAPI, FastAPI, Depends\nfrom fastapi.testclient import TestClient\n\nitems = {}\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    items[\"foo\"] = {\"name\": \"Fighters\"}\n    items[\"bar\"] = {\"name\": \"Tender\"}\n    yield\n    # clean up items\n    items.clear()\n\napp = FastAPI(lifespan=lifespan)\n\n@app.get(\"/items/{item_id}\")\nasync def read_items(item_id: str):\n    return items[item_id]\n\ndef test_read_items():\n    # Before the lifespan starts, \"items\"",
+      "missing": [
+        "cancel"
+      ]
+    },
+    {
+      "id": "async_io-024",
+      "category": "templates",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.22580645161290325,
+      "score": 0.5752688172043011,
+      "latency_s": 12.783,
+      "answer": "To show a custom HTML 404 page rendered with Jinja2 while keeping JSON errors for your API routes, you can modify the `fallback` argument in the `app.frontend()` function to specify a custom 404 page. For example:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\napp.frontend(\"/\", directory=\"dist\", fallback=\"custom_404.html\")\n```\n\nIn this case, the `custom_404.html` file will be served instead of the default 404 page. You can then customize the HTML template to include any additional information or styling you want.\n\nTo handle errors that don't fit the default excpetion handlers, you can override the `request_validation_exceptions` function in your `app.py` file. This function is called when an exception is raised during request validation, and you can customize the error message or add additional information to the response.\n\nFor example:\n\n```python\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.exception_handler(Exception)\nasync def",
+      "missing": [
+        "TemplateResponse"
+      ]
+    },
+    {
+      "id": "async_io-025",
+      "category": "static_files",
+      "keyword_recall": 0.5,
+      "code_valid": 0.6666666666666666,
+      "code_runs": null,
+      "rouge_l": 0.3728813559322034,
+      "score": 0.5131826741996233,
+      "latency_s": 12.101,
+      "answer": "To serve static assets that ship inside an installed Python package rather than from a folder in your project, you can use the `StaticFiles` class provided by FastAPI.\n\nHere's how to import it directly from `fastapi.staticfiles`:\n\n```py\nfrom fastapi.staticfiles import StaticFiles\n```\n\nThen, you can mount a `StaticFiles()` instance in a specific path:\n\n```py\nfrom fastapi import FastAPI\nfrom fastapi.staticfiles import StaticFiles\n\napp = FastAPI()\n\n@app.get(\"/\")\nasync def root():\n    return {\"message\": \"Welcome to FastAPI!\"}\n\nif __name__ == \"__main__\":\n    app.mount(\"/static\", StaticFiles(), name=\"static\")\n```\n\nIn this example, we're mounting a `StaticFiles()` instance with the path `/static` in the root of our project.\n\nNow, you can serve static files by accessing the `root` endpoint of your FastAPI app. For example:\n\n```\ncurl http://localhost:8000/\n```\n\nThis will serve the static files from the",
+      "missing": [
+        "packages"
+      ]
+    },
+    {
+      "id": "data_ops-001",
+      "category": "database",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.1442786069651741,
+      "score": 0.3814262023217247,
+      "latency_s": 11.214,
+      "answer": "To write a PATCH endpoint that updates only the fields the client actually sent, using SQLAlchemy, you can follow these steps:\n\n1. Use `PACTH` instead of `PUT` to apply partial updates.\n\n2. Retrieve the stored data from your database using the `exclude_unset` parameter. This will exclude any attributes that are not set by the client.\n\n3. Generate a `dict` without default values from the input model (using `exclude_unset`). This way you can update only the values actually set by the user, instead of overriding values already stored with default values in your model.\n\n4. Create a copy of the stored model, updating its attributes with the received partial updates (using the `update` parameter).\n\n5. Convert the copied model to something that can be stored in your database (for example, using the `jsonable_encoder` function).\n\n6. Save the data to your database.\n\nHere's an example of how to write a PATCH endpoint that updates only the fields the client actually sent:\n\n```python\nfrom sqlalchemy import create_engine\nfrom sqlalchemy.",
+      "missing": []
+    },
+    {
+      "id": "data_ops-002",
+      "category": "database",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.25133689839572193,
+      "score": 0.08377896613190731,
+      "latency_s": 12.296,
+      "answer": "To create the tables at startup and close the engine at shutdown, you can use the `create_engine` function from SQLModel. Here's an example:\n\n```python\nimport sqlmodel\nfrom sqlmodel import Field, SQLModel, create_engine\n\nclass User(sqlmodel.SQLModel):\n    id: int = Field(default=None, primary_key=True)\n    name: str\n\napp = FastAPI()\n\ndef get_session():\n    with sqlmodel.session(engine) as session:\n        yield from session.query(User).all()\n\ndef get_user(user_id: int, session: sqlmodel.Session) -> tuple[User, sqlmodel.Session]:\n    user = session.query(User).get(user_id)\n    return user, session\n\n@app.get(\"/\")\nasync def read_root():\n    yield from get_session()\n\n@app.post(\"/users\")\nasync def create_user(user: User, session: sqlmodel.Session) -> tuple[User, sqlmodel.Session]:\n    yield from get_user(user.id,",
+      "missing": [
+        "run_sync",
+        "dispose"
+      ]
+    },
+    {
+      "id": "data_ops-003",
+      "category": "database",
+      "keyword_recall": 0.6666666666666667,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2974828375286041,
+      "score": 0.32138316806509026,
+      "latency_s": 13.822,
+      "answer": "To implement cursor (keyset) pagination instead of offset pagination, we can use the `cursor_page` decorator from the `fastapi_pagination` library. This decorator takes a `Page` object as an argument and returns a `CursorPage` object that contains the paginated results.\n\nHere's an example of how to use this decorator:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import FastAPI, Query, CursorPage\nfrom fastapi_pagination import cursor_page\n\napp = FastAPI()\n\nclass Pagination(BaseModel):\n     limit: int = Field(10, ge=1)\n     offset: int = Field(0, ge=0)\n\nclass Filter(BaseModel):\n     tags: list[str] = []\n\n@app.get(\"/items/\")\ndef read_items(\n    pagination: Annotaed[Pagination, Query()],\n     filters: Annotaed[Filter, Query()],\n     search: str | None = None,\n):\n     return {\"pagination\": pagination, \"filters\": filters, \"search\": search",
+      "missing": [
+        "where"
+      ]
+    },
+    {
+      "id": "data_ops-004",
+      "category": "database",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.17714285714285713,
+      "score": 0.05904761904761904,
+      "latency_s": 11.739,
+      "answer": "1. `alembic revision --autogenerate` creates an empty migration even though you added a new model.\n\nThis is likely due to the fact that the migration script is not yet generated. To fix this, run the command again with the `--no-auto-generate` flag:\n\n```bash\nalembic revision --auto-generate\n```\n\n2. `bump-pydantic` from the same Pydantic team.\n\nThis tool is a great way to automatically change most of the code that needs to be changed, but it's not a substitute for manually updating your migration scripts. You should still run the tests and check if everything works before deploying your app.\n\n3. SQL (Relational) Databases > Create the App with a Single Model > Create Database Table(s) on Startup\n\nThis is a common issue when using a single model in a Django or Flask application. To fix this, you should create separate models for each table and use them in your migration scripts. For example:\n\n```python\nfrom alembic import op\n\ndef upgrade():\n    op.create_table(\"users\", ...\n    op.create_table(\"",
+      "missing": [
+        "target_metadata",
+        "env.py"
+      ]
+    },
+    {
+      "id": "data_ops-005",
+      "category": "settings",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.36036036036036034,
+      "score": 0.6201201201201201,
+      "latency_s": 12.276,
+      "answer": "PyDanTiC-Settings can fill a nested settings model from variables like `DB__HOST` and `DB__PORT` by using the `BaseSettings` class and creating a subclass with the same attributes and default values.\n\nHere's an example of how to do this:\n\n```python\nfrom fastapi import FastAPI\nfrom pydantic_settings import BaseSettings\n\nclass Settings(BaseSettings):\n    app_name: str = \"Awesome API\"\n    admin_email: str\n    items_per_user: int = 50\n\nsettings = Settings()\napp = FastAPI()\n\n@app.get(\"/info\")\nasync def info():\n    return {\n        \"app_name\": settings.app_name,\n        \"admin_email\": settings.admin_email,\n        \"items_per_user\": settings.items_per_user,\n    }\n```\n\nIn this example, the `Settings` class has two attributes: `app_name` and `admin_email`. These are declared as type annotations with `str` and `str`, respectively.\n\nThe `BaseSettings` class has a",
+      "missing": [
+        "env_nested_delimiter"
+      ]
+    },
+    {
+      "id": "data_ops-006",
+      "category": "settings",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.12680115273775217,
+      "score": 0.04226705091258406,
+      "latency_s": 11.38,
+      "answer": "To keep secret your API key from leakage, you can follow these steps:\n\n1. Use a secure and well-known cryptographic tool like pwdlib or JWT tokens to generate and store your API key.\n\n2. Store the API key in a separate settings object, such as a `settings.py` file or a `config.json` file.\n\n3. Include a minimal runnable code example where you use the `lr_cache` library to read the API key from the settings object. This will help ensure that the key is not leaked by accident.\n\n4. If you need to store sensitive information, such as passwords or other sensitive data, make sure to encrypt it using a secure encryption algorithm like AES or Blowfish.\n\n5. Always use well-known and secure cryptographic tools and libraries when storing sensitive information.\n\n6. Always use well-known and secure encryption algorithms when storing sensitive data.\n\nBy following these steps, you can ensure that your API key is not leaked by accident, even if it is stored in a settings object or a `config.json` file.",
+      "missing": [
+        "SecretStr",
+        "get_secret_value"
+      ]
+    },
+    {
+      "id": "data_ops-007",
+      "category": "structure",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.27154046997389036,
+      "score": 0.25718015665796345,
+      "latency_s": 17.922,
+      "answer": "To require an API token for every endpoint in one router without adding a parameter to each function, you can use the `Depends` decorator with the `APIRouter` class. Here's an example:\n\n```python\nfrom fastapi import Depends, APIRouter\nfrom fastapi_security import OAuth2PasswordBearer, OAuth2PasswordTokenBearer\nfrom fastapi_security.dependencies import Dependency\n\nrouter = APIRouter()\n\n@router.get(\"/items\")\nasync def read_items():\n    # ...\n\n@router.get(\"/items/{item_id}\")\nasync def read_item(item_id: str, token: Dependency[OAuth2PasswordBearer] = Depends(OAuth2PasswordTokenBearer)):\n    # ...\n\n@router.post(\"/items\")\ndef create_item(item: ItemCreate, token: Dependency[OAuth2PasswordBearer] = Depends(OAuth2PasswordTokenBearer)):\n    # ...\n\n@router.put(\"/items/{item_id}\")\ndef update_item(item_id: str, item: ItemUpdate,",
+      "missing": [
+        "dependencies="
+      ]
+    },
+    {
+      "id": "data_ops-008",
+      "category": "structure",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.31976744186046513,
+      "score": 0.27325581395348836,
+      "latency_s": 13.118,
+      "answer": "Yes, you can include another `APIRouter` in an `APIRouter` using the `include_router()` method. This will include the specified `APIRouter` in routing and OpenAPI generation.\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom .dependencies import get_query_token, get_token_header\nfrom .internal import admin\n\napp = FastAPI()\n\n@app.get(\"/admin/users\")\nasync def read_admin_users(query_token: Depends(get_query_token)) -> list[dict]:\n    token = query_token.get(\"token\", None)\n    if not token:\n        raise HTTPException(status_code=401, detail=\"Invalid token\")\n\n    response = {\"users\": [{\"id\": 1, \"name\": \"John Doe\"}, {\"id\": 2, \"name\": \"Jane Smith\"}]}\n    response[\"access_token\"] = get_token_header(token)\n    return response\n\n@app.post(\"/admin/users\")\nasync def create_admin_user(data: dict, query_token:",
+      "missing": [
+        "prefix"
+      ]
+    },
+    {
+      "id": "data_ops-009",
+      "category": "testing",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3180428134556575,
+      "score": 0.27268093781855246,
+      "latency_s": 12.773,
+      "answer": "To assert on the 500 response instead of the excpeption raised by TestClient in your test, you can use the `assert_response_status()` function provided by the `fastapi.testclient` module. Here's an example:\n\n```python\nfrom fastapi.testclient import TestClient\n\nfrom .main import app\n\nclient = TestClient(app)\n\ndef test_read_item():\n    response = client.get(\"/items/foo\", headers={\"X-Token\": \"coneofsilence\"})\n    assert response.status_code == 200\n    assert response.json() == {\n        \"id\": \"foo\",\n        \"title\": \"Foo\",\n        \"description\": \"There goes my hero\",\n    }\n\ndef test_read_item_bad_token():\n    response = client.get(\"/items/foo\", headers={\"X-Token\": \"hailhydra\"})\n    assert response.status_code == 400\n    assert response.json() == {\"detail\": \"Invaliad X-Token header\"}\n\ndef test_read_nonexistent",
+      "missing": [
+        "raise_server_exceptions"
+      ]
+    },
+    {
+      "id": "data_ops-010",
+      "category": "testing",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.45045045045045046,
+      "score": 0.31681681681681684,
+      "latency_s": 10.339,
+      "answer": "To test that a WebSocket endpoint rejects connections that don't have a valid token, you can use the `TestClient` in a `with` statement and connect to the WebSocket as follows:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom fastapi.websocket import WebSocket\n\napp = FastAPI()\n\n@app.get(\"/\")\nasync def read_main():\n     return {\"msg\": \"Hello World\"}\n\n@app.websocket(\"/ws\")\nasync def websocket(websocket: WebSocket):\n     await websocket.accept()\n     await websocket.send_json({\"msg\": \"Hello WebSocket!\"})\n     await websocket.close()\n\ndef test_read_main():\n    client = TestClient(app)\n    response = client.get(\"/\")\n    assert response.status_code == 200\n    assert response.json() == {\"msg\": \"Hello World\"}\n\ndef test_websocket():\n    client = TestClient(app)\n    with client.websocket_connect(\"/ws\") as websocket:\n        data =",
+      "missing": [
+        "WebSocketDisconnect"
+      ]
+    },
+    {
+      "id": "data_ops-011",
+      "category": "testing",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2699724517906336,
+      "score": 0.08999081726354453,
+      "latency_s": 9.737,
+      "answer": "To test endpoint without creating real JWTs, you can use the following approach:\n\n1. Create a dummy JWT token with valid scopes and a valid username.\n2. Use the dummy token in your test cases to verify that the endpoint works as expected.\n3. If the endpoint requires a logged-in user, add a decorator to the test case that checks if the user is authenticated using the dummy token.\n\nHere's an example of how to create a dummy JWT token with valid scopes and a valid username:\n\n```python\nimport json\nfrom fastapi import Depends, HTTPException, status\nfrom fastapi_jwt_auth.middleware import get_jwt_claims\nfrom fastapi_jwt_auth.exceptions import InvalidTokenError\n\ndef get_current_user(security_scope: SecurityScope, token: str):\n    try:\n        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])\n        username = payload.get(\"sub\")\n        scope = payload.get(\"scope\", \"\")\n        token_data = TokenData(scope=scope, username=",
+      "missing": [
+        "dependency_overrides",
+        "client"
+      ]
+    },
+    {
+      "id": "data_ops-012",
+      "category": "testing",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.32036613272311215,
+      "score": 0.10678871090770405,
+      "latency_s": 10.103,
+      "answer": "To make every test start with an empty database when testing a FastAPI + SQLAlchemy app, you can use the `Depends` decorator to inject a dependency that creates and initializes the database. Here's an example:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Depends, FastAPI, HTTPException, Query\nfrom sqlalchemy import create_engine\nfrom sqlalchemy.orm import sessionmaker\n\nitems = {}\n\n@Depends(Query(\"SELECT * FROM items\"))\ndef get_items():\n    return items\n\napp = FastAPI()\n\n@app.get(\"/items/{item_id}\")\nasync def read_items(item_id: str):\n    item = get_items().where(get_items().c.item_id == item_id).first()\n    if item is None:\n        raise HTTPException(status_code=404, detail=\"Item not found\")\n    return item\n\ndef test_read_items():\n    # Before the lifespan starts, \"items\" is still empty\n    assert items == {}\n\n    with app.app_context():",
+      "missing": [
+        "dependency_overrides",
+        "fixture"
+      ]
+    },
+    {
+      "id": "data_ops-013",
+      "category": "deployment",
+      "keyword_recall": 1.0,
+      "code_valid": null,
+      "code_runs": null,
+      "rouge_l": 0.368421052631579,
+      "score": 0.6842105263157895,
+      "latency_s": 6.386,
+      "answer": "To serve a FastAPI app with Gunicorn managing four Uvicorn worker processes, you can use the following command:\n\n```bash\nuvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 4 --worker-class=uvicorn.gunicorn.UvicornWorker --log-level=debug\n```\n\nThis command starts four worker processes using the Uvicorn worker class, and sets the log level to debug. You can adjust the `--workers` and `--worker-class` options to match your deployment requirements.",
+      "missing": []
+    },
+    {
+      "id": "data_ops-014",
+      "category": "deployment",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.32402234636871513,
+      "score": 0.441340782122905,
+      "latency_s": 10.13,
+      "answer": "To fix the issue with the OpenAPI schema not being loaded, you need to modify the proxy configuration to include a path prefix of `/api/v1` for your app. This will strip the `api/` prefix from the URL and ensure that the OpenAPI schema is fetched at `/api/v1/openapi.json`.\n\nHere's an updated version of your proxy configuration:\n\n```python\nfrom fastapi import FastAPI, Request, Response\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom fastapi.staticfiles import StaticFiles\nfrom starlette.middleware.cors import CORSMiddleware\nfrom starlette.responses import FileResponse\n\napp = FastAPI(middlewares=[CORSMiddleware])\n\n@app.get(\"/app\")\ndef read_main(request: Request):\n     return {\"message\": \"Hello World\", \"root_path\": request.scope.get(\"root_path\")}\n\n@app.get(\"/api/v1\")\ndef read_api(request: Request):\n     return {\"message\": \"API endpoint\", \"root_path\": request.scope.get(\"root",
+      "missing": []
+    },
+    {
+      "id": "data_ops-015",
+      "category": "deployment",
+      "keyword_recall": 0.0,
+      "code_valid": null,
+      "code_runs": null,
+      "rouge_l": 0.17045454545454544,
+      "score": 0.08522727272727272,
+      "latency_s": 8.153,
+      "answer": "The `CMD` (`exec` form) Dockerfile is preferred over the `shell` form for FastAPI Dockerfiles because it allows for more control over the command that is executed. The `CMD` form uses the `exec` command, which allows you to specify the command and its arguments directly in the Dockerfile. This means that you can customize the command and its arguments to fit your specific use case.\n\nIn contrast, the `shell` form uses the `CMD` command, which is a shell command that is executed by the container when it starts. The `CMD` command is typically used for starting a shell or a command that is not related to the FastAPI application. In the case of FastAPI, the `CMD` command is typically used to start a web server that listens on port 80.\n\nIn summary, the `CMD` form of Dockerfile is preferred for FastAPI Dockerfiles because it allows for more control over the command that is executed and can be customized to fit specific use cases.",
+      "missing": [
+        "CMD [",
+        "uvicorn"
+      ]
+    },
+    {
+      "id": "data_ops-016",
+      "category": "openapi",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.2117647058823529,
+      "score": 0.40392156862745093,
+      "latency_s": 10.997,
+      "answer": "To add description and external documentation links to the tag groups shown in Swagger UI, you can use the `openapi_tags` parameter in your *path operations* and `APIRouter`s. Each dictionary in this parameter should contain a `name` and `description` key, as well as an optional `externalDocs` key with a `description` and `url` key.\n\nHere's an example of how to add description and external documentation links to the `tags` parameter:\n\n```python\nfrom fastapi import FastAPI, OpenAPI, Deployment, Request, Response\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom fastapi.staticfiles import StaticFiles\nfrom fastapi.templating import Jinja2Templates\nfrom fastapi.responses import FileResponse\nfrom pydantic import BaseModel\nfrom typing import List, Dict\n\napp = FastAPI()\n\napp.add_middleware(CORSMiddleware, allow_origins=['*'])\n\n# Define the OpenAPI specification\nopenapi = OpenAPI(\n    title=\"My API\",\n    version=\"1.0.0\",\n    description",
+      "missing": []
+    },
+    {
+      "id": "data_ops-017",
+      "category": "openapi",
+      "keyword_recall": 1.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.5266272189349112,
+      "score": 0.5088757396449703,
+      "latency_s": 10.172,
+      "answer": "To use the `generate_unique_id_function` parameter in your FastAPI app, you need to pass it as a function argument when creating the `APIRoute` object. Here's an example:\n\n```python\nfrom fastapi import FastAPI\nfrom fastapi.routing import APIRoute\nfrom pydantic import BaseModel\n\ndef custom_generate_unique_id(route: APIRoute):\n     return f\"{route.tags[0]}-{route.name}\"\n\napp = FastAPI(generate_unique_id_function=custom_generate_unique_id)\n\nclass Item(BaseModel):\n     name: str\n     price: float\n\nclass ResponseMessage(BaseModel):\n     message: str\n\nclass User(BaseModel):\n     username: str\n     email: str\n\n@app.post(\"/items/\" + custom_generate_unique_id, response_model=ResponseMessage, tags=[\"items\"])\nasync def create_item(item: Item):\n     return {\"message\": \"Item received\"}\n\n@app.get(\"/items/\" + custom_generate_unique_id, response_model=list",
+      "missing": []
+    },
+    {
+      "id": "data_ops-018",
+      "category": "logging",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3013698630136986,
+      "score": 0.4337899543378995,
+      "latency_s": 11.467,
+      "answer": "To give FastAPI a custom log format with timesamps, you can modify the `uvicorn.py` file to include the following line:\n\n```python\nimport logging\nfrom uvicorn import logger as uvicorn_logger\n\n# Custom log format\nlogging.basicconfig(format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')\n\n@app.errorhandler(Exception)\ndef handle_exception(e):\n    logging.exception(e)\n    uvicorn_logger.exception(e)\n```\n\nThis will add a custom log format to the `uvicorn.py` file, which will be used by FastAPI to log errors and exceptions. You can then modify the `uvicorn.py` file to include the following line:\n\n```python\nimport logging\nfrom uvicorn import logger as uvicorn_logger\n\n# Custom log format\nlogging.basicconfig(format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%",
+      "missing": [
+        "log_config",
+        "uvicorn.run"
+      ]
+    },
+    {
+      "id": "data_ops-019",
+      "category": "caching",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.3063063063063063,
+      "score": 0.6021021021021021,
+      "latency_s": 11.94,
+      "answer": "To add a default Cache-Control header to all successful GET responses without editing each endpoint, you can use the `Response` parameter in your *path operation function*.\n\nHere's an example:\n\n```python\nfrom fastapi import FastAPI, Response\n\napp = FastAPI()\n\n@app.get(\"/headers-and-object/\", response_model=dict)\nasync def get_headers(response: Response):\n    response.headers[\"X-Cat-Doog\"] = \"alone in the world\"\n    return {\"message\": \"Hello World\"}\n```\n\nThis will add a `Cache-Control` header with a `max-age` of 0 (no caching) to all successful GET responses.\n\nTo add a different Cache-Control header to specific GET responses, you can use the `response_model` decorator and specify the desired value in the `cache_control` attribute. For example:\n\n```python\nfrom fastapi import FastAPI, Response, response_model\n\napp = FastAPI()\n\n@app.get(\"/headers-and-object/{id}\", response_model=dict)\nasync def get_headers(id",
+      "missing": [
+        "middleware"
+      ]
+    },
+    {
+      "id": "data_ops-020",
+      "category": "performance",
+      "keyword_recall": 0.5,
+      "code_valid": null,
+      "code_runs": null,
+      "rouge_l": 0.2371794871794872,
+      "score": 0.3685897435897436,
+      "latency_s": 14.0,
+      "answer": "To make Uvicorn use the faster uvlloop event loop and httptools parser, you can modify your FastAPI application as follows:\n\n1. Import and run `uvicorn`:\n\n```python\nimport uvicorn\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/\")\ndef root():\n     a = \"a\"\n     b = \"b\" + a\n     return {\"hello world\": b}\n\nif __name__ == \"__main__\":\n     uvicorn.run(app, host=\"0.0.0.0\", port=8000)\n```\n\n2. Modify the `uvicorn.run()` function to use the faster uvlloop event loop and httptools parser:\n\n```python\nimport uvicorn\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get(\"/\")\ndef root():\n     a = \"a\"\n     b = \"b\" + a\n     return {\"hello world\": b}\n\nif __name__ == \"__main__\":\n     uvicorn.run(app,",
+      "missing": [
+        "uvloop"
+      ]
+    },
+    {
+      "id": "data_ops-021",
+      "category": "settings",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.36309523809523814,
+      "score": 0.28769841269841273,
+      "latency_s": 10.696,
+      "answer": "In your test, you can set an override for the `get_settings()` function by using the `app.dependency_override` attribute. Here's an example:\n\n```python\nfrom typing import Annotaed\n\nfrom fastapi import Depends, FastAPI\nfrom fastapi.testclient import TestClient\n\napp = FastAPI()\n\n@app.get(\"/feature\")\ndef feature():\n    settings = get_settings()\n     return {\"beta\": settings.beta_enabled}\n\n# in the test\napp.dependency_override(get_settings, lambda: Settings(beta_enabled=True))\nassert client.get(\"/feature\").json() == {\"beta\": True}   # passes\n\napp.dependency_override(get_settings, lambda: Settings(beta_enabled=False))\nassert client.get(\"/feature\").json() == {\"beta\": False}   # fails\n```\n\nIn this example, the `get_settings()` function is overridden with a lambda function that sets the `beta_enabled` flag to True. This ensures that the override is applied during the test, and not during the production deployment.",
+      "missing": [
+        "dependency_overrides"
+      ]
+    },
+    {
+      "id": "data_ops-022",
+      "category": "structure",
+      "keyword_recall": 0.0,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.14782608695652175,
+      "score": 0.04927536231884058,
+      "latency_s": 5.829,
+      "answer": "Response:\n\n```\nValidation errors:\nField: ('path', 'item_id'), Error: Input should be a valid integer, unable to parse string as an integer\n```\n\nIn this case, the `item_id` parameter is not a valid integer. The error message indicates that the input value is not a valid integer, which means that it cannot be parsed as an integer using the `int()` function.",
+      "missing": [
+        "prefix",
+        "include_router"
+      ]
+    },
+    {
+      "id": "data_ops-023",
+      "category": "openapi",
+      "keyword_recall": 0.0,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.2605633802816901,
+      "score": 0.42018779342723,
+      "latency_s": 6.804,
+      "answer": "To fix the error, you need to modify the `custom_openapi()` function as follows:\n\n```python\napp.openapi = custom_openapi()\n```\n\nThis will replace the `custom_openapi()` function with the one defined in the `custom_openapi()` function.\n\nThe `custom_openapi()` function should now be called with the `app` object as the first argument, and the `openapi` parameter set to the `app.openapi()` value.\n\nThis will ensure that the `openapi` parameter is correctly set to the `app.openapi()` value, which contains the JSON schema for the FastAPI API.",
+      "missing": [
+        "get_openapi",
+        "openapi_schema"
+      ]
+    },
+    {
+      "id": "data_ops-024",
+      "category": "database",
+      "keyword_recall": 0.5,
+      "code_valid": 0.0,
+      "code_runs": null,
+      "rouge_l": 0.3033419023136247,
+      "score": 0.26778063410454156,
+      "latency_s": 10.792,
+      "answer": "To rewrite the endpoint in SQLAlchemy 2.0 style with an Annotaed session dependency, you can modify the `by_email` function to use the `get_session` function from the `FastAPI` context:\n\n```python\nfrom sqlalchemy import create_engine\nfrom sqlalchemy.orm import Session\nfrom sqlmodel import SQLModel, create_engine\n\nclass User(SQLModel):\n    id: int | None = Field(default=None, primary_key=True)\n    name: str\n\napp = FastAPI()\n\ndef get_session():\n    with Session() as session:\n        yield session.scalar(\"SELECT * FROM users\")\n\ndef get_user(user_id: int, session: Annotaed[Session, Depends(get_session)]):\n    user = session.get(User, user_id)\n    if not user:\n        raise HTTPException(status_code=403, detail=\"Not authorized\")\n    yield user\n    session.close()\n\ndef generate_stream(query: str):\n    for ch in query:",
+      "missing": [
+        "select("
+      ]
+    },
+    {
+      "id": "data_ops-025",
+      "category": "testing",
+      "keyword_recall": 0.5,
+      "code_valid": 1.0,
+      "code_runs": null,
+      "rouge_l": 0.2727272727272727,
+      "score": 0.5909090909090909,
+      "latency_s": 5.826,
+      "answer": "To fix the issue with `app.state.redis` missing in the async test, you can add the following line to the `async def test_cache()` function:\n\n```python\napp = FastAPI(lifespan=lifeSpan)\n```\n\nThis will ensure that the `app.state.redis` object is properly initialized and used in the test.",
+      "missing": [
+        "AsyncClient"
+      ]
+    }
+  ]
+}

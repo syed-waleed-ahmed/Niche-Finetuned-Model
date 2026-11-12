@@ -1,0 +1,63 @@
+# Backup origin on any small VM (Oracle Cloud Always Free Ampere A1: 2 OCPU / 12 GB
+# arm64, or any amd64 host). Three containers:
+#
+#   app          the service image (multi-arch, from GHCR)
+#   cloudflared  Cloudflare Tunnel: outbound-only connection to the edge, so the VM
+#                exposes no inbound ports and needs no TLS certificate
+#   alloy        Grafana Alloy: scrapes /metrics and ships container logs to
+#                Grafana Cloud
+#
+#   cp .env.example .env   # fill in
+#   docker compose up -d
+#
+# Pull the env for a release with:
+#   fastapi-assistant export env model-release.json >> .env
+
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/syed-waleed-ahmed/niche-finetuned-model:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_PORT: "8080"
+      # 2 OCPU on Ampere = 2 cores; leave headroom for alloy/cloudflared.
+      LLAMACPP_N_THREADS: "2"
+      MAX_CONCURRENCY: "1"
+      MAX_QUEUE: "4"
+      SENTRY_ENVIRONMENT: oracle-vm
+    volumes:
+      - models:/models/hf
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/ready', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      app: { condition: service_healthy }
+
+  alloy:
+    image: grafana/alloy:v1.21.1
+    restart: unless-stopped
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
+    env_file: .env
+    environment:
+      REPLICA_NAME: ${REPLICA_NAME:-oracle-vm}
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+
+volumes:
+  models:
+  alloy-data:

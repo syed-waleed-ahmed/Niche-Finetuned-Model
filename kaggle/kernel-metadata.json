@@ -1,0 +1,14 @@
+{
+  "id": "KAGGLE_USERNAME/fastapi-assistant-train",
+  "title": "fastapi-assistant-train",
+  "code_file": "pipeline.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

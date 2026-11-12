@@ -1,0 +1,58 @@
+# Prometheus alerting rules for the service (load into Grafana Cloud with
+# `mimirtool rules load deploy/grafana/alerts.yaml`, or import into Grafana
+# Alerting). Thresholds assume one CPU replica serving 1B-parameter models.
+namespace: fastapi-assistant
+groups:
+  - name: fastapi-assistant
+    rules:
+      - alert: AssistantHighErrorRate
+        expr: |
+          sum(rate(assistant_http_requests_total{status=~"5.."}[10m]))
+            / clamp_min(sum(rate(assistant_http_requests_total[10m])), 1e-9) > 0.05
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: More than 5% of requests are failing with 5xx
+          runbook: docs/DEPLOYMENT.md#runbook
+
+      - alert: AssistantSaturated
+        # Sustained 429s mean every replica is busy: add a replica or raise maxScale.
+        expr: sum(rate(assistant_admission_rejections_total[15m])) > 0.05
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: Requests are being shed by admission control (queue full or timeout)
+
+      - alert: AssistantSlowGenerations
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(assistant_generation_duration_seconds_bucket[15m]))) > 60
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: p95 generation latency above 60s
+
+      - alert: AssistantThroughputDrop
+        # Tokens/s per generation collapsing usually means CPU contention or
+        # a mis-set LLAMACPP_N_THREADS after a host change.
+        expr: |
+          sum(rate(assistant_generation_tokens_per_second_sum[30m]))
+            / clamp_min(sum(rate(assistant_generation_tokens_per_second_count[30m])), 1e-9) < 4
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          summary: Mean generation speed below 4 tokens/s
+
+      - alert: AssistantModelNotLoaded
+        expr: max by (replica) (assistant_model_loaded) == 0
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: A replica has been up for 10 minutes without a loaded model
+
+      - alert: AssistantTimeouts
+        expr: sum(rate(assistant_generation_finish_total{reason="timeout"}[30m])) > 0
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          summary: Generations are hitting GENERATION_TIMEOUT_S

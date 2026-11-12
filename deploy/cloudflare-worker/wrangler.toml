@@ -1,0 +1,34 @@
+# Edge layer for the fine-tuned assistant (see README.md).
+#
+# Secrets are NOT stored here. Set them once per environment:
+#   npx wrangler secret put ORIGIN_SHARED_SECRET       # same value as the origin's ORIGIN_SHARED_SECRET
+#   npx wrangler secret put UPSTASH_REDIS_REST_URL     # https://<db>.upstash.io
+#   npx wrangler secret put UPSTASH_REDIS_REST_TOKEN   # Upstash REST token (read/write)
+# Without the two Upstash secrets the Worker still proxies, but rate limiting and
+# caching are disabled. For `wrangler dev`, put the same names in a local
+# `.dev.vars` file (git-ignored).
+
+name = "fastapi-assistant-edge"
+main = "src/index.ts"
+compatibility_date = "2026-10-20"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[vars]
+# Comma-separated origin base URLs, primary first (Cloud Run, then backups).
+ORIGINS = "https://assistant-xxxxxxxxxx-uc.a.run.app,https://your-space.hf.space"
+# Requests per minute per API key, and per client IP for anonymous/public calls.
+RATE_LIMIT_PER_MINUTE = "20"
+RATE_LIMIT_PER_MINUTE_ANON = "10"
+# Shared answer cache lifetime.
+CACHE_TTL_SECONDS = "86400"
+# Per-origin wait for response headers before failing over.
+ORIGIN_TIMEOUT_MS = "60000"
+# Cache namespace: bump after retraining or changing generation defaults.
+MODEL_VERSION = "v1"
+# "true": /generate and /v1/* need X-API-Key or Authorization: Bearer at the edge.
+REQUIRE_API_KEY = "true"
+# How long an origin-accepted key may be served shared cache hits.
+KEY_VERIFIED_TTL_SECONDS = "300"

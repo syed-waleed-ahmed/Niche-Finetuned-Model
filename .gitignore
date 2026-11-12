@@ -45,3 +45,12 @@ Thumbs.db
 
 # Knowledge-graph outputs are tracked; only the regenerable cache is ignored.
 graphify-out/cache/
+
+# Local caches and generated artifacts from the CLI and pipelines
+.cache/
+build/
+kaggle-out/
+out/
+eval/.*.log
+service.rendered.yaml
+.wrangler/

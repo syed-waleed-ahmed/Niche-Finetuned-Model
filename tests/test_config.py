@@ -13,7 +13,9 @@ def test_defaults():
     assert settings.base_model_name.startswith("TinyLlama/")
     assert settings.api_port == 8000
     assert settings.model_temperature == pytest.approx(0.4)
-    assert settings.lora_target_modules == ["q_proj", "v_proj"]
+    assert settings.lora_target_modules == ["q_proj", "k_proj", "v_proj", "o_proj"]
+    assert settings.engine_backend == "transformers"
+    assert settings.auth_enabled is False
 
 
 def test_env_override(monkeypatch):

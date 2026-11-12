@@ -9,7 +9,7 @@ alignment is preserved instead of inventing a bespoke prompt format.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # avoid importing transformers at module load
@@ -20,6 +20,20 @@ SYSTEM_PROMPT = (
     "Answer questions concisely and correctly, and include minimal runnable code "
     "examples where they help. If a question is outside FastAPI, say so briefly."
 )
+
+CONTEXT_HEADER = "Context:"
+
+
+def format_user_content(question: str, context: str | None = None) -> str:
+    """Render a user turn, optionally followed by a context block.
+
+    This is the single definition of how context (a code snippet from the dataset's
+    ``input`` field, or retrieved documentation) is attached to a question.
+    """
+    content = question.strip()
+    if context and context.strip():
+        content = f"{content}\n\n{CONTEXT_HEADER}\n{context.strip()}"
+    return content
 
 
 def build_messages(question: str, context: str | None = None) -> list[dict[str, str]]:
@@ -33,14 +47,41 @@ def build_messages(question: str, context: str | None = None) -> list[dict[str, 
         A list of ``{"role": ..., "content": ...}`` messages ready for
         ``tokenizer.apply_chat_template``.
     """
-    user_content = question.strip()
-    if context:
-        user_content = f"{user_content}\n\nContext:\n{context.strip()}"
-
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
+        {"role": "user", "content": format_user_content(question, context)},
     ]
+
+
+def normalize_chat(
+    messages: Sequence[Mapping[str, str]],
+    *,
+    max_turns: int,
+    context: str | None = None,
+) -> list[dict[str, str]]:
+    """Turn a client-supplied conversation into the trained format.
+
+    * The service's own system prompt is always used; client system messages are
+      dropped, since the model was trained with exactly one system prompt.
+    * Only the most recent ``max_turns`` user/assistant messages are kept.
+    * Optional context (for example retrieved documentation) is attached to the
+      final user message in the same layout used for training examples.
+
+    Raises:
+        ValueError: if the conversation does not end with a user message.
+    """
+    turns = [
+        {"role": m["role"], "content": str(m.get("content") or "")}
+        for m in messages
+        if m.get("role") in ("user", "assistant")
+    ][-max_turns:]
+    # A trimmed window must not start with an assistant reply.
+    while turns and turns[0]["role"] != "user":
+        turns.pop(0)
+    if not turns or turns[-1]["role"] != "user":
+        raise ValueError("The conversation must end with a user message")
+    turns[-1] = {"role": "user", "content": format_user_content(turns[-1]["content"], context)}
+    return [{"role": "system", "content": SYSTEM_PROMPT}, *turns]
 
 
 def encode_chat(

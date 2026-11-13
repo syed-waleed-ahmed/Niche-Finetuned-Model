@@ -213,7 +213,11 @@ jobs:
         run: |
           export LLAMACPP_CHAT_FORMAT="${LLAMACPP_CHAT_FORMAT:-}"
           export GGUF_SHA256="${GGUF_SHA256:-}"
-          envsubst '${IMAGE} ${PROJECT_ID} ${REGION} ${MAX_INSTANCES} ${MODEL_VERSION} ${MODEL_VERSION_LABEL} ${BASE_MODEL_NAME} ${GGUF_REPO_ID} ${GGUF_FILENAME} ${GGUF_REVISION} ${GGUF_SHA256} ${FINETUNED_WEIGHTS} ${LLAMACPP_CHAT_FORMAT}' \
+          # Public demo: the repository variable PUBLIC_DEMO=true opens the API to callers
+          # without a key at the origin and (below) at the edge; anything else keeps keys
+          # required.
+          export PUBLIC_DEMO="${{ vars.PUBLIC_DEMO == 'true' && 'true' || 'false' }}"
+          envsubst '${IMAGE} ${PROJECT_ID} ${REGION} ${MAX_INSTANCES} ${MODEL_VERSION} ${MODEL_VERSION_LABEL} ${BASE_MODEL_NAME} ${GGUF_REPO_ID} ${GGUF_FILENAME} ${GGUF_REVISION} ${GGUF_SHA256} ${FINETUNED_WEIGHTS} ${LLAMACPP_CHAT_FORMAT} ${PUBLIC_DEMO}' \
             < deploy/cloudrun/service.yaml > service.rendered.yaml
           cat service.rendered.yaml
       - id: deploy
@@ -280,6 +284,7 @@ jobs:
             deploy
             --var MODEL_VERSION:${{ steps.model.outputs.version }}
             --var ORIGINS:${{ vars.EDGE_ORIGINS }}
+            --var REQUIRE_API_KEY:${{ vars.PUBLIC_DEMO == 'true' && 'false' || 'true' }}
           secrets: ${{ steps.edge-secrets.outputs.names }}
         env:
           ORIGIN_SHARED_SECRET: ${{ secrets.ORIGIN_SHARED_SECRET }}

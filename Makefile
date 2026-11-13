@@ -8,6 +8,7 @@ CLI ?= $(PY) -m fastapi_assistant
 
 help:
 	@echo "Targets:"
+	@echo "  install        Install with the serving extras"
 	@echo "  dev            Install with dev + training extras"
 	@echo "  train          Fine-tune the LoRA adapter (GPU recommended; see kaggle/)"
 	@echo "  serve          Run the HTTP API"

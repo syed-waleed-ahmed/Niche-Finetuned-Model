@@ -249,6 +249,7 @@ src/fastapi_assistant/
   evaluation.py                      eval harness and release gate
   datasets_tools.py, datagen.py      dataset validation and Claude-assisted drafting
   training.py, export.py, hub.py     fine-tuning, merge/publish, artifact resolution
+main.py                              run from a clone without installing (python main.py --serve)
 data/                                curated train/eval sets
 eval/                                baseline reports the gate compares against
 model-release.json                   the deployed model, pinned to Hub revisions
@@ -257,6 +258,9 @@ web/                                 browser playground (React + Vite), served b
 deploy/                              Cloudflare Worker, Cloud Run, VM, HF Space, Grafana
 kaggle/, scripts/                    GPU training pipeline, GGUF export
 tests/, tests/load/                  pytest suite, k6 load/smoke scenarios
+requirements/serve.txt               hash-pinned lock for the production image (make lock)
+Dockerfile, docker-compose.yml       production image; local stack with Postgres + pgvector
+graphify-out/                        generated knowledge graph of the codebase (/graphify)
 .github/workflows/                   ci, release, eval, train, uptime, codeql
 ```
 

@@ -42,7 +42,7 @@ torch = [
   "transformers>=5.20.2",
   "peft>=0.12.0",
   "accelerate>=0.33.0",
-  "sentencepiece>=0.2.0",
+  "sentencepiece>=0.2.3",
   "protobuf>=4.25.0",
 ]
 train = ["fastapi-assistant[torch]", "datasets>=5.2.0"]

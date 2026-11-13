@@ -1,6 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { LIMITS } from "../state/settings";
+import { ArrowUpIcon, StopIcon } from "./Icons";
 
 interface Props {
   draft: string;
@@ -9,9 +10,13 @@ interface Props {
   onStop: () => void;
   busy: boolean;
   disabled: boolean;
+  /** Replaces the keyboard hint, for example when a key must be added first. */
+  hint?: string | null;
 }
 
-export function Composer({ draft, onDraft, onSend, onStop, busy, disabled }: Props) {
+const KEYBOARD_HINT = "Enter to send, Shift+Enter for a new line.";
+
+export function Composer({ draft, onDraft, onSend, onStop, busy, disabled, hint = null }: Props) {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const over = draft.length > LIMITS.questionChars;
   const canSend = !busy && !disabled && draft.trim().length > 0 && !over;
@@ -56,21 +61,26 @@ export function Composer({ draft, onDraft, onSend, onStop, busy, disabled }: Pro
             onChange={(e) => onDraft(e.target.value)}
             onKeyDown={onKeyDown}
             disabled={disabled}
+            aria-describedby="composer-hint"
             autoFocus
           />
           {busy ? (
-            <button type="button" className="btn btn--danger" onClick={onStop}>
+            <button type="button" className="btn btn--stop composer__button" onClick={onStop}>
+              <StopIcon size={14} />
               Stop
             </button>
           ) : (
-            <button type="submit" className="btn btn--primary" disabled={!canSend}>
+            <button type="submit" className="btn btn--primary composer__button" disabled={!canSend}>
+              <ArrowUpIcon size={16} />
               Send
             </button>
           )}
         </div>
         <div className="composer__hint">
-          <span>Enter to send, Shift+Enter for a new line.</span>
-          <span className={over ? "over" : ""}>
+          <span id="composer-hint" className={hint ? "composer__notice" : "composer__keys"}>
+            {hint ?? KEYBOARD_HINT}
+          </span>
+          <span className={`composer__count ${over ? "over" : ""}`}>
             {draft.length} / {LIMITS.questionChars}
           </span>
         </div>

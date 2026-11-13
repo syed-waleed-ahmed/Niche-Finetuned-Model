@@ -1,24 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import type { Turn } from "../state/conversation";
 import { Message } from "./Message";
 
-export const EXAMPLE_QUESTIONS = [
-  "How do I return a 201 status code from a POST endpoint?",
-  "What does Depends do and when should I use it?",
-  "How do I validate a request body with a Pydantic model?",
-  "How do I add a background task to a route?",
-  "How do I serve static files?",
-  "How do I write a test for an async endpoint with TestClient?",
-];
-
 interface Props {
   turns: Turn[];
   onRate: (turnId: string, rating: 1 | -1, comment?: string) => Promise<string | null>;
-  onPick: (question: string) => void;
+  /** Rendered while the conversation is empty. */
+  welcome: ReactNode;
 }
 
-export function MessageList({ turns, onRate, onPick }: Props) {
+export function MessageList({ turns, onRate, welcome }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
 
@@ -48,29 +40,13 @@ export function MessageList({ turns, onRate, onPick }: Props) {
     pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
   };
 
+  const empty = turns.length === 0;
+  // No aria-live here: announcing every streamed token is noise. App owns a polite
+  // live region that reports when an answer starts and finishes instead.
   return (
-    <div className="messages" ref={scroller} onScroll={onScroll} role="log" aria-live="polite">
-      <div className="messages__inner">
-        {turns.length === 0 ? (
-          <div className="empty">
-            <h2>Ask anything about FastAPI</h2>
-            <p>
-              Answers come from a small (1.1B-parameter) language model, streamed token by token,
-              with the documentation passages they were grounded on. The badge above shows
-              whether the fine-tuned or the base model is serving. Check answers against the
-              cited sources.
-            </p>
-            <div className="chips" aria-label="Example questions">
-              {EXAMPLE_QUESTIONS.map((q) => (
-                <button key={q} type="button" className="chip" onClick={() => onPick(q)}>
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          turns.map((turn) => <Message key={turn.id} turn={turn} onRate={onRate} />)
-        )}
+    <div className="messages" ref={scroller} onScroll={onScroll}>
+      <div className={`messages__inner ${empty ? "messages__inner--empty" : ""}`}>
+        {empty ? welcome : turns.map((turn) => <Message key={turn.id} turn={turn} onRate={onRate} />)}
       </div>
     </div>
   );

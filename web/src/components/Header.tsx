@@ -1,42 +1,72 @@
+import type { Ref } from "react";
+
 import type { HealthState } from "../hooks/useHealth";
+import { DOCS_URL, GITHUB_URL } from "../links";
+import type { ThemePreference } from "../state/theme";
+import { ExternalLink } from "./ExternalLink";
+import { Logo, SlidersIcon } from "./Icons";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface Props {
   health: HealthState;
+  apiDocsUrl: string;
+  theme: ThemePreference;
+  onTheme: (theme: ThemePreference) => void;
   onOpenSettings: () => void;
-  docsUrl: string;
+  /** Set while the side panel is an off-canvas drawer: the button then reports its state. */
+  drawer: { open: boolean; controls: string } | null;
+  settingsRef: Ref<HTMLButtonElement>;
+  /** True while a modal drawer is open: the header is then out of reach. */
+  inert: boolean;
 }
 
-export function Header({ health, onOpenSettings, docsUrl }: Props) {
+export function Header({
+  health,
+  apiDocsUrl,
+  theme,
+  onTheme,
+  onOpenSettings,
+  drawer,
+  settingsRef,
+  inert,
+}: Props) {
   return (
-    <header className="header">
+    <header className="header" inert={inert}>
       <div className="brand">
-        <svg className="brand__logo" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="7" fill="var(--accent)" />
-          <path d="M17.5 5 9 18h6l-1.5 9L23 14h-6z" fill="var(--accent-fg)" />
-        </svg>
-        <div>
-          <div className="brand__title">FastAPI Assistant</div>
-          <div className="brand__subtitle">A small language model that answers FastAPI questions</div>
+        <Logo className="brand__logo" />
+        <div className="brand__text">
+          <h1 className="brand__title">FastAPI Assistant</h1>
+          <p className="brand__subtitle">A small language model for FastAPI questions</p>
         </div>
       </div>
-      <div className="header__spacer" />
       <HealthBadge state={health} />
-      <nav className="header__links" aria-label="Links">
-        <a className="btn btn--ghost btn--sm" href={docsUrl} target="_blank" rel="noreferrer noopener">
-          API docs
-        </a>
-        <a
-          className="btn btn--ghost btn--sm"
-          href="https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model"
-          target="_blank"
-          rel="noreferrer noopener"
-        >
+      <div className="header__spacer" />
+      <nav className="header__links" aria-label="Project links">
+        <ExternalLink className="header__link" href={DOCS_URL}>
+          Docs
+        </ExternalLink>
+        <ExternalLink className="header__link" href={GITHUB_URL}>
           GitHub
-        </a>
-        <button type="button" className="btn btn--sm" onClick={onOpenSettings}>
-          Settings
-        </button>
+        </ExternalLink>
+        <ExternalLink className="header__link" href={apiDocsUrl}>
+          API docs
+        </ExternalLink>
       </nav>
+      <div className="header__actions">
+        <ThemeToggle theme={theme} onTheme={onTheme} />
+        <button
+          ref={settingsRef}
+          type="button"
+          className="btn header__settings"
+          onClick={onOpenSettings}
+          {...(drawer
+            ? { "aria-expanded": drawer.open, "aria-controls": drawer.controls, "aria-haspopup": "dialog" as const }
+            : {})}
+        >
+          <SlidersIcon size={16} />
+          <span>Settings</span>
+        </button>
+      </div>
     </header>
   );
 }
@@ -44,14 +74,14 @@ export function Header({ health, onOpenSettings, docsUrl }: Props) {
 export function HealthBadge({ state }: { state: HealthState }) {
   if (!state.health && !state.error) {
     return (
-      <span className="badge" title="Checking /health">
+      <span className="badge header__badge" title="Checking /health">
         <span className="badge__dot" /> checking
       </span>
     );
   }
   if (state.error && !state.health) {
     return (
-      <span className="badge badge--danger" title={state.error}>
+      <span className="badge badge--danger header__badge" title={state.error}>
         <span className="badge__dot" /> unreachable
       </span>
     );
@@ -61,13 +91,16 @@ export function HealthBadge({ state }: { state: HealthState }) {
   const detail = `${h.backend || "backend"} - ${h.model_version || "model"}${h.load_state ? ` - ${h.load_state}` : ""}`;
   if (!h.model_loaded) {
     return (
-      <span className="badge badge--warn" title={detail}>
+      <span className="badge badge--warn header__badge" title={detail}>
         <span className="badge__dot" /> loading weights
       </span>
     );
   }
   return (
-    <span className={`badge ${state.error ? "badge--warn" : "badge--ok"}`} title={state.error ?? detail}>
+    <span
+      className={`badge ${state.error ? "badge--warn" : "badge--ok"} header__badge`}
+      title={state.error ?? detail}
+    >
       <span className="badge__dot" /> {h.model_version || "ready"}
       {h.uses_adapter ? "" : " (base model)"}
     </span>

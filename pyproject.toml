@@ -38,7 +38,10 @@ dependencies = [
 [project.optional-dependencies]
 # transformers + LoRA backend (GPU serving, merge/export).
 torch = [
-  "torch>=2.14.1",
+  # A low floor on purpose: GPU images (Kaggle, Colab) ship a CUDA build of torch
+  # matched to their torchvision, and a higher floor makes pip replace it with a
+  # generic wheel that breaks torchvision (and transformers through it).
+  "torch>=2.2.0",
   "transformers>=5.20.2",
   "peft>=0.21.2",
   "accelerate>=0.33.0",

@@ -60,6 +60,20 @@ def secret(name: str) -> str | None:
         return None
 
 
+def _preinstalled_pins(packages: tuple[str, ...]) -> str:
+    """`name==version` lines for each package already installed (constraints format)."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    lines = []
+    for name in packages:
+        try:
+            lines.append(f"{name}=={version(name)}")
+        except PackageNotFoundError:
+            continue
+    print("Keeping preinstalled:", ", ".join(lines) or "none", flush=True)
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     WORK.mkdir(parents=True, exist_ok=True)
     if not SRC.exists():
@@ -75,8 +89,11 @@ def main() -> int:
         ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
     version = f"v{dt.date.today():%Y.%m.%d}-{sha}"
-    # Kaggle images ship CUDA torch; the train extra keeps it (torch>=2.2 is satisfied).
-    sh(sys.executable, "-m", "pip", "install", "--quiet", "-e", ".[train]")
+    # Kaggle images ship a CUDA torch with a torchvision built for exactly that version.
+    # Pin whatever is preinstalled so installing the train extra can never replace it.
+    constraints = WORK / "preinstalled-torch.txt"
+    constraints.write_text(_preinstalled_pins(("torch", "torchvision", "torchaudio")))
+    sh(sys.executable, "-m", "pip", "install", "--quiet", "-c", str(constraints), "-e", ".[train]")
 
     adapter_dir = WORK / "adapter"
     env = {

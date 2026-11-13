@@ -3,6 +3,10 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule: { interval: weekly }
+    # pyproject.toml holds minimum versions (a library-style range), not pins.
+    # Raising a floor only when the current one no longer allows the latest release
+    # keeps GPU images' preinstalled CUDA torch usable (see pyproject.toml).
+    versioning-strategy: increase-if-necessary
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]

@@ -25,7 +25,13 @@ import { readBodyCapped } from "./body";
 import { DEFAULTS, loadConfig, type Config, type Env } from "./config";
 import { jsonError, sanitizeRequestId, sanitizeResponseHeaders, SECURITY_HEADERS } from "./http";
 import { clientIp, extractApiKey, ipIdentity, keyIdentity, type Identity } from "./identity";
-import { buildForwardHeaders, CircuitBreaker, forwardWithFailover, rewriteLocation } from "./proxy";
+import {
+  buildForwardHeaders,
+  CircuitBreaker,
+  forwardWithFailover,
+  RETRYABLE_STATUSES,
+  rewriteLocation,
+} from "./proxy";
 import {
   evaluateRateLimit,
   LocalRateLimiter,
@@ -76,6 +82,7 @@ interface RequestLog {
   cache: CacheStatus | null;
   rl_identity: Identity["type"] | null;
   rl_scope?: "redis" | "local";
+  upstream_normalized?: boolean;
   origin_index: number | null;
   skipped_origins?: number[];
   attempts: number;
@@ -94,6 +101,9 @@ const defaultDeps: Deps = {
 };
 
 const decoder = new TextDecoder();
+
+/** Retry hint for platform-generated 429/5xx that carry none (a new instance warming). */
+const PLATFORM_RETRY_AFTER_SECONDS = 10;
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -311,6 +321,32 @@ async function handle(
     }
     const message = config.origins.length ? "No origin available" : "No origin configured";
     return jsonError(502, message, "upstream_unavailable", errorHeaders);
+  }
+
+  // The platform in front of the origin (e.g. Cloud Run's front end while it scales
+  // out) can answer 429/5xx itself, as plain text without Retry-After. Clients get the
+  // same JSON error shape and a retry hint whichever layer refused the request.
+  if (
+    RETRYABLE_STATUSES.has(upstream.status) &&
+    !isJsonContentType(upstream.headers.get("content-type"))
+  ) {
+    log.upstream_normalized = true;
+    await upstream.body?.cancel();
+    const retryAfter = upstream.headers.get("retry-after") ?? String(PLATFORM_RETRY_AFTER_SECONDS);
+    return jsonError(
+      upstream.status,
+      upstream.status === 429
+        ? "The service is at capacity. Retry after " + retryAfter + " s."
+        : "The origin is temporarily unavailable. Retry after " + retryAfter + " s.",
+      upstream.status === 429 ? "overloaded" : "upstream_unavailable",
+      {
+        ...idHeader,
+        ...rlHeaders,
+        "x-cache": cacheStatus,
+        "x-served-by": "origin-" + result.originIndex,
+        "retry-after": retryAfter,
+      },
+    );
   }
 
   // Cache write-back (MISS only): answer on 200 JSON, key marker on any 2xx.

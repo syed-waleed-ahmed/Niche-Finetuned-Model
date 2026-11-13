@@ -59,6 +59,8 @@ dev = [
   "pytest-cov>=7.1.0",
   "ruff>=0.6.0",
   "mypy>=2.4.0",
+  # examples/openai_sdk.py is run by tests/test_examples.py
+  "openai>=1.40.0",
 ]
 
 [project.scripts]

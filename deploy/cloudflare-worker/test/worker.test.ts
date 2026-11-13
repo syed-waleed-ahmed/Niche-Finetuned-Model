@@ -635,3 +635,39 @@ describe("response headers", () => {
     expect(hit.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });
+
+describe("platform errors from the origin's host", () => {
+  it("turns a plain-text 429 into the JSON error shape with Retry-After", async () => {
+    const origin = mockFetch({
+      [ORIGIN_0]: () => new Response("Rate exceeded.", { status: 429, headers: { "content-type": "text/plain" } }),
+    });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() }, baseEnv({ ORIGINS: ORIGIN_0 }));
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("10");
+    expect(res.headers.get("content-type")).toBe("application/json");
+    expect(await res.json()).toMatchObject({ error: { type: "overloaded" } });
+    expect(h.logs[0]).toMatchObject({ upstream_normalized: true });
+  });
+
+  it("keeps the origin's own Retry-After when present", async () => {
+    const origin = mockFetch({
+      [ORIGIN_0]: () => new Response("unavailable", { status: 503, headers: { "retry-after": "30" } }),
+    });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() }, baseEnv({ ORIGINS: ORIGIN_0 }));
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("30");
+    expect(await res.json()).toMatchObject({ error: { type: "upstream_unavailable" } });
+  });
+
+  it("passes the application's own JSON 429 through untouched", async () => {
+    const body = { detail: "Queue full", extra: 1 };
+    const origin = mockFetch({ [ORIGIN_0]: () => json(body, 429, { "retry-after": "3" }) });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() }, baseEnv({ ORIGINS: ORIGIN_0 }));
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("3");
+    expect(await res.json()).toEqual(body);
+  });
+});

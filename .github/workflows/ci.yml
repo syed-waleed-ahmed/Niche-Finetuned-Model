@@ -34,8 +34,8 @@ jobs:
           pip install -e ".[dev,train,postgres]"
       - name: Lint
         run: |
-          ruff check src tests
-          ruff format --check src tests
+          ruff check src tests examples
+          ruff format --check src tests examples
       - name: Type check
         if: matrix.python-version == '3.11'
         run: mypy

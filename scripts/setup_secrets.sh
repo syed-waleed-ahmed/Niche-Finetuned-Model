@@ -3,6 +3,8 @@
 # Windows), after `wrangler login` (deploy/cloudflare-worker) and `gh auth login`:
 #
 #   bash scripts/setup_secrets.sh
+#   bash scripts/setup_secrets.sh --non-interactive   # skip all prompts; save the
+#                                                     # API key to a private file
 #
 # Everything you can paste is optional: press Enter to skip, and re-run later to
 # add it. With nothing pasted you still get a working, locked-down deployment.
@@ -21,6 +23,9 @@
 # Run. No value is printed except your API key.
 set -euo pipefail
 
+NON_INTERACTIVE=false
+[ "${1:-}" = "--non-interactive" ] && NON_INTERACTIVE=true
+
 REPO=${REPO:-syed-waleed-ahmed/Niche-Finetuned-Model}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORKER_DIR="$ROOT/deploy/cloudflare-worker"
@@ -35,6 +40,7 @@ generate() { "$PY" -c "import secrets, sys; sys.stdout.write(secrets.token_hex($
 
 ask() {  # ask "Prompt" -> value on stdout, input hidden, may be empty
   local value
+  if [ "$NON_INTERACTIVE" = true ]; then return 0; fi
   read -r -s -p "$1 (Enter to skip): " value
   echo >&2
   printf '%s' "$value"
@@ -102,8 +108,13 @@ to_github SMOKE_API_KEY "$smoke_key"
 unset smoke_key
 
 echo
-echo "Your API key (shown once; paste it into the web UI's Settings):"
-echo "  $api_key"
+if [ "$NON_INTERACTIVE" = true ]; then
+  printf '%s' "$api_key" > "$PRIVATE_DIR/api_key" && chmod 600 "$PRIVATE_DIR/api_key" 2>/dev/null || true
+  echo "Your API key was saved to $PRIVATE_DIR/api_key (not printed)."
+else
+  echo "Your API key (shown once; paste it into the web UI's Settings):"
+  echo "  $api_key"
+fi
 unset api_key
 echo
 echo "Done. Tell Claude 'secrets done' (or re-run the Release workflow) to deploy."

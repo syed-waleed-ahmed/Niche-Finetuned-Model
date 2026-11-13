@@ -18,6 +18,7 @@ Outputs in /kaggle/working:
 from __future__ import annotations
 
 import datetime as dt
+import importlib
 import json
 import os
 import subprocess
@@ -97,6 +98,11 @@ def main() -> int:
     # The image's optional torchao is older than peft accepts, and peft refuses to apply
     # LoRA while it is installed. Nothing in this pipeline uses torchao.
     sh(sys.executable, "-m", "pip", "uninstall", "--quiet", "-y", "torchao")
+    # The editable install above registers src/ for interpreters started from now on,
+    # not for this already-running one. Steps that import the package in this process
+    # (the GGUF checksum and the release manifest, below) need it on sys.path directly.
+    sys.path.insert(0, str(SRC / "src"))
+    importlib.invalidate_caches()
 
     adapter_dir = WORK / "adapter"
     env = {

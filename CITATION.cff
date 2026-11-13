@@ -10,12 +10,12 @@ abstract: >-
   set, and a production service with a native and an OpenAI-compatible HTTP API,
   streaming, optional retrieval over the FastAPI documentation, per-user API keys,
   bounded admission control, and an edge layer with caching and origin failover.
-  The currently deployed model is the base TinyLlama-1.1B-Chat-v1.0 (Q4_K_M GGUF),
-  not yet fine-tuned.
+  The deployed model is the first fine-tuned release, v2026.11.13-2b04940, a LoRA
+  fine-tune of TinyLlama-1.1B-Chat-v1.0 served as a Q4_K_M GGUF.
 authors:
   - family-names: Ahmed
     given-names: Syed Waleed
-version: 2.1.0
+version: 2.2.0
 date-released: "2026-11-13"
 license: MIT
 repository-code: "https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model"

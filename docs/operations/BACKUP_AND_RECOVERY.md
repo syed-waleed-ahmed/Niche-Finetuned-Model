@@ -154,10 +154,12 @@ Instances that are already running keep serving until Cloud Run stops them.
   The Worker already holds the matching origin secret.
 - **Both lost.** Run `bash scripts/setup_secrets.sh` (it generates everything new),
   then Release, then give clients the new API key.
-- **Adding Upstash or Neon later.** Re-running `setup_secrets.sh` rotates every
-  generated secret. Set only the new values instead:
-  - Upstash: `wr secret put UPSTASH_REDIS_REST_URL`, `wr secret put UPSTASH_REDIS_REST_TOKEN`,
-    and `gh secret set` for both;
+- **Adding Upstash or Neon later.** Re-running `setup_secrets.sh` without options
+  rotates every generated secret. Run `bash scripts/setup_secrets.sh --storage-only`
+  instead, then Release: it asks only for those values and rotates nothing. By hand,
+  the equivalent is:
+  - Upstash: `gh secret set` for `UPSTASH_REDIS_REST_URL` and
+    `UPSTASH_REDIS_REST_TOKEN` (Release uploads both to the Worker);
   - Neon: `gh secret set DATABASE_URL`, then `"$PY" -m fastapi_assistant db migrate`
     with `DATABASE_URL` exported.
 

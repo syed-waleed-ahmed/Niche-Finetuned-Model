@@ -72,10 +72,22 @@ bash scripts/setup_secrets.sh
 It generates the origin secret, the metrics token, and your API key (printed once),
 then optionally asks (hidden input) for the Upstash REST URL/token and the Neon
 `DATABASE_URL`. Press Enter to skip either: the service then runs with your static
-key and no edge cache, and re-running the script later adds them. Values go to the
-Worker and GitHub's encrypted secrets; with a database it also applies migrations
-and issues a smoke-test key. On every deploy, Release copies the GitHub secrets into
-Google Secret Manager for Cloud Run, adding a version only when a value changed.
+key and no edge cache. Values go to the Worker and GitHub's encrypted secrets; with a
+database it also applies migrations and issues a smoke-test key. On every deploy,
+Release copies the GitHub secrets into Google Secret Manager for Cloud Run, adding a
+version only when a value changed.
+
+A full run generates new secrets every time, so do not re-run it on a working
+deployment just to add Upstash or Neon: it would rotate the origin secret and your
+API key. Use the storage-only mode instead, then run Release:
+
+```bash
+bash scripts/setup_secrets.sh --storage-only
+```
+
+It asks only for the Upstash and Neon values, sets them as GitHub secrets (Release
+uploads the Upstash pair to the Worker and `DATABASE_URL` to Secret Manager), and
+rotates nothing. It needs `gh auth login` only.
 
 ## 3. Database (Neon)
 

@@ -24,6 +24,9 @@ def _kernel_output(root: Path, *, published: bool = False) -> Path:
     (out / "eval-finetuned.json").write_text(
         json.dumps({"summary": {"score": 0.538, "items": 108}}), encoding="utf-8"
     )
+    (out / "eval-base.json").write_text(
+        json.dumps({"summary": {"score": 0.3834, "items": 108}}), encoding="utf-8"
+    )
     manifest = {
         "model_version": "v2026.11.13-abc1234",
         "created_at": "2026-11-13T18:43:49+00:00",
@@ -75,6 +78,10 @@ def test_publishes_both_artifacts_and_completes_the_manifest(tmp_path):
     # Model cards and Apache-2.0 notices are written before the upload.
     assert (out / "gguf" / "NOTICE").is_file()
     assert "Apache License 2.0" in (out / "adapter" / "README.md").read_text(encoding="utf-8")
+    # The cards compare against the base model and show how to load this exact release.
+    gguf_card = (out / "gguf" / "README.md").read_text(encoding="utf-8")
+    assert "| Composite score | 0.538 | 0.383 |" in gguf_card
+    assert '"someone/fastapi-assistant-gguf", "model-Q4_K_M.gguf"' in gguf_card
 
 
 def test_already_published_manifest_is_left_alone(tmp_path):

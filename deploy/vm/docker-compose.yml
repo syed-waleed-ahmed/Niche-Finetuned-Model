@@ -47,7 +47,7 @@ services:
       app: { condition: service_healthy }
 
   alloy:
-    image: grafana/alloy:v1.21.1
+    image: grafana/alloy:v1.21.3
     restart: unless-stopped
     command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data"]
     env_file: .env

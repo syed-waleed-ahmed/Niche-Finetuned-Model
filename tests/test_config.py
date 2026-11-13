@@ -43,12 +43,16 @@ def test_derived_paths():
 
 def test_sentry_placeholder_does_not_initialize(monkeypatch):
     """The Cloud Run spec always mounts sentry-dsn; a non-URL value keeps Sentry off."""
-    import sentry_sdk
+    import sys
+    import types
 
     from fastapi_assistant.api import _init_sentry
 
     calls = []
-    monkeypatch.setattr(sentry_sdk, "init", lambda **kw: calls.append(kw))
+    # sentry-sdk is an optional extra; a stand-in module keeps the test hermetic.
+    fake = types.ModuleType("sentry_sdk")
+    fake.init = lambda **kw: calls.append(kw)
+    monkeypatch.setitem(sys.modules, "sentry_sdk", fake)
     for value in (None, "", "disabled"):
         _init_sentry(Settings(_env_file=None, sentry_dsn=value))
     assert calls == []

@@ -1,0 +1,20 @@
+{
+  "name": "fastapi-assistant-edge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker edge layer for the fine-tuned assistant: rate limiting, shared answer cache, origin failover and origin lock-down.",
+  "type": "module",
+  "scripts": {
+    "test": "node ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node ./node_modules/vitest/vitest.mjs",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "dev": "node ./node_modules/wrangler/bin/wrangler.js dev",
+    "deploy": "node ./node_modules/wrangler/bin/wrangler.js deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261026.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "wrangler": "4.153.0"
+  }
+}

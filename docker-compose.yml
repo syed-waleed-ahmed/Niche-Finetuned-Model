@@ -1,0 +1,44 @@
+# Local full stack: the service, Postgres with pgvector, and a one-shot migration.
+#
+#   docker compose up --build
+#   docker compose run --rm app fastapi-assistant keys create local-dev
+#
+# Mirrors production (Neon Postgres + llama.cpp image) closely enough to test
+# per-user keys, usage recording, and pgvector retrieval end to end.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: assistant
+      POSTGRES_PASSWORD: assistant
+      POSTGRES_DB: assistant
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assistant"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["fastapi-assistant", "db", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://assistant:assistant@db:5432/assistant
+    depends_on:
+      db: { condition: service_healthy }
+
+  app:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      DATABASE_URL: postgresql://assistant:assistant@db:5432/assistant
+      MAX_CONCURRENCY: "1"
+      MAX_QUEUE: "8"
+    volumes: ["models:/models/hf"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  models:

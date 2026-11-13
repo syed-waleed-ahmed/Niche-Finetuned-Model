@@ -1,0 +1,10 @@
+# Dependencies (package-lock.json IS committed)
+node_modules/
+
+# Build output (served by the edge Worker as static assets; built in CI)
+dist/
+
+# Tooling output
+coverage/
+*.log
+.vite/

@@ -12,7 +12,10 @@ padded per-batch by the data collator (see :mod:`fastapi_assistant.training`).
 
 from __future__ import annotations
 
-from datasets import DatasetDict, load_dataset
+import json
+from pathlib import Path
+
+from datasets import Dataset, DatasetDict
 from transformers import PreTrainedTokenizerBase
 
 from .config import Settings
@@ -21,16 +24,27 @@ from .prompts import build_messages, encode_chat
 # Loss ignore index used by PyTorch's cross-entropy and HF collators.
 IGNORE_INDEX = -100
 
+# Training only needs these fields; eval rows also carry id/category/must_include.
+SFT_FIELDS = ("instruction", "input", "output")
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    with path.open(encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
 
 def load_raw_dataset(settings: Settings) -> DatasetDict:
-    """Load the train/eval JSONL splits as a :class:`~datasets.DatasetDict`."""
-    return load_dataset(
-        "json",
-        data_files={
-            "train": str(settings.train_path),
-            "eval": str(settings.eval_path),
-        },
-    )
+    """Load the train/eval JSONL splits as a :class:`~datasets.DatasetDict`.
+
+    Rows are projected to the SFT fields so the eval split's benchmark metadata
+    does not leak into tokenization or batching.
+    """
+
+    def _split(path: Path) -> Dataset:
+        rows = [{k: str(row.get(k) or "") for k in SFT_FIELDS} for row in read_jsonl(path)]
+        return Dataset.from_list(rows)
+
+    return DatasetDict(train=_split(settings.train_path), eval=_split(settings.eval_path))
 
 
 def build_tokenize_fn(tokenizer: PreTrainedTokenizerBase, settings: Settings):

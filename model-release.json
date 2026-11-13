@@ -1,0 +1,15 @@
+{
+  "model_version": "base-tinyllama-q4km",
+  "created_at": "2026-11-12T00:00:00+00:00",
+  "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "finetuned": false,
+  "chat_format": "zephyr",
+  "adapter": null,
+  "gguf": {
+    "repo_id": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+    "filename": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+    "revision": "52e7645ba7c309695bec7ac98f4f005b139cf465"
+  },
+  "eval": null,
+  "notes": "Bootstrap release: the public base model, not yet fine-tuned. The training pipeline (kaggle/pipeline.py) replaces this file with a pinned fine-tuned release."
+}

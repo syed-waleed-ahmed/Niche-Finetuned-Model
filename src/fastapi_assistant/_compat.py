@@ -21,3 +21,13 @@ def dtype_kwargs(dtype) -> dict:
     """
     key = "dtype" if _major_version() >= 5 else "torch_dtype"
     return {key: dtype}
+
+
+def warmup_kwargs(ratio: float) -> dict:
+    """Return the ``TrainingArguments`` kwarg for a warmup *ratio*.
+
+    transformers 5.x removed ``warmup_ratio``; ``warmup_steps`` now accepts a float
+    in [0, 1) that is interpreted as a ratio of total steps.
+    """
+    key = "warmup_steps" if _major_version() >= 5 else "warmup_ratio"
+    return {key: ratio}

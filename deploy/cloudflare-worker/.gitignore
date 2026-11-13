@@ -1,0 +1,12 @@
+# Dependencies (package-lock.json IS committed)
+node_modules/
+
+# Wrangler local state, build output and local secrets
+.wrangler/
+dist/
+.dev.vars
+.dev.vars.*
+
+# Tooling output
+coverage/
+*.log

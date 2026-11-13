@@ -1,0 +1,80 @@
+# Cloud Run service (primary origin). Rendered by .github/workflows/release.yml with
+# envsubst; ${...} values come from repository variables and model-release.json.
+#
+# Free-tier posture:
+#   * request-based billing (cpu-throttling "true"): billed only while serving
+#     requests, which is what the monthly free vCPU-seconds cover;
+#   * minScale 0: scales to zero when idle;
+#   * maxScale caps the worst-case bill. It is the only hard spending limit, since
+#     budget alerts notify but do not stop spending.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: fastapi-assistant
+  labels:
+    cloud.googleapis.com/location: ${REGION}
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      labels:
+        model-version: ${MODEL_VERSION_LABEL}
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "${MAX_INSTANCES}"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      # One generation runs per instance (MAX_CONCURRENCY=1); three more may queue
+      # inside the app. Beyond that the app answers 429 and the edge fails over.
+      containerConcurrency: 4
+      timeoutSeconds: 300
+      serviceAccountName: fastapi-assistant-run@${PROJECT_ID}.iam.gserviceaccount.com
+      containers:
+        - name: app
+          image: ${IMAGE}
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          env:
+            - { name: MODEL_VERSION, value: "${MODEL_VERSION}" }
+            - { name: BASE_MODEL_NAME, value: "${BASE_MODEL_NAME}" }
+            - { name: ENGINE_BACKEND, value: "llamacpp" }
+            - { name: GGUF_REPO_ID, value: "${GGUF_REPO_ID}" }
+            - { name: GGUF_FILENAME, value: "${GGUF_FILENAME}" }
+            - { name: GGUF_REVISION, value: "${GGUF_REVISION}" }
+            - { name: FINETUNED_WEIGHTS, value: "${FINETUNED_WEIGHTS}" }
+            - { name: LLAMACPP_CHAT_FORMAT, value: "${LLAMACPP_CHAT_FORMAT}" }
+            - { name: LLAMACPP_N_THREADS, value: "2" }
+            - { name: MAX_CONCURRENCY, value: "1" }
+            - { name: MAX_QUEUE, value: "3" }
+            - { name: QUEUE_TIMEOUT_S, value: "60" }
+            - { name: RAG_ENABLED, value: "false" }  # opt-in per request; see eval/
+            - { name: SENTRY_ENVIRONMENT, value: "cloud-run" }
+            - name: ORIGIN_SHARED_SECRET
+              valueFrom: { secretKeyRef: { name: origin-shared-secret, key: latest } }
+            # Static owner key; per-user keys come from Postgres when DATABASE_URL is set.
+            - name: API_KEY
+              valueFrom: { secretKeyRef: { name: api-key, key: latest } }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: database-url, key: latest } }
+            - name: METRICS_TOKEN
+              valueFrom: { secretKeyRef: { name: metrics-token, key: latest } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: sentry-dsn, key: latest } }
+          startupProbe:
+            # /ready is 503 until the GGUF is downloaded and loaded.
+            httpGet: { path: /ready, port: 8080 }
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 48
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 30
+            timeoutSeconds: 5

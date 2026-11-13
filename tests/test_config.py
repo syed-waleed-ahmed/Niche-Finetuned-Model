@@ -13,7 +13,9 @@ def test_defaults():
     assert settings.base_model_name.startswith("TinyLlama/")
     assert settings.api_port == 8000
     assert settings.model_temperature == pytest.approx(0.4)
-    assert settings.lora_target_modules == ["q_proj", "v_proj"]
+    assert settings.lora_target_modules == ["q_proj", "k_proj", "v_proj", "o_proj"]
+    assert settings.engine_backend == "transformers"
+    assert settings.auth_enabled is False
 
 
 def test_env_override(monkeypatch):
@@ -37,3 +39,33 @@ def test_derived_paths():
     assert settings.train_path.name == "fastapi_qa_train.jsonl"
     assert settings.eval_path.name == "fastapi_qa_eval.jsonl"
     assert settings.train_path.parent == settings.data_dir
+
+
+def test_sentry_placeholder_does_not_initialize(monkeypatch):
+    """The Cloud Run spec always mounts sentry-dsn; a non-URL value keeps Sentry off."""
+    import sys
+    import types
+
+    from fastapi_assistant.api import _init_sentry
+
+    calls = []
+    # sentry-sdk is an optional extra; a stand-in module keeps the test hermetic.
+    fake = types.ModuleType("sentry_sdk")
+    fake.init = lambda **kw: calls.append(kw)
+    monkeypatch.setitem(sys.modules, "sentry_sdk", fake)
+    for value in (None, "", "disabled"):
+        _init_sentry(Settings(_env_file=None, sentry_dsn=value))
+    assert calls == []
+    _init_sentry(Settings(_env_file=None, sentry_dsn="https://key@o1.ingest.sentry.io/1"))
+    assert len(calls) == 1
+
+
+def test_optional_secret_placeholders_mean_unset():
+    for value in ("disabled", "", "None", " null "):
+        settings = Settings(_env_file=None, database_url=value, sentry_dsn=value, api_key=value)
+        assert settings.database_url is None
+        assert settings.sentry_dsn is None
+        assert settings.api_key is None
+        assert settings.auth_enabled is False
+    real = Settings(_env_file=None, database_url="postgresql://u:p@h/db")
+    assert real.database_url == "postgresql://u:p@h/db"

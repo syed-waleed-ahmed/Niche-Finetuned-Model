@@ -1,0 +1,58 @@
+// Grafana Alloy agent for the VM origin: Prometheus metrics and container logs to
+// Grafana Cloud (free tier: 10k series, 50 GB logs, 14-day retention).
+// Endpoints and credentials come from .env (Grafana Cloud > your stack > Details).
+
+prometheus.scrape "assistant" {
+  targets         = [{"__address__" = "app:8080", "service" = "fastapi-assistant"}]
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  bearer_token    = sys.env("METRICS_TOKEN")
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_PROM_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+
+  external_labels = {
+    replica = sys.env("REPLICA_NAME"),
+  }
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.grafana_cloud.receiver]
+  labels     = {replica = sys.env("REPLICA_NAME")}
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOKI_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}

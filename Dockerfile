@@ -1,38 +1,96 @@
-# syntax=docker/dockerfile:1
-FROM python:3.11-slim AS runtime
+# syntax=docker/dockerfile:1.7
+#
+# Production image: FastAPI service + llama.cpp (quantized GGUF on CPU).
+# No torch, no compiler in the final image. Builds for linux/amd64 and linux/arm64
+# (Oracle Ampere) from the same file.
+#
+#   docker build -t fastapi-assistant .
+#   docker build --build-arg BAKE_MODEL=true -t fastapi-assistant:baked .   # weights inside
+#
+# Model weights are pulled from the Hugging Face Hub at the pinned revision on first
+# start unless BAKE_MODEL=true. Configure the release with the env vars printed by
+# `fastapi-assistant export env model-release.json`.
+
+ARG PYTHON_VERSION=3.11
+
+# ---- builder: compile wheels (llama-cpp-python needs a C/C++ toolchain) -------------
+FROM python:${PYTHON_VERSION}-slim AS builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential cmake \
+    && rm -rf /var/lib/apt/lists/*
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    # Portable CPU build: no -march=native, so an image built on a CI runner does not
+    # crash with "illegal instruction" on a different host CPU.
+    CMAKE_ARGS="-DGGML_NATIVE=OFF" \
+    FORCE_CMAKE=1
+WORKDIR /build
+COPY requirements/serve.txt ./requirements/serve.txt
+# Hash-checked download of every pinned dependency, compiled to wheels.
+RUN pip wheel --require-hashes --wheel-dir /wheels -r requirements/serve.txt
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip wheel --no-deps --wheel-dir /wheels .
+
+# ---- runtime ------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+ARG BAKE_MODEL=false
+ARG BAKE_RAG_INDEX=true
+ARG GGUF_REPO_ID=TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+ARG GGUF_FILENAME=tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+ARG GGUF_REVISION=52e7645ba7c309695bec7ac98f4f005b139cf465
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PYTHONPATH=/app/src \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HF_HOME=/models/hf \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    EMBEDDING_CACHE_DIR=/models/fastembed \
+    RAG_INDEX_DIR=/models/rag_index \
+    RAG_ENABLED=false \
     API_HOST=0.0.0.0 \
-    API_PORT=8000 \
+    API_PORT=8080 \
     LOG_JSON=true \
-    # The model is loaded on first request rather than at startup so the
-    # container becomes healthy quickly; set to "true" to warm on boot.
-    WARMUP_ON_STARTUP=false
+    ENGINE_BACKEND=llamacpp \
+    GGUF_REPO_ID=${GGUF_REPO_ID} \
+    GGUF_FILENAME=${GGUF_FILENAME} \
+    GGUF_REVISION=${GGUF_REVISION} \
+    LLAMACPP_CHAT_FORMAT=zephyr \
+    FINETUNED_WEIGHTS=false \
+    MODEL_VERSION=base-tinyllama-q4km \
+    WARMUP_ON_STARTUP=true
 
-WORKDIR /app
+# libgomp1: OpenMP runtime used by llama.cpp's CPU backend.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies first for better layer caching.
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /wheels /wheels
+RUN pip install --no-index --find-links /wheels /wheels/*.whl && rm -rf /wheels
 
-# Copy the application source (installed via PYTHONPATH, no build step needed).
-COPY src ./src
-COPY data ./data
+RUN useradd --create-home --uid 10001 appuser && mkdir -p /models
 
-# Run as an unprivileged user.
-RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /models/hf /app/outputs \
-    && chown -R appuser:appuser /app /models
+# Optional: bake the documentation index (about 70 MB with the embedding model).
+# Retrieval stays opt-in per request (use_retrieval=true, or RAG_ENABLED=true): on
+# the base model it raised keyword recall but lowered code validity (see eval/).
+RUN if [ "$BAKE_RAG_INDEX" = "true" ]; then \
+        fastapi-assistant rag build --target local --workdir /tmp/fastapi-docs \
+        && rm -rf /tmp/fastapi-docs; \
+    fi
+# Optional: bake the GGUF weights (about 0.7 GB) for faster cold starts.
+RUN if [ "$BAKE_MODEL" = "true" ]; then \
+        python -c "from huggingface_hub import hf_hub_download as d; \
+d('${GGUF_REPO_ID}', '${GGUF_FILENAME}', revision='${GGUF_REVISION}')"; \
+    fi
+RUN chown -R appuser:appuser /models
 USER appuser
+WORKDIR /home/appuser
 
-EXPOSE 8000
+EXPOSE 8080
 
-# Liveness check hitting the /health endpoint (no model load required).
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"
+# Liveness only; /ready gates traffic until the model is loaded.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD python -c "import os,sys,urllib.request as u; sys.exit(0 if u.urlopen(f'http://127.0.0.1:{os.environ.get(\"API_PORT\",\"8080\")}/health', timeout=4).status == 200 else 1)"
 
-CMD ["python", "-m", "fastapi_assistant", "--serve"]
+CMD ["fastapi-assistant", "serve"]

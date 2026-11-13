@@ -1,0 +1,24 @@
+name: Uptime
+
+# Synthetic check through the public edge every 10 minutes. A failed run emails the
+# repository owner. The interval is below Cloud Run's idle timeout, so it also keeps
+# one instance warm: with request-based billing an idle instance costs nothing, and
+# users rarely pay for a cold start (model download and load).
+# Skipped until the EDGE_URL repository variable is set.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: vars.EDGE_URL != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Edge health
+        run: curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 30 "${{ vars.EDGE_URL }}/health"

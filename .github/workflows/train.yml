@@ -1,0 +1,142 @@
+name: Train on Kaggle
+
+# Manually triggered. Pushes kaggle/pipeline.py as a private Kaggle GPU kernel,
+# waits for it (train -> eval vs base -> merge -> GGUF -> publish to the Hub),
+# runs the production eval gate on the new GGUF, and opens a pull request that
+# updates model-release.json and eval/baseline.json. Merging that PR deploys it.
+#
+# Needs: secrets KAGGLE_USERNAME + KAGGLE_KEY (or KAGGLE_API_TOKEN), variable
+# HF_NAMESPACE, and an HF_TOKEN secret attached to the kernel on Kaggle.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_model:
+        description: Base model to fine-tune
+        default: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+      num_epochs:
+        description: Epochs
+        default: "3"
+      learning_rate:
+        description: Learning rate
+        default: "0.0002"
+
+permissions:
+  contents: read
+
+jobs:
+  kaggle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: pip install "kaggle>=1.7,<3"
+      - name: Render the kernel
+        env:
+          OVERRIDES: >-
+            {"ref": "${{ github.sha }}",
+             "repo": "${{ github.server_url }}/${{ github.repository }}.git",
+             "base_model": "${{ inputs.base_model }}",
+             "num_epochs": "${{ inputs.num_epochs }}",
+             "learning_rate": "${{ inputs.learning_rate }}",
+             "hf_namespace": "${{ vars.HF_NAMESPACE }}"}
+        run: |
+          mkdir -p build/kaggle
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          overrides = json.loads(os.environ["OVERRIDES"])
+          src = Path("kaggle/pipeline.py").read_text(encoding="utf-8")
+          marker = "# __CONFIG_OVERRIDES__"
+          line = next(l for l in src.splitlines() if l.startswith(marker))
+          src = src.replace(line, f"CONFIG.update({json.dumps(overrides)})")
+          Path("build/kaggle/pipeline.py").write_text(src, encoding="utf-8")
+          meta = json.loads(Path("kaggle/kernel-metadata.json").read_text(encoding="utf-8"))
+          meta["id"] = f"{os.environ['KAGGLE_USERNAME']}/fastapi-assistant-train"
+          Path("build/kaggle/kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+          PY
+      - name: Push and run
+        run: kaggle kernels push -p build/kaggle
+      - name: Wait for the kernel
+        run: |
+          kernel="$KAGGLE_USERNAME/fastapi-assistant-train"
+          for i in $(seq 1 300); do
+            status=$(kaggle kernels status "$kernel" 2>&1 || true)
+            echo "$(date -u +%H:%M) $status"
+            case "$status" in
+              *COMPLETE*|*complete*) exit 0 ;;
+              *ERROR*|*error*|*CANCEL*|*cancel*) exit 1 ;;
+            esac
+            sleep 60
+          done
+          exit 1
+      - name: Download outputs
+        if: always()
+        run: kaggle kernels output "$KAGGLE_USERNAME/fastapi-assistant-train" -p out || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release
+          path: |
+            out/model-release.json
+            out/eval-base.json
+            out/eval-finetuned.json
+            out/eval-finetuned.md
+            out/*.log
+          if-no-files-found: warn
+      - run: test -f out/model-release.json && jq -e '.gguf.repo_id' out/model-release.json
+
+  eval:
+    needs: kaggle
+    uses: ./.github/workflows/eval.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      release-artifact: release
+
+  pull-request:
+    needs: eval
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: /tmp/release
+      - uses: actions/download-artifact@v8
+        with:
+          name: eval-report
+          path: /tmp/eval
+      - name: Open the release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r .model_version /tmp/release/model-release.json)
+          git switch -c "release/$version"
+          cp /tmp/release/model-release.json model-release.json
+          cp /tmp/eval/eval-report.json eval/baseline.json
+          cp /tmp/eval/eval-report.md eval/baseline.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add model-release.json eval/baseline.json eval/baseline.md
+          git commit -m "Release model $version"
+          git push origin "release/$version"
+          {
+            echo "Fine-tuned on Kaggle and gated by the production eval (GGUF on llama.cpp)."
+            echo
+            cat /tmp/eval/eval-report.md
+            echo
+            echo "Merging deploys this release (release.yml reads model-release.json)."
+          } > body.md
+          gh pr create --title "Release model $version" --body-file body.md --base main

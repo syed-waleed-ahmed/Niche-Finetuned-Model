@@ -1,0 +1,113 @@
+name: Model eval gate
+
+# Scores the model named in model-release.json on the held-out eval set with the
+# production backend (quantized GGUF on llama.cpp, greedy decoding) and fails if it
+# regresses against the model currently on main.
+#
+# * PR that changes the model: both models are scored on the PR's eval set.
+# * PR that changes only prompts/engine/eval code: scored against eval/baseline.json.
+# * Called from train.yml with a freshly trained release (artifact "release").
+
+on:
+  pull_request:
+    paths:
+      - model-release.json
+      - data/fastapi_qa_eval.jsonl
+      - src/fastapi_assistant/prompts.py
+      - src/fastapi_assistant/engines/**
+      - src/fastapi_assistant/evaluation.py
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release-artifact:
+        description: Artifact holding a model-release.json to evaluate instead of the committed one
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      MAX_REGRESSION: "0.02"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install (prebuilt CPU llama.cpp wheel when available)
+        run: |
+          pip install -e ".[llamacpp]" \
+            --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Reference model and baseline
+        run: |
+          base_ref="origin/${{ github.base_ref || 'main' }}"
+          git show "$base_ref:model-release.json" > /tmp/base-release.json 2>/dev/null || cp model-release.json /tmp/base-release.json
+          git show "$base_ref:eval/baseline.json" > /tmp/baseline.json 2>/dev/null || cp eval/baseline.json /tmp/baseline.json
+          if ! git diff --quiet "$base_ref" -- data/fastapi_qa_eval.jsonl 2>/dev/null \
+             && git diff --quiet "$base_ref" -- eval/baseline.json 2>/dev/null \
+             && git diff --quiet "$base_ref" -- model-release.json 2>/dev/null; then
+            echo "::error::The eval set changed but eval/baseline.json did not. Commit the new report from this job as eval/baseline.json."
+            exit 1
+          fi
+      - if: inputs.release-artifact != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.release-artifact }}
+          path: /tmp/candidate
+      - if: inputs.release-artifact != ''
+        run: cp /tmp/candidate/model-release.json model-release.json
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('model-release.json') }}
+          restore-keys: hf-
+      - name: Score the reference model on this eval set (only when the model changed)
+        run: |
+          if cmp -s /tmp/base-release.json model-release.json; then
+            echo "Model unchanged; gating against the committed baseline."
+            exit 0
+          fi
+          ( set -a; eval "$(fastapi-assistant export env /tmp/base-release.json)"; set +a
+            fastapi-assistant eval --report /tmp/baseline.json )
+      - name: Score the candidate
+        id: score
+        run: |
+          set -a; eval "$(fastapi-assistant export env model-release.json)"; set +a
+          set +e
+          fastapi-assistant eval --report eval-report.json --markdown eval-report.md \
+            --baseline /tmp/baseline.json --max-regression "$MAX_REGRESSION" 2> eval.log
+          code=$?
+          set -e
+          tail -5 eval.log
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: eval-report
+          path: |
+            eval-report.json
+            eval-report.md
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### Model eval: $( [ '${{ steps.score.outputs.code }}' = '0' ] && echo passed || echo FAILED )"
+            echo
+            echo "Candidate: \`$(jq -r .model_version model-release.json)\`, reference: \`$(jq -r .model_version /tmp/base-release.json)\`, allowed regression ${MAX_REGRESSION}."
+            echo
+            cat eval-report.md
+          } > comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+      - name: Gate
+        run: exit ${{ steps.score.outputs.code }}

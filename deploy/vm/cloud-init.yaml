@@ -1,0 +1,43 @@
+#cloud-config
+# Oracle Cloud (or any Ubuntu 24.04 VM) bootstrap. Paste as "user data" when creating
+# the instance (Ampere A1, 2 OCPU / 12 GB). It installs Docker, fetches the compose
+# files from the repository, and starts the stack once /opt/fastapi-assistant/.env
+# exists (copy it over with scp, then run `sudo systemctl start fastapi-assistant`).
+#
+# The VM needs no inbound ports: traffic arrives through the Cloudflare Tunnel.
+# Note: Oracle may reclaim Always Free instances that stay nearly idle for a week.
+
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - curl
+
+write_files:
+  - path: /etc/systemd/system/fastapi-assistant.service
+    content: |
+      [Unit]
+      Description=FastAPI assistant (docker compose)
+      After=docker.service network-online.target
+      Requires=docker.service
+      ConditionPathExists=/opt/fastapi-assistant/.env
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/fastapi-assistant
+      ExecStartPre=/usr/bin/docker compose pull --quiet
+      ExecStart=/usr/bin/docker compose up -d --remove-orphans
+      ExecStop=/usr/bin/docker compose down
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - mkdir -p /opt/fastapi-assistant
+  - curl -fsSL -o /opt/fastapi-assistant/docker-compose.yml https://raw.githubusercontent.com/syed-waleed-ahmed/Niche-Finetuned-Model/main/deploy/vm/docker-compose.yml
+  - curl -fsSL -o /opt/fastapi-assistant/config.alloy https://raw.githubusercontent.com/syed-waleed-ahmed/Niche-Finetuned-Model/main/deploy/vm/config.alloy
+  - curl -fsSL -o /opt/fastapi-assistant/.env.example https://raw.githubusercontent.com/syed-waleed-ahmed/Niche-Finetuned-Model/main/deploy/vm/.env.example
+  - systemctl daemon-reload
+  - systemctl enable fastapi-assistant.service
+  - systemctl enable --now docker

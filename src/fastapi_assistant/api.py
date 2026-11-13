@@ -118,6 +118,11 @@ def create_app(
         settings.max_concurrency, settings.max_queue, settings.queue_timeout_s
     )
     authenticator = Authenticator(settings.api_key, store, settings.key_cache_ttl_s)
+    if not authenticator.enabled:
+        log.warning(
+            "Authentication is DISABLED: neither API_KEY nor DATABASE_URL is set, so every "
+            "caller is accepted. Fine for local development; never for a public origin."
+        )
     service = AssistantService(settings, engine, admission, metrics, store, retriever)
     _init_sentry(settings)
 
@@ -667,10 +672,12 @@ def create_app(
             comment=payload.comment,
         )
         if store is None:
+            # Without a database the rating is only logged. The comment is free text a
+            # user typed, so only its length goes to the logs.
             log.info(
-                "feedback rating=%s comment=%r",
+                "feedback rating=%s comment_chars=%d",
                 payload.rating,
-                payload.comment,
+                len(payload.comment or ""),
                 extra={"request_id": payload.request_id},
             )
         else:

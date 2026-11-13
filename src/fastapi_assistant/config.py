@@ -167,6 +167,15 @@ class Settings(BaseSettings):
     batch_size: int = Field(default=2, ge=1)
     gradient_accumulation_steps: int = Field(default=4, ge=1)
     num_epochs: int = Field(default=3, ge=1)
+    validation_fraction: float = Field(
+        default=0.1,
+        ge=0.0,
+        lt=0.5,
+        description=(
+            "Share of the TRAINING file held back for checkpoint selection. The held-out "
+            "eval file is never used during training; it only scores finished models."
+        ),
+    )
     learning_rate: float = Field(default=2e-4, gt=0)
     max_seq_length: int = Field(default=512, ge=16, le=4096)
     lora_r: int = Field(default=16, ge=1)
@@ -191,7 +200,25 @@ class Settings(BaseSettings):
             raise ValueError("GGUF_SHA256 must be 64 hexadecimal characters")
         return digest
 
-    @field_validator("database_url", "sentry_dsn", "api_key", mode="before")
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _api_key_not_placeholder(cls, value):
+        """An empty API_KEY means "no static key"; a placeholder word is a mistake.
+
+        Unlike the optional secrets below, mapping "disabled" to None here would turn
+        authentication off without a trace, so it is rejected instead.
+        """
+        if isinstance(value, str):
+            if not value.strip():
+                return None
+            if value.strip().lower() in {"disabled", "none", "null", "change-me"}:
+                raise ValueError(
+                    "API_KEY is a placeholder; set a real key, or leave it empty to rely on "
+                    "DATABASE_URL keys (with neither, the API is unauthenticated)"
+                )
+        return value
+
+    @field_validator("database_url", "sentry_dsn", mode="before")
     @classmethod
     def _unset_placeholders(cls, value):
         """Treat placeholder values as "not configured".

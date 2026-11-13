@@ -55,7 +55,7 @@ jobs:
           if ! git diff --quiet "$base_ref" -- data/fastapi_qa_eval.jsonl 2>/dev/null \
              && git diff --quiet "$base_ref" -- eval/baseline.json 2>/dev/null \
              && git diff --quiet "$base_ref" -- model-release.json 2>/dev/null; then
-            echo "::error::The eval set changed but eval/baseline.json did not. Commit the new report from this job as eval/baseline.json."
+            echo "::error::The eval set changed but eval/baseline.json did not. Re-score the deployed model on the new set (fastapi-assistant eval --report eval/baseline.json --markdown eval/baseline.md) and commit both files in this pull request."
             exit 1
           fi
       - if: inputs.release-artifact != ''

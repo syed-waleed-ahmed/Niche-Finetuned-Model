@@ -55,7 +55,11 @@ spec:
             - { name: LLAMACPP_N_THREADS, value: "2" }
             - { name: MAX_CONCURRENCY, value: "1" }
             - { name: MAX_QUEUE, value: "3" }
+            # Queue wait + generation (60 + 60 s) stays under the edge's
+            # ORIGIN_TIMEOUT_MS (150 s), so the origin always answers before the edge
+            # gives up and no generation keeps running for a client that got a 504.
             - { name: QUEUE_TIMEOUT_S, value: "60" }
+            - { name: GENERATION_TIMEOUT_S, value: "60" }
             - { name: RAG_ENABLED, value: "false" }  # opt-in per request; see eval/
             - { name: SENTRY_ENVIRONMENT, value: "cloud-run" }
             - name: ORIGIN_SHARED_SECRET

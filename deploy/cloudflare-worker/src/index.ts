@@ -251,7 +251,9 @@ async function handle(
       log.redis_error = errorMessage(err);
     }
   }
-  if (redisOk) {
+  // Redis answered but the INCR reply was unusable (a command-level error): count
+  // locally rather than letting the request through unlimited.
+  if (redisOk && rateLimit !== null) {
     log.rl_scope = "redis";
   } else {
     rateLimit = evaluateRateLimit(state.limiter.hit(identity.id, now), limit, now);

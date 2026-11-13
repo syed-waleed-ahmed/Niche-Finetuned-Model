@@ -91,14 +91,34 @@ def write_model_card(
             *[f"| {k} | {v} |" for k, v in summary.items() if v is not None],
             "",
         ]
+    modification = (
+        "a LoRA adapter trained on top of it"
+        if kind == "adapter"
+        else "the base weights with a LoRA fine-tune merged in, converted to GGUF and quantized"
+    )
     lines += [
         "## Intended use",
         "",
         "Small, fast FastAPI help. Verify generated code; the model can be wrong.",
         "",
+        "## License and attribution",
+        "",
+        f"Derived from `{settings.base_model_name}`, released by its authors under the",
+        "Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). This repository",
+        f"contains modified work: {modification}. It is distributed under the same",
+        "license; see NOTICE.",
+        "",
     ]
     path = folder / "README.md"
     path.write_text("\n".join(lines), encoding="utf-8")
+    (folder / "NOTICE").write_text(
+        f"FastAPI Assistant {kind} {version}\n\n"
+        f"This work is derived from {settings.base_model_name}, licensed under the Apache\n"
+        "License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).\n\n"
+        f"Modifications: {modification}, by the FastAPI Assistant project\n"
+        "(https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model).\n",
+        encoding="utf-8",
+    )
     return path
 
 

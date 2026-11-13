@@ -34,7 +34,9 @@ CONFIG = {
     "lora_r": "16",
     "quant": "Q4_K_M",
     # The fine-tune must beat the base model's composite score by at least this much.
-    "min_improvement": "0.0",
+    # Greedy decoding makes the eval deterministic, so a tie means "no better": the
+    # margin is small but strictly positive.
+    "min_improvement": "0.005",
 }
 # __CONFIG_OVERRIDES__ (train.yml inserts CONFIG.update({...}) here)
 

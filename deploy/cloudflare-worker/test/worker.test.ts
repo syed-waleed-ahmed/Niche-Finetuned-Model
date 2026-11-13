@@ -671,3 +671,20 @@ describe("platform errors from the origin's host", () => {
     expect(await res.json()).toEqual(body);
   });
 });
+
+describe("rate limit when Redis replies with a command error", () => {
+  it("falls back to the in-isolate limiter instead of letting the request through", async () => {
+    const redis = new FakeRedis();
+    const original = redis.pipeline.bind(redis);
+    redis.pipeline = async (commands) => {
+      const replies = await original(commands);
+      replies[0] = { error: "ERR wrong type" }; // the INCR reply
+      return replies;
+    };
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch, redis }, baseEnv({ RATE_LIMIT_PER_MINUTE: "1" }));
+    expect((await h.run(post("/generate", { question: "a" }, KEY))).status).toBe(200);
+    expect((await h.run(post("/generate", { question: "b" }, KEY))).status).toBe(429);
+    expect(h.logs[0]).toMatchObject({ rl_scope: "local", redis_error: "ERR wrong type" });
+  });
+});

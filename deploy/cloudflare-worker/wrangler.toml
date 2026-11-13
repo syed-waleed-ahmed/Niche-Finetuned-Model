@@ -35,8 +35,12 @@ RATE_LIMIT_PER_MINUTE = "20"
 RATE_LIMIT_PER_MINUTE_ANON = "10"
 # Shared answer cache lifetime.
 CACHE_TTL_SECONDS = "86400"
-# Per-origin wait for response headers before failing over.
-ORIGIN_TIMEOUT_MS = "60000"
+# Per-origin wait for response headers before failing over. A non-streaming answer
+# sends headers only when generation ends, so this must exceed the origin's
+# QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S (60 + 60 s on Cloud Run): otherwise the edge
+# returns 504 while the origin keeps generating for nobody. A dead origin still
+# fails fast: connection errors fail over at once, and the circuit breaker skips it.
+ORIGIN_TIMEOUT_MS = "150000"
 # Cache namespace: bump after retraining or changing generation defaults.
 MODEL_VERSION = "v1"
 # "true": /generate and /v1/* need X-API-Key or Authorization: Bearer at the edge.

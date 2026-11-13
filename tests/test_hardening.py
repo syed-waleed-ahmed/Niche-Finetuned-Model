@@ -266,3 +266,87 @@ def test_shipped_manifest_pins_a_checksum():
     manifest = _json.loads(Path("model-release.json").read_text(encoding="utf-8"))
     env = manifest_env(manifest)
     assert len(env["GGUF_SHA256"]) == 64
+
+
+# -- training never sees the held-out eval set ---------------------------------------
+
+
+def test_checkpoint_selection_uses_a_slice_of_the_training_file(tmp_path, make_settings):
+    pytest.importorskip("datasets")
+    from fastapi_assistant.data import load_raw_dataset
+
+    train, held_out = tmp_path / "fastapi_qa_train.jsonl", tmp_path / "fastapi_qa_eval.jsonl"
+    train.write_text(
+        "\n".join(
+            json.dumps({"instruction": f"train q{i}", "input": "", "output": f"a{i}"})
+            for i in range(40)
+        ),
+        encoding="utf-8",
+    )
+    held_out.write_text(
+        json.dumps({"instruction": "HELD OUT", "input": "", "output": "x"}), encoding="utf-8"
+    )
+    settings = make_settings(data_dir=tmp_path)
+    ds = load_raw_dataset(settings)
+    assert set(ds) == {"train", "validation"}
+    assert len(ds["train"]) + len(ds["validation"]) == 40
+    seen = {row["instruction"] for split in ds.values() for row in split}
+    assert "HELD OUT" not in seen
+    assert seen == {f"train q{i}" for i in range(40)}
+
+
+def test_validation_can_be_disabled(tmp_path, make_settings):
+    pytest.importorskip("datasets")
+    from fastapi_assistant.data import load_raw_dataset
+
+    (tmp_path / "fastapi_qa_train.jsonl").write_text(
+        "\n".join(
+            json.dumps({"instruction": f"q{i}", "input": "", "output": "a"}) for i in range(20)
+        ),
+        encoding="utf-8",
+    )
+    settings = make_settings(data_dir=tmp_path, validation_fraction=0.0)
+    assert set(load_raw_dataset(settings)) == {"train"}
+
+
+# -- configuration and logging safety ------------------------------------------------
+
+
+@pytest.mark.parametrize("placeholder", ["disabled", "None", "null", "change-me"])
+def test_api_key_placeholder_is_rejected_not_silently_disabled(make_settings, placeholder):
+    with pytest.raises(ValueError, match="placeholder"):
+        make_settings(api_key=placeholder)
+
+
+def test_empty_api_key_means_unset(make_settings):
+    assert make_settings(api_key="").api_key is None
+
+
+def test_open_origin_logs_a_warning(make_settings, caplog):
+    with caplog.at_level("WARNING", logger="fastapi_assistant.api"):
+        create_app(settings=make_settings(), engine=FakeEngine())
+    assert any("Authentication is DISABLED" in r.getMessage() for r in caplog.records)
+
+
+def test_json_logs_carry_cloud_logging_severity():
+    import logging
+
+    from fastapi_assistant.logging_config import JsonFormatter
+
+    record = logging.LogRecord("x", logging.ERROR, __file__, 1, "boom", None, None)
+    payload = json.loads(JsonFormatter().format(record))
+    assert payload["severity"] == "ERROR"
+    assert payload["level"] == "ERROR"
+
+
+@pytest.mark.parametrize("kind", ["adapter", "gguf"])
+def test_published_model_card_carries_apache_attribution(tmp_path, make_settings, kind):
+    from fastapi_assistant.export import write_model_card
+
+    card = write_model_card(tmp_path, settings=make_settings(), version="v1", kind=kind)
+    text = card.read_text(encoding="utf-8")
+    assert "license: apache-2.0" in text
+    assert "Apache License 2.0" in text and "modified work" in text
+    notice = (tmp_path / "NOTICE").read_text(encoding="utf-8")
+    assert "TinyLlama/TinyLlama-1.1B-Chat-v1.0" in notice
+    assert "Modifications:" in notice

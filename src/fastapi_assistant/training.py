@@ -82,7 +82,12 @@ def train(settings: Settings | None = None) -> dict:
 
     log.info("Loading dataset")
     raw_ds = load_raw_dataset(settings)
-    log.info("Train rows: %d, eval rows: %d", len(raw_ds["train"]), len(raw_ds["eval"]))
+    validation = raw_ds["validation"] if "validation" in raw_ds else None
+    log.info(
+        "Train rows: %d, validation rows (from the training file): %d",
+        len(raw_ds["train"]),
+        len(validation) if validation is not None else 0,
+    )
 
     log.info("Loading base model %s and applying LoRA", settings.base_model_name)
     model, tokenizer = prepare_model_and_tokenizer(settings)
@@ -105,9 +110,11 @@ def train(settings: Settings | None = None) -> dict:
         bf16=bf16,
         logging_steps=5,
         save_strategy="epoch",
-        eval_strategy="epoch",
+        # Checkpoint selection uses the validation slice of the training file, never
+        # the held-out eval set (that one only scores finished models).
+        eval_strategy="epoch" if validation is not None else "no",
         save_total_limit=1,
-        load_best_model_at_end=True,
+        load_best_model_at_end=validation is not None,
         metric_for_best_model="eval_loss",
         greater_is_better=False,
         report_to="none",
@@ -127,13 +134,13 @@ def train(settings: Settings | None = None) -> dict:
         model=model,
         args=training_args,
         train_dataset=tokenized_ds["train"],
-        eval_dataset=tokenized_ds["eval"],
+        eval_dataset=tokenized_ds["validation"] if validation is not None else None,
         data_collator=collator,
     )
 
     log.info("Starting training")
     trainer.train()
-    final_metrics = trainer.evaluate()
+    final_metrics = trainer.evaluate() if validation is not None else {}
 
     log.info("Saving adapter to %s", settings.output_dir)
     trainer.save_model(str(settings.output_dir))
@@ -143,7 +150,7 @@ def train(settings: Settings | None = None) -> dict:
             {
                 "base_model": settings.base_model_name,
                 "train_rows": len(raw_ds["train"]),
-                "eval_rows": len(raw_ds["eval"]),
+                "validation_rows": len(validation) if validation is not None else 0,
                 **{k: float(v) for k, v in final_metrics.items() if isinstance(v, (int, float))},
             },
             indent=2,

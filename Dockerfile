@@ -86,6 +86,9 @@ RUN if [ "$BAKE_RAG_INDEX" = "true" ]; then \
 RUN if [ "$BAKE_MODEL" = "true" ]; then \
         python -c "from huggingface_hub import hf_hub_download as d; d('${GGUF_REPO_ID}', '${GGUF_FILENAME}', revision='${GGUF_REVISION}')"; \
     fi
+# License of this project and notices for third-party material baked into the image
+# (llama.cpp, the FastAPI documentation index, the embedding model).
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/fastapi-assistant/
 # Packaging tools are build-time only. Removing them drops their CVEs (pip, and the
 # wheel and jaraco.context copies vendored in setuptools) from the shipped image.
 RUN python -m pip uninstall -y pip setuptools wheel

@@ -32,6 +32,7 @@ requirements.txt
 **/node_modules
 *.md
 !README.md
+!THIRD_PARTY_NOTICES.md
 .env
 .env.*
 !.env.example

@@ -216,8 +216,8 @@ generation is 120 s, under the edge's 150 s, so the origin always answers first.
 long answer is cut at 60 s of generation (about 500 tokens at the measured 8 to 10
 tokens/s) and returned with `finish_reason` `length`, rather than lost behind a 504.
 
-Residual: a client that disconnects from a non-streaming request early does not stop
-its generation (`service.complete` has no cancellation path); it runs to completion
-or to the 60 s budget. Streaming requests stop when the client disconnects. Changing
+A client that disconnects early stops its generation, streaming or not: for a
+non-streaming request, `service.complete` watches the connection and sets the same
+cancel event, and the answer is recorded with `finish_reason` `cancelled` (#26). Changing
 any of the three values must preserve
 `QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S < ORIGIN_TIMEOUT_MS`.

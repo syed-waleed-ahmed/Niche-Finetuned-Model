@@ -29,7 +29,7 @@ deploys both Cloud Run and the Worker from `main`.
 | `uptime.yml` | Live: `EDGE_URL` is set | Implementation status |
 | Release jobs `deploy-edge`, `smoke-edge` | Live: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. Both jobs succeeded in Release run 43460008003 (the merge of #15). | F-10 (resolved); `release.yml` |
 | Backup origins: Hugging Face Space, Oracle VM | Configuration only, not deployed. `ORIGINS` lists Cloud Run only. | F-11; `deploy/hf-space/`, `deploy/vm/` |
-| Train on Kaggle | Configured: the Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` attached to the kernel on Kaggle. The first runs exposed Kaggle environment problems, fixed in #15 and #16; a training run is in progress. No fine-tune is deployed yet. | F-04; `.github/workflows/train.yml` |
+| Train on Kaggle | Configured: the Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` attached to the kernel on Kaggle. The first runs exposed Kaggle environment problems, fixed in #15 and #16. A later run trained `v2026.11.13-2b04940`, which is deployed (#33). | F-04; `.github/workflows/train.yml` |
 
 ## 2. Delivery pipeline
 
@@ -145,9 +145,10 @@ Model environment (`MODEL_VERSION`, `GGUF_REPO_ID`, `GGUF_FILENAME`, `GGUF_REVIS
 | `builder` (`python:3.11-slim`) | `build-essential` and `cmake`; `pip wheel --require-hashes -r requirements/serve.txt`; llama.cpp compiled with `GGML_NATIVE=OFF` so one image runs on any CPU of its architecture. |
 | `runtime` (`python:3.11-slim`) | Debian security updates applied; `libgomp1`; wheels installed offline; documentation index baked at `/models/rag_index` (`BAKE_RAG_INDEX=true`); GGUF not baked (`BAKE_MODEL=false`); pip, setuptools and wheel uninstalled; runs as uid 10001; `HEALTHCHECK` on `/health`. |
 
-Defaults baked into the image name the same base GGUF, revision and SHA-256 as
-`model-release.json`, so the image boots without extra configuration (CI relies on
-this in its container smoke test). Why weights are downloaded rather than baked:
+Defaults baked into the image name the base TinyLlama GGUF, with its revision and
+SHA-256, so the image boots without extra configuration (CI relies on this in its
+container smoke test). Release overrides them with the values from
+`model-release.json`, which names the fine-tuned GGUF. Why weights are downloaded rather than baked:
 [DECISIONS.md](DECISIONS.md), ADR-007.
 
 ## 6. Edge deployment

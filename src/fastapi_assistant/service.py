@@ -7,10 +7,11 @@ one code path.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
@@ -22,6 +23,22 @@ from .retrieval import Passage, Retriever, format_context
 from .storage import Store, UsageEvent
 
 log = logging.getLogger(__name__)
+
+
+async def _cancel_on_disconnect(
+    client_gone: Callable[[], Awaitable[None]], cancel: threading.Event
+) -> None:
+    """Set ``cancel`` once ``client_gone()`` returns, which it does when the caller left.
+
+    A watch that fails ends without cancelling: the generation then runs to its normal
+    end, as it did before this watch existed.
+    """
+    try:
+        await client_gone()
+    except Exception:
+        log.debug("Disconnect watch failed; the generation will not be cancelled", exc_info=True)
+        return
+    cancel.set()
 
 
 def _close_quietly(gen) -> None:
@@ -135,16 +152,35 @@ class AssistantService:
             m.tokens_per_second.observe(result_tokens / seconds)
 
     async def complete(
-        self, messages: Sequence[Message], params: GenerationParams, endpoint: str
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        endpoint: str,
+        client_gone: Callable[[], Awaitable[None]] | None = None,
     ) -> GenerationResult:
+        """Generate a whole answer while holding a slot; always releases it.
+
+        ``client_gone`` is awaited while the engine runs and must return only when the
+        caller has disconnected. The engine is then told to stop, so an abandoned
+        request does not hold the slot until the generation timeout, and the result
+        has ``finish_reason="cancelled"``.
+        """
         slot = await self.admit()
+        cancel = threading.Event()
+        watcher = (
+            asyncio.create_task(_cancel_on_disconnect(client_gone, cancel))
+            if client_gone is not None
+            else None
+        )
         started = time.perf_counter()
         try:
-            result = await run_in_threadpool(self.engine.generate, messages, params)
+            result = await run_in_threadpool(self.engine.generate, messages, params, cancel)
         except Exception:
             self.metrics.generation_errors.inc()
             raise
         finally:
+            if watcher is not None:
+                watcher.cancel()
             slot.release()
         self._observe(
             result.completion_tokens,

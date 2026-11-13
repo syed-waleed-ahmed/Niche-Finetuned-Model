@@ -2,7 +2,7 @@
   "title": "FastAPI Assistant",
   "uid": "fastapi-assistant",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "time": {
     "from": "now-6h",
     "to": "now"
@@ -503,6 +503,141 @@
           "refId": "A",
           "expr": "sum(rate(assistant_generation_errors_total[5m]))",
           "legendFormat": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Queue wait p50 / p95",
+      "description": "Time an admitted request waited for a generation slot. It grows before requests are rejected: compare with 'Queue depth and in-flight' and 'Admission rejections / s'.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(assistant_queue_wait_seconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(assistant_queue_wait_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Time to first token p50 / p95, by endpoint",
+      "description": "Streaming requests only: time from the start of generation to the first text. Queue wait is not included.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, endpoint) (rate(assistant_time_to_first_token_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{endpoint}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(assistant_time_to_first_token_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{endpoint}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Prompts rejected for length / s",
+      "description": "Requests answered with 400 context_length_exceeded because the prompt did not fit the context window. They never take a queue slot.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(assistant_prompt_too_long_total[5m]))",
+          "legendFormat": "rejected",
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"

@@ -129,7 +129,7 @@ curl -s localhost:8000/generate -H 'X-API-Key: <key>' -H 'Content-Type: applicat
 ```json
 {
   "answer": "Set status_code on the decorator ...",
-  "model_version": "base-tinyllama-q4km",
+  "model_version": "v2026.11.13-2b04940",
   "finish_reason": "stop",
   "usage": {"prompt_tokens": 560, "completion_tokens": 141, "total_tokens": 701},
   "sources": [{"url": "https://fastapi.tiangolo.com/tutorial/response-status-code/", "heading": "Response Status Code", "score": 0.81}],

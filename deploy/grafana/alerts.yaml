@@ -23,6 +23,17 @@ groups:
         annotations:
           summary: Requests are being shed by admission control (queue full or timeout)
 
+      - alert: AssistantLongQueueWait
+        # Admitted requests wait this long before generating. It rises before the queue
+        # overflows into 429s (AssistantSaturated), so it is the earlier signal.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(assistant_queue_wait_seconds_bucket[15m]))) > 20
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: p95 wait for a generation slot above 20s
+
       - alert: AssistantSlowGenerations
         expr: |
           histogram_quantile(0.95,

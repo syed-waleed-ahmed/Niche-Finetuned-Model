@@ -19,9 +19,6 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Why |
 | --- | --- |
-| Cancel non-streaming generations when the caller disconnects | Today such a generation keeps the only slot busy for up to 60 seconds (audit item O-2). **Good first issue.** |
-| Attributable edge logs | Log the truncated key identity the Worker already computes, so abuse can be traced to a client (audit item O-5). **Good first issue.** |
-| Dashboards for the new metrics | Grafana panels for queue wait, time to first token and rejected requests. **Good first issue.** |
 | Narrower deployer permissions | Grant the CI deployer access to individual secrets instead of the whole project (audit item O-4). |
 | A generation check in the uptime probe | The probe covers `/health` and `/v1/models`; a tiny generation would also catch a broken model. |
 
@@ -42,5 +39,6 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 | Public demo access | Visitors can try the live service without a key, behind the edge rate limits (#24). |
 | Documentation website | The guides in `docs/`, published as a searchable site on GitHub Pages (#30). |
 | Web UI refresh | A welcome screen, access onboarding, light and dark themes, and a mobile layout (#32). |
+| The first four starter issues | Non-streaming generations stop when the caller disconnects (#26), edge logs identify the key (#27), Grafana panels for queue wait, first token and prompt rejections (#28), and a JavaScript streaming example (#29). |
 
 See [CHANGELOG.md](CHANGELOG.md) for everything already released.

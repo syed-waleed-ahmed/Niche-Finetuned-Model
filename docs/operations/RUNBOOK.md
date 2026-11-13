@@ -188,6 +188,7 @@ The Worker writes one JSON line per request (`event: "request"`):
 | `request_id` | The correlation id above. |
 | `method`, `path`, `status`, `duration_ms` | The request and the status the client received. |
 | `rl_identity` | `key` (counted per SHA-256 of the API key) or `ip` (anonymous and public paths). Neither the key nor the IP is logged. |
+| `rl_key_id` | Only with `rl_identity: key`: the first 12 hex characters of the SHA-256 of the key that was presented, valid or not. Use it to tell callers apart and to find the key to revoke. For a key you hold, `printf '%s' "$KEY" \| sha256sum \| cut -c1-12` prints the same value. |
 | `rl_scope` | `redis`: the shared Upstash counter. `local`: the per-isolate fallback counter. `local` is expected while Upstash is not configured. It also appears when Upstash fails; see `redis_error`. |
 | `cache` | `HIT`, `MISS` or `BYPASS`. `null` when the request ended before the cache step (404, 401, 413, edge 429). |
 | `origin_index` | Index in `ORIGINS` of the origin that answered (0 is Cloud Run). `null` when none did. |
@@ -266,11 +267,11 @@ The names come from `src/fastapi_assistant/metrics.py`.
 | `assistant_build_info` | info: `backend`, `model`, `model_version` | Matches `model-release.json` | Version differs from what was released |
 | `assistant_inflight_generations` | gauge | 0 or 1 (`MAX_CONCURRENCY=1`) | Stuck at 1 with no traffic in the logs. A non-streaming generation keeps its slot until it finishes, even after the client or edge gave up. |
 | `assistant_queue_depth` | gauge | 0 | At 3 (`MAX_QUEUE`), the next request on that instance is rejected with 429 |
-| `assistant_queue_wait_seconds` | histogram | Near 0 when idle; otherwise about queue position times generation time | Mean or high buckets above about 30 s. `QUEUE_TIMEOUT_S=60` turns a 60 s wait into a 503, and the edge gives up on non-streaming calls after 60 s. |
+| `assistant_queue_wait_seconds` | histogram | Near 0 when idle; otherwise about queue position times generation time | A p95 above 20 s for 15 minutes (the `AssistantLongQueueWait` rule). `QUEUE_TIMEOUT_S=60` turns a 60 s wait into a 503; the edge waits 150 s (`ORIGIN_TIMEOUT_MS`), so it does not give up first. |
 | `assistant_time_to_first_token_seconds` | histogram, `endpoint` | Streaming only. Measured once at 0.3 to 1.1 s on a warm instance. Excludes queue wait. | Several seconds or more: CPU contention or long prompts (retrieval adds prompt tokens) |
 | `assistant_generation_duration_seconds` | histogram, `endpoint`, `stream` | Scales with tokens: about 8 to 10 tokens per second for one request | p95 above 60 s (the `AssistantSlowGenerations` rule) |
 | `assistant_generation_tokens_per_second` | histogram | About 8 to 10 measured on Cloud Run | Mean below 4 (the `AssistantThroughputDrop` rule) |
-| `assistant_generation_finish_total` | counter, `reason` | Mostly `stop` and `length` | Any `timeout` (hit `GENERATION_TIMEOUT_S`, 60 s on Cloud Run); many `cancelled` (clients disconnecting from streams) |
+| `assistant_generation_finish_total` | counter, `reason` | Mostly `stop` and `length` | Any `timeout` (hit `GENERATION_TIMEOUT_S`, 60 s on Cloud Run); many `cancelled` (clients disconnecting before their answer is complete) |
 | `assistant_generation_errors_total` | counter | 0 | Any increase. Find the matching `Generation failed` log line. |
 | `assistant_admission_rejections_total` | counter, `reason` = `queue_full` or `queue_timeout` | 0 | Any sustained rate (the `AssistantSaturated` rule) |
 | `assistant_prompt_too_long_total` | counter | Rare | A rising count: clients send prompts that do not fit the 2,048-token context. Each gets `400 context_length_exceeded`. A client bug or probing, not a server fault. |
@@ -397,8 +398,7 @@ The static `API_KEY` cannot be revoked. Rotate it instead (7.2).
 
 ### 7.6 Deploy a new model release
 
-1. Normal path (credentials configured; the first training run is in progress, audit
-   F-04):
+1. Normal path (credentials configured; the first release, #33, was made this way):
    1. Run the "Train on Kaggle" workflow. It trains, publishes the GGUF and runs the
       eval gate. On a fresh setup, run it once with `push_only: true`, attach the
       `HF_TOKEN` secret to the new `fastapi-assistant-train` kernel on Kaggle, then

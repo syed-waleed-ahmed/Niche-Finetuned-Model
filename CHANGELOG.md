@@ -13,6 +13,28 @@ The deployed model is versioned separately, by `model_version` in
 
 ## [Unreleased]
 
+### Added
+
+- Edge Worker: the request log records `rl_key_id`, the first 12 hex characters of
+  the SHA-256 of the presented API key, so requests can be attributed to a key.
+  The key itself and the caller's IP are still never logged (#27).
+- Grafana dashboard: panels for queue wait (p50 and p95), time to first token by
+  endpoint, and prompts rejected for length. A new alert rule, `AssistantLongQueueWait`,
+  fires when the p95 wait for a generation slot stays above 20 s. `tests/test_grafana.py`
+  checks every dashboard and alert query against the metrics the service exports (#28).
+- `examples/fetch_stream.mjs`: a JavaScript example with no dependencies that streams
+  an answer from `/v1/chat/completions` with the built-in `fetch`, parses the
+  server-sent events, and explains `401`, `413`, `429` and `503` responses. It is
+  tested against a real server like the other examples (#29).
+
+### Fixed
+
+- A non-streaming request (`POST /generate`, or `POST /v1/chat/completions` without
+  `stream`) stops generating when its caller disconnects, as streamed requests
+  already did. Until now it kept the only generation slot busy for up to
+  `GENERATION_TIMEOUT_S`. `Engine.generate` takes an optional `cancel` event; the
+  remote engine honours it only before the request is sent (#26).
+
 ## [2.2.0] - 2026-11-13
 
 The first fine-tuned model in production, a public demo that needs no key, a

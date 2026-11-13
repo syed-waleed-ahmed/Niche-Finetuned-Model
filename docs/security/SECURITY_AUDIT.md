@@ -9,6 +9,12 @@ Date: 2026-11-13. This document is the security view of the system. It covers:
 - prompt-injection and model-output risks;
 - recommendations, ordered by value.
 
+**Update, later the same day.** After this review the deployment was switched to
+public demo mode (`PUBLIC_DEMO=true`, #24): the edge and the origin serve requests
+without a key, limited to 10 a minute per IP per isolate, and `maxScale` was lowered
+from 2 to 1. Rows S1, D1 and D7 say what that changes. The first fine-tuned model was
+deployed (F-04, #33).
+
 ## 1. Scope and method
 
 **In scope:**
@@ -145,10 +151,10 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| S1 | Use of the API without a valid key | Edge rejects missing keys (401). Origin checks the static key with `hmac.compare_digest`, or a SHA-256 hash lookup in Postgres (`auth.py`). Keys are 256-bit random values. | **Medium.** One static key is shared by all clients. A leak means rotating it for everyone, and abuse cannot be tied to a client. Per-user keys need Neon (not configured). |
+| S1 | Use of the API without a valid key | Edge rejects missing keys (401). Origin checks the static key with `hmac.compare_digest`, or a SHA-256 hash lookup in Postgres (`auth.py`). Keys are 256-bit random values. | **Medium.** One static key is shared by all clients. A leak means rotating it for everyone, and abuse cannot be tied to a client. Per-user keys need Neon (not configured). In public demo mode, requests without a key are served by design, so this row covers keyed access only; a wrong key is still rejected with 401. |
 | S2 | Bypassing the edge by calling Cloud Run directly | Origin secret check returns 403 (verified live). The Worker never forwards a client-supplied `x-origin-secret`. | **Low.** The secret is static, with no rotation schedule, and shared by all origins. Leaking it removes every edge control. |
 | S3 | Forging client identity or ids through headers | The Worker drops client `x-forwarded-for`, `x-request-id` (replaced by a sanitised or generated id) and `cf-*`. The origin only logs these values; it makes no security decision on them. | **Low** |
-| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` is not configured (O-4); protection rules for the `production` environment were not reviewed. |
+| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` is now configured (the "Protect main" ruleset, O-4); protection rules for the `production` environment were not reviewed. |
 
 ### Tampering
 
@@ -165,7 +171,7 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| R1 | Abuse that cannot be attributed | A request id is shared by Worker and origin logs. Database keys carry a `key_id` in usage events (not enabled). | **Medium.** Worker logs record only the identity type (`key` or `ip`), not the key-identity hash or the IP. Origin logs see only the edge. Workers Logs retention is short. Combined with S1, abuse cannot be traced to a client (O-5). |
+| R1 | Abuse that cannot be attributed | A request id is shared by Worker and origin logs. Database keys carry a `key_id` in usage events (not enabled). | **Medium.** Worker logs now record a 12-character prefix of the key's SHA-256 (`rl_key_id`, O-5, #27), so requests can be grouped by key. With one static key shared by all clients (S1), and no IP logged for anonymous calls, abuse still cannot be traced to a person. Origin logs see only the edge. Workers Logs retention is short. |
 
 ### Information disclosure
 
@@ -183,13 +189,13 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| D1 | Request floods exhausting compute or budget | Key presence check at the edge; per-key and per-IP limits (in-isolate today, F-03); admission control (1 running, 3 queued, then 429; 503 after 60 s); `containerConcurrency 4`; `maxScale 2`; budget alert | **Medium.** The in-isolate limiter counts per Cloudflare isolate. Every made-up key gets its own bucket and reaches the origin (cheap 401, but billable requests). One valid key can keep both instances busy. The measured burst behaviour is in PERFORMANCE_BASELINE. |
-| D2 | Long generations holding the only slot | `GENERATION_TIMEOUT_S=60` on Cloud Run, inside the edge's 150 s timeout together with the 60 s queue wait, so every generation ends in an answer; streaming generations stop when the client disconnects | **Low.** A non-streaming caller that disconnects early still leaves its generation running for up to 60 s (O-2, residual). |
+| D1 | Request floods exhausting compute or budget | Key presence check at the edge (not in public demo mode); per-key and per-IP limits (in-isolate today, F-03); admission control (1 running, 3 queued, then 429; 503 after 60 s); `containerConcurrency 4`; `maxScale` (2 at review time, 1 on the live public demo); budget alert | **Medium.** The in-isolate limiter counts per Cloudflare isolate. Every made-up key gets its own bucket and reaches the origin (cheap 401, but billable requests). One valid key can keep both instances busy. In public demo mode anyone can occupy the single instance without a key, held back only by the per-IP limit of 10 a minute per isolate; the cost stays bounded by `maxScale 1` (D7). The measured burst behaviour is in PERFORMANCE_BASELINE. |
+| D2 | Long generations holding the only slot | `GENERATION_TIMEOUT_S=60` on Cloud Run, inside the edge's 150 s timeout together with the 60 s queue wait, so every generation ends in an answer; a generation stops when its client disconnects, streaming or not (#26) | **Low.** Through the edge this depends on Cloudflare closing the origin connection when the client leaves, which has not been measured. |
 | D3 | Token-dense prompts | Token count with the loaded tokenizer before admission; 400 `context_length_exceeded` (F-01) | **Low** |
 | D4 | A dead or slow origin stalling every request | Per-isolate circuit breaker; 504 on timeout (F-12, edge) | **Low** (a single origin today, so the breaker mostly affects logging) |
 | D5 | Exhausting the Workers Free plan daily request limit | Cloudflare's platform protections. Edge 404s and 401s are cheap but still count. | **Medium.** Past the limit, the whole edge (API and probes) fails until the daily reset. |
 | D6 | Hugging Face unavailable at cold start | Running instances keep serving | **Medium** (F-06 residual: weights are downloaded, not baked, to stay in free storage) |
-| D7 | Denial of wallet | `maxScale` hard cap; budget alerts; request-based billing | **Medium.** The worst case at `maxScale 2` is about 58 times the free vCPU allowance per month ([../operations/COST_MANAGEMENT.md](../operations/COST_MANAGEMENT.md)). Alerts notify a person; nothing stops spending automatically. |
+| D7 | Denial of wallet | `maxScale` hard cap; budget alerts; request-based billing | **Medium.** The worst case is about 58 times the free vCPU allowance per month at `maxScale 2`, and about 29 times at the live setting of 1 ([../operations/COST_MANAGEMENT.md](../operations/COST_MANAGEMENT.md)). Alerts notify a person; nothing stops spending automatically. |
 
 ### Elevation of privilege
 
@@ -218,7 +224,7 @@ deploys the Worker on every run (F-10), so edge fixes no longer need a manual de
 | F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
 | F-02 | P1 | Unbounded request bodies | Fixed | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
 | F-03 | P1 | No rate limiting live | Partially mitigated | The in-isolate fallback limiter is always on (edge). A shared limit needs Upstash, which is BLOCKED on an owner credential. |
-| F-04 | P1 | Live model is the base TinyLlama | In progress | Credentials are configured (Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` on the Kaggle kernel). The first runs exposed Kaggle environment problems, fixed in #15 and #16; a training run is in progress. The live model stays the base GGUF until a fine-tune passes the eval gates and its release PR is merged. |
+| F-04 | P1 | Live model is the base TinyLlama | Fixed (#33) | The first fine-tuned release, `v2026.11.13-2b04940`, passed both eval gates (0.546 against the base model's 0.402 with the production backend) and is deployed. The first training runs exposed Kaggle environment problems, fixed in #15 and #16. |
 | F-20 | P1 | HIGH CVEs with fixes in the image | Fixed | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed). All 14 Trivy code-scanning alerts (#7 to #20) are closed as fixed by the scan of the deployed image. |
 | F-21 | P1 | False-positive secret alert on the RAG index | Fixed | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |
 | F-05 | P2 | 5xx labelled `invalid_request_error` | Fixed | 5xx is `server_error`; admission rejections are `overloaded` |
@@ -262,10 +268,10 @@ These are not in the initial audit. Each one cites the code that shows it.
 | ID | Rating | Observation | Evidence |
 |---|---|---|---|
 | O-1 | Low | The GCP project id, the runtime service-account address and the Cloud Run URL appear in Release logs, which anyone with read access to the repository's Actions can see. The origin is protected by the shared secret, so this is not exploitable by itself, but it publishes values the operations docs treat as private. | `release.yml`: `cat service.rendered.yaml` (line 218); the `Smoke test the origin` step expands the URL (lines 230 to 232) |
-| O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. Residual: non-streaming generations are still not cancelled when the caller disconnects early. | `schemas.py` (`le=1024`); `service.complete` uses `engine.generate` with no cancel event (`engines/base.py`, `BaseEngine.generate`); `ORIGIN_TIMEOUT_MS=60000` |
+| O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. The residual is fixed (#26): a non-streaming generation is cancelled when its caller disconnects, and the slot is released. Through the edge this depends on Cloudflare closing the origin connection when the client leaves, which has not been measured. | `schemas.py` (`le=1024`); `service.complete` watches the connection and passes a cancel event to `engine.generate`; `tests/test_disconnect.py` |
 | O-3 | Low | Placeholder values (`""`, `disabled`, `none`, `null`) for `API_KEY` silently disable origin authentication when no database is configured. Release rejects only an empty value. **Status:** Fixed (merged in #13): a placeholder `API_KEY` is rejected at startup, an empty one means unset, and an origin with no authentication logs a warning. | `config.py` `_unset_placeholders`; `auth.Authenticator.enabled`; `release.yml` "Sync secrets" |
 | O-4 | Medium | The deployer service account holds project-wide `roles/secretmanager.admin` and `roles/run.admin`. Its protection is only as strong as the branch protection on `main`. **Status:** Partly mitigated. The "Protect main" ruleset is active: pull requests and the core CI and security checks are required, and force-pushes and deletion are blocked, with admin bypass only through a pull request. The roles themselves are still project-wide. | `bootstrap.sh` lines 52 to 55 and 78 |
-| O-5 | Low | Worker request logs omit the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse cannot be attributed | `deploy/cloudflare-worker/src/index.ts` `RequestLog` |
+| O-5 | Low | Worker request logs omitted the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse could not be attributed. **Status:** fixed for keys (#27): the log records `rl_key_id`, the first 12 hex characters of the key's SHA-256. The IP is deliberately still not logged, to keep personal data out of the logs. | `deploy/cloudflare-worker/src/index.ts` `RequestLog`; `test/worker.test.ts` ("logging") |
 | O-6 | Low (latent) | With Upstash configured, if the pipeline returns HTTP 200 but the `INCR` reply is an error, the request proceeds with no rate limit. Errors at the HTTP level correctly fall back to the local limiter. **Status:** Fixed (merged in #13): an unusable `INCR` reply now falls back to the in-isolate limiter (test: "rate limit when Redis replies with a command error"). | `index.ts`: `rateLimit` stays null when `toCount` returns null |
 | O-7 | Low | Without a database, feedback comments are logged at INFO, including the user's text **Status:** Fixed (merged in #13): only the rating and the comment length are logged. | `api.py`, `feedback` |
 | O-8 | Low | JSON logs use `level`, not `severity`, so Cloud Logging severity filters and log-based alerts miss application errors **Status:** Fixed (merged in #13): JSON log lines also carry `severity`. | `logging_config.py` |
@@ -302,8 +308,9 @@ chat-template role markers in their text. The model has no tools, functions, net
 file or database access. Injection can therefore only change the text returned to the
 same user, or, with the shared cache, to someone who sends a byte-identical request.
 
-**Answers are untrusted text.** The deployed model is the base TinyLlama (F-04) and is
-known to give wrong FastAPI answers. Treat every answer, especially code, as untrusted:
+**Answers are untrusted text.** The deployed model is a fine-tuned TinyLlama-1.1B and is
+known to give wrong FastAPI answers, including in code that parses
+([MODEL_CARD.md](../../MODEL_CARD.md)). Treat every answer, especially code, as untrusted:
 
 - review it before running;
 - never pipe it into a shell or `eval`.
@@ -350,9 +357,9 @@ numbering does not change.
    nothing and is an owner setting.
 3. **Configure Upstash** for a shared rate limit and the answer cache (closes F-03;
    owner credential). The command budget is in `deploy/cloudflare-worker/README.md`.
-4. **Cancel non-streaming generations on client disconnect (O-2 residual).** The
-   timeout budget is now consistent (the origin always answers before the edge gives
-   up); what remains is a caller that leaves early.
+4. **Done (#26): cancel non-streaming generations on client disconnect (O-2
+   residual).** The timeout budget was already consistent (the origin always answers
+   before the edge gives up); a caller that leaves early now stops its generation.
 5. **Done: create the scoped Cloudflare API token** (F-10). Release deploys the Worker
    from `main` and runs the k6 smoke test, so the live edge no longer drifts from the
    repository.
@@ -369,8 +376,8 @@ numbering does not change.
 9. **Stop publishing infrastructure identifiers in Actions logs** (O-1). Drop the
    `cat` of the rendered spec, or mask the values with `::add-mask::`.
 10. **Enable Neon for per-user keys**, so a leaked key can be revoked without
-    affecting every client. Log the edge key identity hash for attribution (S1, R1,
-    O-5).
+    affecting every client. Done (#27): the edge logs a prefix of the key identity
+    hash for attribution (S1, R1, O-5).
 11. **Hold a copy of the model weights you control.** Use the owner's Hugging Face
     namespace (`HF_NAMESPACE`, now configured) and keep an offline verified copy (D6,
     F-11).

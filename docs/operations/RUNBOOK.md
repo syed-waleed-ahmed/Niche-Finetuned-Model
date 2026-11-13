@@ -116,9 +116,10 @@ curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' "$EDGE_URL/"
 curl -sS "$EDGE_URL/health"; echo
 curl -sS -o /dev/null -w 'ready: %{http_code}\n' "$EDGE_URL/ready"
 
-# 3. Keyless API calls stop at the edge.
+# 3. Keyless API calls stop at the edge (401), unless PUBLIC_DEMO is on (200; /health
+#    then reports "access": "public").
 curl -sS -o /dev/null -w 'no key: %{http_code}\n' -X POST "$EDGE_URL/generate" \
-  -H 'Content-Type: application/json' -d '{"question":"hi"}'
+  -H 'Content-Type: application/json' -d '{"question":"hi","max_new_tokens":8}'
 
 # 4. End to end with a valid key (short answer to keep cost down); print headers only.
 curl -sS -D - -o /dev/null -X POST "$EDGE_URL/generate" \

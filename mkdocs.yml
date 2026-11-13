@@ -1,0 +1,151 @@
+# Documentation site, built with MkDocs and Material for MkDocs.
+#   Preview:  pip install -r requirements/docs.txt && mkdocs serve
+#   Build:    mkdocs build --strict      (CI: .github/workflows/docs.yml)
+# Pages live in docs/. Root files such as CONTRIBUTING.md appear through the mirror
+# pages in docs/project/, and docs/hooks/links.py keeps their links working.
+
+site_name: FastAPI Niche Assistant
+site_description: >-
+  A small language model specialised in FastAPI, run as a production service on
+  free-tier infrastructure, with a model-release pipeline gated on evaluation.
+site_url: https://syed-waleed-ahmed.github.io/Niche-Finetuned-Model/
+repo_url: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model
+repo_name: syed-waleed-ahmed/Niche-Finetuned-Model
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 Syed Waleed Ahmed. Code under the MIT License.
+
+docs_dir: docs
+# The hook is Python source, not site content.
+exclude_docs: |
+  /hooks/
+
+# Rebuild on `mkdocs serve` when a root file shown in docs/project/ changes.
+watch:
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - CHANGELOG.md
+  - MODEL_CARD.md
+  - CODE_OF_CONDUCT.md
+  - SUPPORT.md
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    # Follow the operating system until the reader picks a scheme.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Follow the system setting
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model
+      name: Source on GitHub
+
+plugins:
+  - search
+
+hooks:
+  - docs/hooks/links.py
+
+# Report broken links, broken anchors and pages missing from the nav as warnings,
+# which `mkdocs build --strict` turns into a failed build.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+# This file is plain YAML on purpose: Python tags (!!python/name, !relative) would
+# make pre-commit's check-yaml hook reject it.
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      # Relative to the working directory, so run mkdocs from the repository root:
+      # --8<-- "CONTRIBUTING.md" then includes the root file.
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        # Renders ```mermaid blocks as <pre class="mermaid">, which Material draws.
+        # The format is pymdownx.superfences.fence_code_format, the default when
+        # `format` is not given.
+        - name: mermaid
+          class: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: ARCHITECTURE.md
+      - System architecture: architecture/SYSTEM_ARCHITECTURE.md
+      - Request lifecycle: architecture/REQUEST_LIFECYCLE.md
+      - Deployment architecture: architecture/DEPLOYMENT_ARCHITECTURE.md
+      - Security architecture: architecture/SECURITY_ARCHITECTURE.md
+      - Model pipeline: architecture/MODEL_PIPELINE.md
+      - Decisions: architecture/DECISIONS.md
+  - Operations:
+      - Deployment guide: DEPLOYMENT.md
+      - Runbook: operations/RUNBOOK.md
+      - Incident response: operations/INCIDENT_RESPONSE.md
+      - Rollback: operations/ROLLBACK.md
+      - Backup and recovery: operations/BACKUP_AND_RECOVERY.md
+      - Cost management: operations/COST_MANAGEMENT.md
+  - Security:
+      - Security policy: project/security.md
+      - Security audit: security/SECURITY_AUDIT.md
+  - Audit:
+      - Initial audit: audit/INITIAL_AUDIT.md
+      - Performance baseline: audit/PERFORMANCE_BASELINE.md
+      - Final verification: audit/FINAL_VERIFICATION.md
+      - License audit: legal/LICENSE_AUDIT.md
+  - Project:
+      - Implementation status: IMPLEMENTATION_STATUS.md
+      - Model card: project/model-card.md
+      - Changelog: project/changelog.md
+      - Contributing: project/contributing.md
+      - Code of conduct: project/code-of-conduct.md
+      - Support: project/support.md

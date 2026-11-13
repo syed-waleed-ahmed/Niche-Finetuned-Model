@@ -1,0 +1,9 @@
+# Documentation site toolchain (mkdocs.yml, .github/workflows/docs.yml). Needs Python 3.11+.
+# Preview: pip install -r requirements/docs.txt && mkdocs serve
+# The packages that shape the rendered output are pinned; the rest resolve from their ranges.
+
+mkdocs==1.6.1
+mkdocs-material==9.8.1
+pymdown-extensions==13.1
+Markdown==3.11.3
+Pygments==2.21.0

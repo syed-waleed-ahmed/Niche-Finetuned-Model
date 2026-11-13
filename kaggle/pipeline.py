@@ -169,7 +169,8 @@ def main() -> int:
         for folder, repo, kind in ((adapter_dir, adapter_repo, "adapter"), (gguf_dir, gguf_repo, "gguf")):
             sh(
                 *cli, "export", "push", "--folder", str(folder), "--repo", repo, "--tag", version,
-                "--kind", kind, "--eval-report", str(ft_report), env=env,
+                "--kind", kind, "--eval-report", str(ft_report),
+                "--base-report", str(base_report), env=env,
             )
     else:
         print("HF_TOKEN or hf_namespace missing: artifacts left in /kaggle/working only.")

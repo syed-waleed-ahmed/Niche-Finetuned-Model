@@ -1,12 +1,14 @@
 # Implementation status
 
-Last updated: 2026-11-13, after pull requests #13 to #34 were merged into `main`.
-Version 2.1.0 is released (tag `v2.1.0`). Since then the service runs as a public
-demo, the documentation is published as a website, the web UI was redesigned, and
-the first fine-tuned model replaced the base model (#33).
+Last updated: 2026-11-13, after pull requests #13 to #36 were merged into `main`.
+Version 2.2.0 (tag `v2.2.0`) covers everything below: since 2.1.0 the service runs as
+a public demo, the documentation is published as a website, the web UI was
+redesigned, and the first fine-tuned model replaced the base model (#33).
 
 | PR | Change |
 |---|---|
+| #36 | Release 2.2.0; Hub model cards with usage, prompt format, a base-model comparison and limitations |
+| #35 | Stop answers at the chat template's role markers; drop mkdocstrings directives from the retrieval index; docs for the fine-tuned release |
 | #34 | Documentation of the public demo, the docs site and the fine-tuned release; clearer Train workflow failure when Actions may not open pull requests |
 | #33 | Release the first fine-tuned model, `v2026.11.13-2b04940` |
 | #32 | Web UI redesign: welcome screen, access onboarding, themes, mobile drawer, WCAG AA contrast |
@@ -58,18 +60,13 @@ the first fine-tuned model replaced the base model (#33).
 | Item | Evidence |
 |---|---|
 | Fine-tuned model (audit F-04) | Trained on Kaggle and published to the Hub by CI (Train run 43489041415, `publish_only`): [GGUF](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-gguf) and [LoRA adapter](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-lora), both tagged `v2026.11.13-2b04940`. It passed both gates: on the Kaggle GPU, 0.538 against the base model's 0.383; in the production eval (GGUF on llama.cpp), 0.546 against 0.402. Merged in #33 and deployed by Release run 43514221696; a keyless question through the live web UI was answered by `v2026.11.13-2b04940` in 5.4 s. |
-| Answers that ran on into an invented turn | Seen live after the fine-tune was deployed: with retrieval on, an answer went on past its end with the template's user role marker and a made-up follow-up question, and it copied a `::: fastapi.BackgroundTasks` directive from a retrieved reference page. The engines now stop at the template's role markers, and the index drops mkdocstrings directives (CHANGELOG, Unreleased, Fixed). |
+| Answers that ran on into an invented turn | Seen live after the fine-tune was deployed: with retrieval on, an answer went on past its end with the template's user role marker and a made-up follow-up question, and it copied a `::: fastapi.BackgroundTasks` directive from a retrieved reference page. The engines now stop at the template's role markers, and the index drops mkdocstrings directives (#35). |
+| Release pull requests from the Train workflow | "Allow GitHub Actions to create and approve pull requests" is now on (Settings > Actions > General; the default token permission stays read-only). Until then the Train workflow pushed the release branch but could not open the pull request, so #33 was opened by hand. |
 
-## Blocked on the owner
+## Optional, owner's choice
 
-Each item needs an account setting or a decision that only the repository owner can
-make. None of them is required for the service to work.
-
-| Item | Why blocked | What to do |
-|---|---|---|
-| Release pull requests from the Train workflow | The repository does not allow GitHub Actions to create pull requests, so the Train workflow pushes the release branch but cannot open the pull request (#33 was opened by hand) | Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests" |
-
-### Optional, owner's choice
+Each item needs an account or a decision that only the repository owner can make.
+None of them is required for the service to work.
 
 | Item | Why blocked | What to do |
 |---|---|---|

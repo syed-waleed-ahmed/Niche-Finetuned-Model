@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .config import Settings
 from .hub import resolve_adapter_dir
+from .prompts import STOP_SEQUENCES, SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,142 @@ def merge_adapter(settings: Settings, out_dir: Path) -> Path:
     return out_dir
 
 
+PROJECT_URL = "https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model"
+# The upstream project's live demo and documentation, linked from published model
+# cards. A fork that publishes its own releases should point these at its own.
+DEMO_URL = "https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev"
+DOCS_URL = "https://syed-waleed-ahmed.github.io/Niche-Finetuned-Model/"
+
+_CARD_METRICS = (
+    ("score", "Composite score"),
+    ("keyword_recall", "Keyword recall"),
+    ("code_valid", "Code validity"),
+    ("rouge_l", "ROUGE-L"),
+)
+# How each eval backend ran the model, for the card. Latency is left out of the card:
+# it depends on the machine the gate ran on.
+_CARD_BACKENDS = {
+    "llamacpp": "llama.cpp, with this quantized GGUF, as in production",
+    "transformers": (
+        "transformers, with the unquantized model on the training GPU; the quantized GGUF"
+        " is scored again with llama.cpp before it is deployed"
+    ),
+}
+_EXAMPLE_QUESTION = "How do I return a 201 status code from a POST endpoint?"
+
+
+def _metric(value: object) -> str:
+    if value is None:
+        return "not measured"
+    return f"{value:.3f}" if isinstance(value, float) else str(value)
+
+
+def _card_evaluation(eval_report: dict | None, base_report: dict | None) -> list[str]:
+    summary = (eval_report or {}).get("summary") or {}
+    if not summary:
+        return []
+    base = (base_report or {}).get("summary") or {}
+    backend = ((eval_report or {}).get("meta") or {}).get("backend", "unknown")
+    where = _CARD_BACKENDS.get(backend, f"the `{backend}` backend")
+    header, rule = ("| Metric | This release |", "| --- | --- |")
+    if base:
+        header, rule = header + " Base model |", rule + " --- |"
+    rows = [
+        f"| {label} | {_metric(summary.get(key))} |"
+        + (f" {_metric(base.get(key))} |" if base else "")
+        for key, label in _CARD_METRICS
+        if key in summary
+    ]
+    return [
+        "## Evaluation",
+        "",
+        f"The release gate answers {summary.get('items', 'the')} held-out FastAPI questions"
+        " with greedy decoding and scores each answer for keyword recall (the API names a"
+        " correct answer has to mention), code validity (its Python blocks parse) and"
+        " ROUGE-L against a reference answer. The composite score is their mean per"
+        f" question. Scored with {where}.",
+        "",
+        header,
+        rule,
+        *rows,
+        "",
+        "The metrics are automatic and lexical: they reward naming the right APIs and"
+        " code that parses, not correctness. The"
+        f" [model card in the source repository]({PROJECT_URL}/blob/main/MODEL_CARD.md)"
+        " has the scores of both release gates, results per category and examples of wrong"
+        " answers.",
+        "",
+    ]
+
+
+def _card_usage(kind: str, repo_id: str, version: str, base_model: str, folder: Path) -> list[str]:
+    system = json.dumps(SYSTEM_PROMPT)
+    question = json.dumps(_EXAMPLE_QUESTION)
+    stop = json.dumps(list(STOP_SEQUENCES))
+    if kind == "gguf":
+        ggufs = sorted(p.name for p in folder.glob("*.gguf"))
+        filename = ggufs[0] if ggufs else "model-Q4_K_M.gguf"
+        code = [
+            "from huggingface_hub import hf_hub_download",
+            "from llama_cpp import Llama",
+            "",
+            "path = hf_hub_download(",
+            f'    "{repo_id}", "{filename}", revision="{version}"',
+            ")",
+            "# llama.cpp applies the chat template stored in the GGUF.",
+            "llm = Llama(model_path=path, n_ctx=2048, verbose=False)",
+            "answer = llm.create_chat_completion(",
+            "    messages=[",
+            f'        {{"role": "system", "content": {system}}},',
+            f'        {{"role": "user", "content": {question}}},',
+            "    ],",
+            "    max_tokens=256,",
+            "    temperature=0.0,",
+            f"    stop={stop},",
+            ")",
+            'print(answer["choices"][0]["message"]["content"])',
+        ]
+        intro = (
+            "With [llama-cpp-python](https://github.com/abetlen/llama-cpp-python); a CPU is"
+            " enough (about 0.7 GB of RAM for the weights):"
+        )
+    else:
+        code = [
+            "from peft import PeftModel",
+            "from transformers import AutoModelForCausalLM, AutoTokenizer",
+            "",
+            f'tokenizer = AutoTokenizer.from_pretrained("{base_model}")',
+            f'model = AutoModelForCausalLM.from_pretrained("{base_model}")',
+            f'model = PeftModel.from_pretrained(model, "{repo_id}", revision="{version}")',
+            "messages = [",
+            f'    {{"role": "system", "content": {system}}},',
+            f'    {{"role": "user", "content": {question}}},',
+            "]",
+            "inputs = tokenizer.apply_chat_template(",
+            '    messages, add_generation_prompt=True, return_dict=True, return_tensors="pt"',
+            ")",
+            "output = model.generate(**inputs, max_new_tokens=256, do_sample=False)",
+            'text = tokenizer.decode(output[0, inputs["input_ids"].shape[1]:], skip_special_tokens=True)',
+            f"for marker in {stop}:  # see Prompt format",
+            "    text = text.split(marker)[0]",
+            "print(text.strip())",
+        ]
+        intro = "With `transformers` and `peft`, on top of the base model:"
+    return [
+        "## Usage",
+        "",
+        intro,
+        "",
+        "```python",
+        *code,
+        "```",
+        "",
+        "To serve it as an HTTP API with streaming, retrieval over the FastAPI documentation",
+        f"and an OpenAI-compatible endpoint, use the [source repository]({PROJECT_URL}).",
+        "",
+    ]
+
+
 def write_model_card(
     folder: Path,
     *,
@@ -59,51 +196,97 @@ def write_model_card(
     version: str,
     kind: str,
     eval_report: dict | None = None,
+    base_report: dict | None = None,
+    repo_id: str | None = None,
 ) -> Path:
-    """Write a README.md model card with provenance and evaluation results."""
-    summary = (eval_report or {}).get("summary", {})
-    lines = [
-        "---",
-        "license: apache-2.0",
-        f"base_model: {settings.base_model_name}",
-        "library_name: " + ("peft" if kind == "adapter" else "gguf"),
-        "tags: [fastapi, python, code, lora]",
-        "---",
-        "",
-        f"# FastAPI Assistant {kind} ({version})",
-        "",
-        f"LoRA fine-tune of `{settings.base_model_name}` that answers questions about the",
-        "FastAPI web framework. Trained with completion-only loss on a curated Q&A set.",
-        "",
-        "## Training",
-        "",
-        f"- LoRA r={settings.lora_r}, alpha={settings.lora_alpha}, dropout={settings.lora_dropout}",
-        f"- Target modules: {', '.join(settings.lora_target_modules)}",
-        f"- Epochs={settings.num_epochs}, lr={settings.learning_rate}, max_seq_length={settings.max_seq_length}",
-        "",
-    ]
-    if summary:
-        lines += [
-            "## Evaluation (greedy decoding, held-out set)",
-            "",
-            "| metric | value |",
-            "| --- | --- |",
-            *[f"| {k} | {v} |" for k, v in summary.items() if v is not None],
-            "",
-        ]
+    """Write a README.md model card with provenance, usage and evaluation results.
+
+    ``eval_report`` scores this release; ``base_report``, when given, scores the base
+    model on the same set and adds a comparison column. ``repo_id`` is the Hub
+    repository the card is published to, for the usage example.
+    """
+    base_model = settings.base_model_name
+    repo_id = repo_id or f"<namespace>/fastapi-assistant-{'lora' if kind == 'adapter' else 'gguf'}"
+    title = "LoRA adapter" if kind == "adapter" else "GGUF"
+    library = "peft" if kind == "adapter" else "gguf"
+    extra_tags = "lora, peft" if kind == "adapter" else "lora, gguf, llama-cpp"
     modification = (
         "a LoRA adapter trained on top of it"
         if kind == "adapter"
         else "the base weights with a LoRA fine-tune merged in, converted to GGUF and quantized"
     )
-    lines += [
-        "## Intended use",
+    what = (
+        "This repository holds the LoRA adapter; load it on top of the base model."
+        if kind == "adapter"
+        else "This repository holds the fine-tune merged into the base model and quantized to"
+        " a single GGUF file for llama.cpp."
+    )
+    markers = ", ".join(f"`{m}`" for m in STOP_SEQUENCES)
+    lines = [
+        "---",
+        "language:",
+        "  - en",
+        "license: apache-2.0",
+        f"base_model: {base_model}",
+        f"library_name: {library}",
+        "pipeline_tag: text-generation",
+        f"tags: [fastapi, python, code, {extra_tags}]",
+        "---",
         "",
-        "Small, fast FastAPI help. Verify generated code; the model can be wrong.",
+        f"# FastAPI Assistant: {title} ({version})",
+        "",
+        f"A LoRA fine-tune of [`{base_model}`](https://huggingface.co/{base_model}) that"
+        " answers questions about the [FastAPI](https://fastapi.tiangolo.com/) web"
+        f" framework. {what}",
+        "",
+        f"- [Live demo]({DEMO_URL}) (no key needed)",
+        f"- [Source code, training pipeline and service]({PROJECT_URL})",
+        f"- [Documentation]({DOCS_URL})",
+        f"- [Full model card]({PROJECT_URL}/blob/main/MODEL_CARD.md)",
+        "",
+        f"The tag `{version}` is the release; pin it with `revision=` to get exactly these"
+        " weights.",
+        "",
+        *_card_usage(kind, repo_id, version, base_model, folder),
+        "## Prompt format",
+        "",
+        "Use the system prompt the model was trained with, in the chat template of the base"
+        " model (stored in the GGUF and in the base model's tokenizer):",
+        "",
+        "```text",
+        SYSTEM_PROMPT,
+        "```",
+        "",
+        f"The template's role markers ({markers}) are plain text to this model, not special"
+        " tokens. When it does not end its answer with the end-of-sequence token, it runs on"
+        " into an invented next turn, so stop generation at any of them, as the example does.",
+        "",
+        *_card_evaluation(eval_report, base_report),
+        "## Training",
+        "",
+        "- LoRA with completion-only loss (only answer tokens are trained), using the same"
+        " chat template in training, evaluation and serving",
+        f"- LoRA r={settings.lora_r}, alpha={settings.lora_alpha}, dropout={settings.lora_dropout};"
+        f" target modules: {', '.join(settings.lora_target_modules)}",
+        f"- Epochs={settings.num_epochs}, lr={settings.learning_rate},"
+        f" max_seq_length={settings.max_seq_length}",
+        f"- Data: the curated FastAPI question-answer pairs in [`data/`]({PROJECT_URL}/tree/main/data);"
+        " the held-out evaluation set is never used for training or checkpoint selection",
+        "",
+        "## Intended use and limitations",
+        "",
+        "Short answers to FastAPI questions, each with a minimal code example, for developers"
+        " who can check them.",
+        "",
+        "- At 1.1B parameters it is often wrong, including in code that parses: it invents"
+        " parameters and APIs and states them confidently. Check answers against the"
+        " FastAPI documentation.",
+        "- Generated code is untrusted. Review it, and run it only in a sandbox.",
+        "- FastAPI and English only, with a 2,048-token context window.",
         "",
         "## License and attribution",
         "",
-        f"Derived from `{settings.base_model_name}`, released by its authors under the",
+        f"Derived from `{base_model}`, released by its authors under the",
         "Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). This repository",
         f"contains modified work: {modification}. It is distributed under the same",
         "license; see NOTICE.",
@@ -113,10 +296,10 @@ def write_model_card(
     path.write_text("\n".join(lines), encoding="utf-8")
     (folder / "NOTICE").write_text(
         f"FastAPI Assistant {kind} {version}\n\n"
-        f"This work is derived from {settings.base_model_name}, licensed under the Apache\n"
+        f"This work is derived from {base_model}, licensed under the Apache\n"
         "License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).\n\n"
         f"Modifications: {modification}, by the FastAPI Assistant project\n"
-        "(https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model).\n",
+        f"({PROJECT_URL}).\n",
         encoding="utf-8",
     )
     return path
@@ -241,8 +424,10 @@ def publish_training_outputs(
             f"{out_dir} has no adapter (adapter_config.json) or GGUF (model-*.gguf) to publish"
         )
     adapter_dir, gguf = adapter_config.parent, ggufs[0]
-    report_path = out_dir / "eval-finetuned.json"
-    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else None
+    report, base_report = (
+        json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+        for path in (out_dir / "eval-finetuned.json", out_dir / "eval-base.json")
+    )
 
     version = manifest["model_version"]
     settings = Settings(base_model_name=manifest["base_model"])
@@ -253,7 +438,15 @@ def publish_training_outputs(
         (adapter_dir, adapter_repo, "adapter", [*ADAPTER_FILES, *card_files]),
         (gguf.parent, gguf_repo, "gguf", [gguf.name, *card_files]),
     ):
-        write_model_card(folder, settings=settings, version=version, kind=kind, eval_report=report)
+        write_model_card(
+            folder,
+            settings=settings,
+            version=version,
+            kind=kind,
+            eval_report=report,
+            base_report=base_report,
+            repo_id=repo,
+        )
         push(folder, repo, tag=version, allow_patterns=patterns, token=token)
 
     published = release_manifest(

@@ -71,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     push.add_argument("--tag", required=True)
     push.add_argument("--kind", choices=["adapter", "gguf"], default="adapter")
     push.add_argument("--eval-report", type=Path)
+    push.add_argument(
+        "--base-report", type=Path, help="The base model's eval report, for the model card."
+    )
     push.add_argument("--private", action="store_true")
     publish = ex_sub.add_parser(
         "publish-outputs",
@@ -198,11 +201,18 @@ def _export(args, settings) -> int:
     if args.export_command == "merge":
         export.merge_adapter(settings, args.out)
     elif args.export_command == "push":
-        report = (
-            json.loads(args.eval_report.read_text(encoding="utf-8")) if args.eval_report else None
+        report, base_report = (
+            json.loads(path.read_text(encoding="utf-8")) if path else None
+            for path in (args.eval_report, args.base_report)
         )
         export.write_model_card(
-            args.folder, settings=settings, version=args.tag, kind=args.kind, eval_report=report
+            args.folder,
+            settings=settings,
+            version=args.tag,
+            kind=args.kind,
+            eval_report=report,
+            base_report=base_report,
+            repo_id=args.repo,
         )
         sha = export.push_folder(args.folder, args.repo, tag=args.tag, private=args.private)
         print(sha)

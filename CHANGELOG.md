@@ -13,6 +13,11 @@ The deployed model is versioned separately, by `model_version` in
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-13
+
+The first fine-tuned model in production, a public demo that needs no key, a
+documentation website, and a redesigned web UI. Merged in #23 to #36.
+
 ### Added
 
 - A dev container (`.devcontainer/`) for GitHub Codespaces and VS Code Dev Containers:
@@ -45,16 +50,21 @@ The deployed model is versioned separately, by `model_version` in
 - When the Train workflow cannot open the release pull request, it now says which
   repository setting to enable and links to open the pull request from the pushed
   branch.
+- The model cards published to the Hugging Face Hub link to the source, the demo and
+  the documentation, show how to load the exact release with llama.cpp or `peft`,
+  give the system prompt and the stop sequences, compare the scores with the base
+  model's, and list the limitations. `export push` gains `--base-report`, and the
+  Kaggle pipeline passes the base model's report (#36).
 
 ### Fixed
 
 - Answers no longer run on into an invented next turn. The chat template's role
   markers (`<|user|>`, `<|system|>`, `<|assistant|>`) are plain text to TinyLlama, so
   when the model skipped end-of-sequence it wrote a made-up follow-up question. The
-  llama.cpp and remote engines now stop at them (`prompts.STOP_SEQUENCES`).
+  llama.cpp and remote engines now stop at them (`prompts.STOP_SEQUENCES`) (#35).
 - The retrieval index no longer contains the mkdocstrings directives of the FastAPI
   reference pages (`::: fastapi.BackgroundTasks` and their options blocks), which the
-  model copied into answers. The index has 1,524 chunks instead of 1,534.
+  model copied into answers. The index has 1,524 chunks instead of 1,534 (#35).
 
 ## [2.1.0] - 2026-11-13
 
@@ -318,7 +328,8 @@ question-answer pairs, an interactive CLI (`main.py`), and the resulting adapter
 committed under `outputs/` (a 2-step training run). A Gradio `app.py` for Hugging Face
 hosting was added and removed the same day.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/releases/tag/v1.0.0

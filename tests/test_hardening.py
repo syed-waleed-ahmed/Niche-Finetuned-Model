@@ -379,6 +379,51 @@ def test_published_model_card_carries_apache_attribution(tmp_path, make_settings
     assert "Modifications:" in notice
 
 
+@pytest.mark.parametrize("kind", ["adapter", "gguf"])
+def test_published_model_card_shows_usage_comparison_and_limits(tmp_path, make_settings, kind):
+    from fastapi_assistant.export import write_model_card
+    from fastapi_assistant.prompts import STOP_SEQUENCES, SYSTEM_PROMPT
+
+    (tmp_path / "model-Q4_K_M.gguf").write_bytes(b"")
+    report = {
+        "meta": {"backend": "transformers"},
+        "summary": {"items": 108, "score": 0.538, "code_valid": 0.8365, "code_runs": None},
+    }
+    base = {"summary": {"items": 108, "score": 0.3834, "code_valid": 0.4}}
+    card = write_model_card(
+        tmp_path,
+        settings=make_settings(),
+        version="v2026.11.13-abc",
+        kind=kind,
+        eval_report=report,
+        base_report=base,
+        repo_id="someone/fastapi-assistant-x",
+    ).read_text(encoding="utf-8")
+
+    # The usage example pins this release and stops at the template's role markers.
+    assert '"someone/fastapi-assistant-x"' in card and 'revision="v2026.11.13-abc"' in card
+    assert ("model-Q4_K_M.gguf" in card) == (kind == "gguf")
+    assert ("PeftModel.from_pretrained" in card) == (kind == "adapter")
+    assert SYSTEM_PROMPT in card
+    assert all(marker in card for marker in STOP_SEQUENCES)
+    # Both models, scored on the same set, side by side; unmeasured metrics are left out.
+    assert "| Metric | This release | Base model |" in card
+    assert "| Composite score | 0.538 | 0.383 |" in card
+    assert "code_runs" not in card and "Code runs" not in card
+    assert "unquantized model on the training GPU" in card
+    assert "Latency" not in card
+    assert "often wrong" in card and "/blob/main/MODEL_CARD.md" in card
+
+
+def test_published_model_card_without_reports_has_no_evaluation(tmp_path, make_settings):
+    from fastapi_assistant.export import write_model_card
+
+    card = write_model_card(tmp_path, settings=make_settings(), version="v1", kind="gguf")
+    text = card.read_text(encoding="utf-8")
+    assert "## Evaluation" not in text
+    assert "## Usage" in text and "<namespace>/fastapi-assistant-gguf" in text
+
+
 def test_version_is_consistent_across_package_metadata():
     import re
     from pathlib import Path

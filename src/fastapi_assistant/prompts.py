@@ -23,6 +23,13 @@ SYSTEM_PROMPT = (
 
 CONTEXT_HEADER = "Context:"
 
+# The role markers of the base model's chat template (TinyLlama, Zephyr style). They
+# are plain text, not special tokens, so a model that does not emit end-of-sequence
+# after its answer runs on into an invented next turn ("<|user|> Can you also ...").
+# Serving engines stop generating at any of them; none occurs in a real answer. They
+# must match the template of ``base_model`` in model-release.json.
+STOP_SEQUENCES: tuple[str, ...] = ("<|user|>", "<|system|>", "<|assistant|>")
+
 
 def format_user_content(question: str, context: str | None = None) -> str:
     """Render a user turn, optionally followed by a context block.

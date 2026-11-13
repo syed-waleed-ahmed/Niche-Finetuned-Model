@@ -54,7 +54,7 @@ Statuses:
 |---|---|---|---|
 | 14 | Eval gate | PASS | The CI eval job ran the 108-item held-out set with llama.cpp in 24 minutes. Composite 0.4023 (keyword recall 0.4321, code validity 0.4904, ROUGE-L 0.2891, latency p50 6.86 s). The allowed regression from the committed 0.410 baseline is 0.02. No eval data or baseline was modified. |
 | 15 | Held-out discipline | PASS | Training no longer reads the eval file; checkpoint selection uses a validation slice of the training file. Covered by tests. No model had been trained with the old behaviour. |
-| 16 | Fine-tuned model in production | IN PROGRESS | Was BLOCKED: needed Kaggle and Hugging Face credentials (audit F-04). The live model is the base TinyLlama GGUF, labelled as such everywhere. The clone defect that would have failed the first training run is fixed. **Update:** the credentials are now set and a training run is in progress (section 7). |
+| 16 | Fine-tuned model in production | PASS | Was BLOCKED: needed Kaggle and Hugging Face credentials (audit F-04). The live model was the base TinyLlama GGUF, labelled as such everywhere. The clone defect that would have failed the first training run is fixed. **Update:** the first fine-tuned release, `v2026.11.13-2b04940`, passed both gates and is live since #33 (section 7). |
 
 ## 4. Deployment
 
@@ -106,14 +106,19 @@ unchanged; only the statuses of items 16 and 20 moved.
   #15) deployed the Worker in `deploy-edge` and passed the k6 `smoke-edge` job. Every
   Release now deploys the Worker from `main`; a manual `wrangler deploy` is an
   emergency fallback only.
-- **Training (item 16, F-04): in progress.** The `KAGGLE_API_TOKEN` secret, the
+- **Training (item 16, F-04): done.** The `KAGGLE_API_TOKEN` secret, the
   `KAGGLE_USERNAME` and `HF_NAMESPACE` variables, and the `HF_TOKEN` Kaggle secret on
   the `fastapi-assistant-train` kernel are set. The first runs exposed environment
   problems in the Kaggle image: the Kaggle CLI's undeclared `six` dependency (#15),
   and the image's CUDA `torch` being replaced and an incompatible `torchao` blocking
-  LoRA (#16). A training run is in progress. Until a fine-tuned release passes both
-  eval gates and its release PR is merged, the live model stays the base GGUF
-  (`finetuned: false`).
+  LoRA (#16). A later run trained `v2026.11.13-2b04940`; CI published it to the Hub
+  (Train run 43489041415, `publish_only`, #23). It passed gate 1 on the Kaggle GPU
+  (0.538 against the base model's 0.383) and gate 2 in CI with llama.cpp (0.5463
+  against 0.4023). Release pull request #33 was merged, and Release run 43514221696
+  deployed it: every job succeeded, including the k6 smoke test through the edge.
+  Afterwards `/health` through the edge reported `model_version`
+  `v2026.11.13-2b04940` and `"uses_adapter": true`, the web UI showed "Fine-tuned",
+  and a keyless question was answered in 5.4 s.
 - **Code scanning.** CodeQL alerts #1 and #2 were dismissed by the owner as "won't
   fix" (intended behaviour, F-15). Alert #3 (`py/stack-trace-exposure`) was introduced
   and fixed within #14. All 14 Trivy image alerts (#7 to #20) are closed as fixed by

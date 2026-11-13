@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ..config import Settings
 from ..hub import resolve_gguf_path
+from ..prompts import STOP_SEQUENCES
 from .base import (
     BaseEngine,
     Deadline,
@@ -103,6 +104,9 @@ class LlamaCppEngine(BaseEngine):
                 temperature=params.temperature if params.do_sample else 0.0,
                 top_p=params.top_p,
                 repeat_penalty=params.repetition_penalty,
+                # Added to the template's own end-of-sequence stop; llama.cpp holds
+                # back text that could be the start of a stop sequence while streaming.
+                stop=list(STOP_SEQUENCES),
                 stream=True,
             )
             try:

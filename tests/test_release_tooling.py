@@ -16,7 +16,7 @@ from fastapi_assistant.engines import GenerationParams, create_engine
 from fastapi_assistant.engines.remote_engine import RemoteEngine
 from fastapi_assistant.export import manifest_env, release_manifest
 from fastapi_assistant.hub import latest_checkpoint_with_adapter, resolve_adapter_dir
-from fastapi_assistant.prompts import SYSTEM_PROMPT, normalize_chat
+from fastapi_assistant.prompts import STOP_SEQUENCES, SYSTEM_PROMPT, normalize_chat
 
 # -- adapter resolution ------------------------------------------------------------
 
@@ -179,6 +179,7 @@ def test_remote_engine_generate():
         assert request.headers["authorization"] == "Bearer k"
         body = json.loads(request.content)
         assert body["messages"][-1]["content"] == "q"
+        assert body["stop"] == list(STOP_SEQUENCES)
         return httpx.Response(
             200,
             json={

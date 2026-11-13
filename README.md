@@ -21,15 +21,16 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
 [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) ·
 [Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions)
 
-![The web UI: ask a FastAPI question and get a streamed answer with cited documentation sources](docs/assets/web-ui.jpg)
+![The web UI welcome screen: the fine-tuned model v2026.11.13-2b04940 is ready, the public demo needs no key, with example questions and the settings panel](docs/assets/web-ui.jpg)
 
-> **Status.** The live service runs the *base* TinyLlama-1.1B-Chat model, quantized to
-> GGUF (`model-release.json`: `finetuned: false`), and says so in the UI and the API.
-> The first fine-tuned model has passed both evaluation gates (0.546 against the base
-> model's 0.402 on the held-out set, scored with the production backend) and is
-> published on the Hugging Face Hub; it replaces the base model when its release pull
-> request is merged. What is live and what is optional is tracked in
-> [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+> **Status.** The live service runs the first fine-tuned release, `v2026.11.13-2b04940`
+> (`model-release.json`: `finetuned: true`). It scores 0.546 on the held-out set against
+> the base model's 0.402, both scored with the production backend in the same run.
+> Its weights are on the Hugging Face Hub as a
+> [GGUF](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-gguf) and a
+> [LoRA adapter](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-lora).
+> At 1.1B parameters it is still often wrong, so check its answers. What is live and
+> what is optional is tracked in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## What it does
 
@@ -40,7 +41,7 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
   or forwards to vLLM or TGI for GPU throughput.
 - **Speaks two APIs.** A native `POST /generate` and an OpenAI-compatible
   `POST /v1/chat/completions` (streaming included), so the OpenAI SDKs work unchanged.
-- **Grounds answers in the docs, when it helps.** Retrieval over 1,534 chunks of the
+- **Grounds answers in the docs, when it helps.** Retrieval over 1,524 chunks of the
   FastAPI 0.162.5 documentation (local NumPy index or pgvector), returned as cited
   sources. It is opt-in per request because the eval showed a trade-off (below).
 - **Fails predictably under load.** Bounded concurrency and a bounded queue answer
@@ -199,23 +200,35 @@ scores keyword recall (required API identifiers), code validity (every Python bl
 parses), and ROUGE-L against a reference. The composite score gates releases.
 
 Measured on the 108-item held-out set with the production backend (Q4_K_M GGUF on
-llama.cpp, greedy decoding, 256 new tokens, laptop CPU). This is the bar a fine-tuned
-release must clear; `eval/baseline.json` holds the per-item answers.
+llama.cpp, greedy decoding, 256 new tokens). Both models were scored in the same run
+of the CI eval gate, on the same GitHub-hosted runner, when the release pull request
+was opened. `eval/baseline.json` holds the deployed model's per-item answers, and it
+is the bar the next release must clear.
 
-| Metric | Base TinyLlama (deployed) | Base + retrieval |
+| Metric | Fine-tuned `v2026.11.13-2b04940` (deployed) | Base TinyLlama |
 | --- | --- | --- |
-| Composite score | 0.410 | 0.400 |
-| Keyword recall | 0.418 | 0.498 |
-| Code validity | 0.538 | 0.401 |
-| ROUGE-L | 0.283 | 0.303 |
-| Latency p50 (s) | 7.340 | 11.629 |
+| Composite score | **0.546** | 0.402 |
+| Keyword recall | 0.426 | 0.432 |
+| Code validity | **0.846** | 0.490 |
+| ROUGE-L | **0.387** | 0.289 |
+| Latency p50 (s) | 4.9 | 6.7 |
+| Latency p95 (s) | 7.6 | 7.8 |
 
-Retrieval is a trade-off on the base model: keyword recall rises (+0.080) because the
-docs name the right APIs, but code validity falls (-0.137) because a 1.1B model copies
-code fragments it cannot adapt, so the composite is flat (-0.010) and latency grows by
+Most of the gain is in the shape of the answer. The fine-tune includes a code block in
+105 of 108 answers (the base model: 90), those blocks parse far more often, and its
+answers are about a third shorter (571 characters on average against 831), so they
+finish sooner. Keyword recall did not move: it still names the wrong API about as
+often as the base model does, and code that parses can still be wrong (the
+[model card](MODEL_CARD.md#limitations-and-risks) has examples). More training data
+per topic is the next step ([ROADMAP.md](ROADMAP.md)).
+
+Retrieval was measured on the base model only, on a laptop CPU
+(`eval/baseline-rag.json`): keyword recall rose (+0.080) because the docs name the
+right APIs, but code validity fell (-0.137) because a 1.1B model copies code
+fragments it cannot adapt, so the composite was flat (-0.010) and latency grew by
 about 60%. Production therefore keeps retrieval opt-in (`use_retrieval: true`). The
-fine-tune trains on context examples in the same layout, and this gate decides
-whether retrieval becomes the default.
+fine-tune trains on context examples in the same layout; whether retrieval helps it
+has not been measured yet.
 
 ## Model lifecycle
 

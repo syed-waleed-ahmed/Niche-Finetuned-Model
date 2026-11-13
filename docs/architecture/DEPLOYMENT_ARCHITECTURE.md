@@ -20,7 +20,7 @@ deploys both Cloud Run and the Worker from `main`.
 | --- | --- | --- |
 | Edge Worker `fastapi-assistant-edge` with the web UI, at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev | Live. Deployed by Release (`deploy-edge`) from `main`. | Release run 43460008003; F-10 (resolved) |
 | Cloud Run service `fastapi-assistant` | Live, deployed by Release from `main` | Audit header; `.github/workflows/release.yml` |
-| Model | Base TinyLlama-1.1B-Chat GGUF Q4_K_M, not fine-tuned | `model-release.json` (`"finetuned": false`); F-04 |
+| Model | The fine-tuned release `v2026.11.13-2b04940`: a LoRA fine-tune of TinyLlama-1.1B-Chat as a Q4_K_M GGUF | `model-release.json` (`"finetuned": true`); F-04 (resolved in #33) |
 | Authentication | Static owner key from Secret Manager; origin locked to the edge | Implementation status |
 | Secret Manager, Artifact Registry, Workload Identity Federation, budget alert | Live | Audit section 5; `deploy/gcp/bootstrap.sh` |
 | Upstash Redis (shared rate limit and cache) | Not configured, so the answer cache is off and rate limiting runs per isolate (the fallback limiter). | F-03; implementation status |

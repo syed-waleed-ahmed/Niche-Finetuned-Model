@@ -4,6 +4,7 @@
  */
 
 import type { EndpointMode } from "../api/snippets";
+import { safeStorage } from "./storage";
 
 export interface Settings {
   apiKey: string;
@@ -86,14 +87,6 @@ export function saveSettings(settings: Settings, storage: Storage | null = safeS
     storage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch {
     // Private mode or quota exceeded: settings simply do not persist.
-  }
-}
-
-function safeStorage(): Storage | null {
-  try {
-    return typeof window !== "undefined" ? window.localStorage : null;
-  } catch {
-    return null;
   }
 }
 

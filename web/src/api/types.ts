@@ -46,6 +46,12 @@ export interface GenerateDoneEvent {
   model_version: string;
 }
 
+/**
+ * Who may ask questions: `"public"` (no API key; the edge rate-limits per IP) or
+ * `"key"` (an API key is required).
+ */
+export type AccessMode = "public" | "key";
+
 export interface HealthResponse {
   status: string;
   model_loaded: boolean;
@@ -53,6 +59,8 @@ export interface HealthResponse {
   backend: string;
   model_version: string;
   load_state: string;
+  /** Absent on older servers, which always required a key. */
+  access?: AccessMode;
 }
 
 export interface FeedbackRequest {

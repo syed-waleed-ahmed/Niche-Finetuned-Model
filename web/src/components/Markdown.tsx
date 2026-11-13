@@ -66,8 +66,10 @@ const components: Components = {
     const lang = languageOf(children);
     return (
       <div className="codeblock">
-        {lang ? <span className="codeblock__lang">{lang}</span> : null}
-        <CopyButton text={code} className="codeblock__copy" />
+        <div className="codeblock__bar">
+          <span className="codeblock__lang">{lang ?? "code"}</span>
+          <CopyButton text={code} ariaLabel="Copy code" className="codeblock__copy" />
+        </div>
         <pre>{children}</pre>
       </div>
     );

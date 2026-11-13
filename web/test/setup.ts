@@ -5,4 +5,6 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  // The theme lives on <html>, outside the rendered tree.
+  document.documentElement.removeAttribute("data-theme");
 });

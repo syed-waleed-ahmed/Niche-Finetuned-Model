@@ -27,7 +27,7 @@ export function RetryBanner({ retry, onCancel }: Props) {
         {reason} Retrying in <span className="banner__count">{remaining}s</span> (attempt{" "}
         {retry.attempt + 1} of {retry.maxAttempts}).
       </span>
-      <button type="button" className="btn btn--sm" onClick={onCancel}>
+      <button type="button" className="btn btn--sm btn--quiet" onClick={onCancel}>
         Cancel
       </button>
     </div>

@@ -21,14 +21,45 @@ start the API first, for example:
 API_KEY=dev fastapi-assistant serve
 ```
 
-Then paste `dev` into Settings. Without a key the API answers 401 and the UI opens
-the settings panel for you.
+Then paste `dev` into Settings. A server that requires a key and has none saved
+shows a card explaining how to add one, and a question asked anyway opens Settings at
+the key field instead of being sent; a 401 (a wrong key) still opens Settings too.
 
 ```bash
 npm run typecheck    # tsc --noEmit
 npm test             # vitest (jsdom), including an end-to-end App test with mocked fetch
 npm run build        # writes dist/
 ```
+
+## What it does
+
+- **First run.** The empty conversation is a welcome screen: one sentence on what the
+  assistant is, a status line from `/health` (model version, fine-tuned or base model,
+  ready or loading), example questions, and links to the docs site, GitHub and the
+  API reference (`/docs`).
+- **Access.** `/health` may report `access`: `"public"` (no key needed, rate-limited
+  per IP at the edge) or `"key"`. Public servers get a "Public demo" note and the key
+  becomes optional. Key servers, and older servers that omit the field, get the key
+  card described above until a key is saved.
+- **Theme.** System, light or dark, from the header toggle (cycles) or Settings,
+  Appearance. The choice is stored in `localStorage` (`fastapi-assistant.theme.v1`)
+  and applied as `data-theme` on `<html>`; "system" follows `prefers-color-scheme`.
+  Colours are CSS custom properties in `src/styles.css`; text pairs meet WCAG AA in
+  both themes.
+- **Layout.** Below 900px the side panel is an off-canvas drawer opened from the
+  header Settings button: a modal dialog with a close button and backdrop, closed by
+  Escape, with focus moved into it and back to the trigger. The composer stays pinned
+  to the bottom of the viewport (`100dvh`).
+- **Answers.** Streamed Markdown with highlighted, copyable code blocks; cited sources
+  as a numbered list; a compact line of model, time, tokens, speed and cache status
+  with the rest behind Details; copy, rating and an optional comment.
+- **Accessibility.** Visible focus rings, labelled controls, arrow-key tabs, and one
+  polite live region that announces when an answer starts and finishes rather than
+  every token. Animations stop under `prefers-reduced-motion`.
+
+The Content-Security-Policy in `public/_headers` allows no external or inline scripts
+and styles, so the UI uses the system font stack and inline SVG icons, and the theme is
+applied from `main.tsx` before the first render rather than from an inline script.
 
 ## How it is deployed
 
@@ -62,12 +93,17 @@ src/
                      ApiError with status/Retry-After/request id; one AnswerEvent stream for both APIs
   api/snippets.ts    curl / Python / JavaScript snippet builders
   state/settings.ts  persisted settings, bounded to the API's limits
+  state/theme.ts     theme preference: load, save, apply (data-theme on <html>)
+  state/access.ts    access mode from /health (absent means "key")
   state/conversation.ts  turn model and reducer (streaming, done, error, stopped, feedback)
-  hooks/             useSettings, useHealth (30 s poll, paused when hidden), useConversation (send,
-                     stop, retry on 429/503, rate)
-  components/        Header + health badge, MessageList, Message (Markdown, meta row, sources,
-                     feedback), Composer, RetryBanner, SidePanel (Settings, Status, Code)
-test/                unit tests for the API layer and reducer, plus App.test.tsx
+  hooks/             useSettings, useTheme, useMediaQuery, useHealth (30 s poll, paused when
+                     hidden), useConversation (send, stop, retry on 429/503, rate)
+  components/        Header (health badge, theme toggle), Welcome (first-run screen),
+                     AccessNotice (public note, key card), MessageList, Message (Markdown,
+                     sources, meta row, feedback), Composer, RetryBanner, SidePanel (inline
+                     panel or drawer: Settings, Status, Code), Icons
+test/                unit tests for the API layer, reducer, theme and access; App, onboarding
+                     and shell (theme, drawer) tests with mocked fetch and matchMedia
 ```
 
 Pinned dependencies: react, react-dom, react-markdown, remark-gfm, rehype-highlight,

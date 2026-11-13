@@ -45,7 +45,7 @@ torch = [
   "sentencepiece>=0.2.0",
   "protobuf>=4.25.0",
 ]
-train = ["fastapi-assistant[torch]", "datasets>=2.20.0"]
+train = ["fastapi-assistant[torch]", "datasets>=5.2.0"]
 # Quantized GGUF backend (production CPU serving).
 llamacpp = ["llama-cpp-python>=0.3.0"]
 postgres = ["psycopg[binary]>=3.2.0", "psycopg-pool>=3.2.0"]

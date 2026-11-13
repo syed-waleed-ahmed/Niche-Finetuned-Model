@@ -6,6 +6,15 @@ origins, with a gated model-release pipeline. It is written for an HLD review: i
 states responsibilities, data flow, the scaling and failure model, and the
 trade-offs behind each decision.
 
+Detailed companion documents live in [architecture/](architecture/):
+[system](architecture/SYSTEM_ARCHITECTURE.md),
+[request lifecycle](architecture/REQUEST_LIFECYCLE.md),
+[deployment](architecture/DEPLOYMENT_ARCHITECTURE.md),
+[security](architecture/SECURITY_ARCHITECTURE.md),
+[model pipeline](architecture/MODEL_PIPELINE.md) and
+[decision records](architecture/DECISIONS.md). What is live today, as opposed to
+designed, is in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+
 ## 1. Goals and non-goals
 
 **Goals**

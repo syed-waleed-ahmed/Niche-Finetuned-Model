@@ -10,14 +10,25 @@ an edge cache with multi-origin failover, and a model-release pipeline where
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the high-level design and
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the deployment runbook.
+**Live:** https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev serves the
+web UI, and the API on the same host (an API key is required).
+
+**Status:**
+- **Model:** the live deployment serves the *base* TinyLlama GGUF
+  (`model-release.json`: `finetuned: false`). The pipeline that trains, gates and
+  releases the fine-tune is in place; its first run needs Kaggle and Hugging Face tokens.
+- **Scope:** everything below describes the system's capabilities. What is configured
+  in the live deployment, and what is not, is tracked in
+  [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+
+See [Documentation](#documentation) for architecture, operations, security and audit
+reports.
 
 ## What it does
 
 - **Serves a fine-tuned model cheaply.** LoRA fine-tune of TinyLlama-1.1B, merged and
   quantized to a 0.7 GB GGUF and served with llama.cpp on CPU (about 13 tokens/s on
-  a laptop CPU). The same `Engine` contract also runs torch + LoRA, or forwards to
+  a laptop CPU, 8 to 10 tokens/s per request on a 2-vCPU Cloud Run instance). The same `Engine` contract also runs torch + LoRA, or forwards to
   vLLM/TGI for GPU throughput.
 - **Speaks two APIs.** A native `POST /generate` and an OpenAI-compatible
   `POST /v1/chat/completions` (streaming included), so the OpenAI SDKs work unchanged.
@@ -85,7 +96,7 @@ For development and training (torch, peft):
 
 ```bash
 pip install -e ".[dev,train,postgres]"
-pytest                                 # about 90 tests; no model, network, or DB needed
+pytest                                 # about 120 tests; no model, network, or DB needed
 fastapi-assistant data validate        # dataset quality + train/eval leakage
 fastapi-assistant train                # GPU recommended; see kaggle/ for free GPUs
 ```
@@ -131,9 +142,19 @@ for chunk in client.chat.completions.create(
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
-Errors are explicit: 401 (missing/invalid key), 429 with `Retry-After` (capacity),
-503 with `Retry-After` (model loading or queue timeout). `/v1/*` errors use the
-OpenAI error shape.
+Runnable, CI-tested versions of these calls (OpenAI SDK with streaming, native SSE,
+curl) are in [examples/](examples/).
+
+Errors are explicit, and `/v1/*` errors use the OpenAI error shape:
+
+| Status | Meaning |
+| --- | --- |
+| 400 `context_length_exceeded` | The prompt does not fit the model's context window. Prompts are counted in tokens before admission, and `max_tokens` is clamped to the room left. |
+| 401 | Missing or invalid API key. |
+| 413 | Request body over 64 KiB (`MAX_REQUEST_BYTES`), refused before parsing. |
+| 429 with `Retry-After` | Edge rate limit, generation queue full, or the platform scaling out. |
+| 503 with `Retry-After` | Model still loading, or the queue wait timed out. |
+| 504 | The origin did not answer in time. |
 
 ## Web UI
 
@@ -216,10 +237,23 @@ the official docs with Claude for human review.
 | Observability | Grafana Cloud (metrics, logs, alerts), Sentry |
 | CI/CD | GitHub Actions + GHCR: tests, Postgres integration, image build, smoke test, Trivy, CodeQL, gitleaks, eval gate, multi-arch release, deploys |
 
-Free tiers support roughly hundreds to a few thousand uncached answers per day; the
-architecture scales past that by raising limits or moving inference to a GPU server
-(`ENGINE_BACKEND=remote`) without changing the API. Step-by-step setup is in
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+### Capacity
+
+What has been measured is in
+[docs/audit/PERFORMANCE_BASELINE.md](docs/audit/PERFORMANCE_BASELINE.md):
+
+- each instance runs one generation at a time;
+- a 32-token answer takes about 3 s;
+- with `maxScale: 2`, a burst that forces a cold scale-out can see some requests
+  refused with 429 and a retry hint.
+
+No supported-user figure is claimed without a load test. Capacity grows by:
+
+- raising `maxScale` (a cost decision);
+- adding the backup origins;
+- moving inference to a GPU server (`ENGINE_BACKEND=remote`), without changing the API.
+
+Step-by-step setup is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Configuration
 
@@ -230,6 +264,9 @@ documents every one. The most important:
 | --- | --- | --- |
 | `ENGINE_BACKEND` | `transformers` | `llamacpp` (production), `transformers`, or `remote`. |
 | `GGUF_REPO_ID` / `GGUF_FILENAME` / `GGUF_REVISION` | - | Weights for llama.cpp (set from `model-release.json`). |
+| `GGUF_SHA256` | unset | Expected checksum of the GGUF; the load fails closed on a mismatch. |
+| `LLAMACPP_N_CTX` | `2048` | Context window; prompts are budgeted against it in tokens. |
+| `MAX_REQUEST_BYTES` | `65536` | Largest request body (413 above it; the edge enforces the same cap). |
 | `API_KEY` / `DATABASE_URL` | unset | Static key, and/or per-user hashed keys in Postgres. |
 | `ORIGIN_SHARED_SECRET` | unset | Reject traffic that did not come through the edge. |
 | `MAX_CONCURRENCY` / `MAX_QUEUE` / `QUEUE_TIMEOUT_S` | `1` / `8` / `30` | Back-pressure. |
@@ -253,7 +290,8 @@ main.py                              run from a clone without installing (python
 data/                                curated train/eval sets
 eval/                                baseline reports the gate compares against
 model-release.json                   the deployed model, pinned to Hub revisions
-docs/                                ARCHITECTURE.md (design), DEPLOYMENT.md (runbook)
+docs/                                architecture, operations, security, audit reports
+examples/                            OpenAI SDK, native SSE and curl clients (tested in CI)
 web/                                 browser playground (React + Vite), served by the Worker
 deploy/                              Cloudflare Worker, Cloud Run, VM, HF Space, Grafana
 kaggle/, scripts/                    GPU training pipeline, GGUF export
@@ -261,13 +299,23 @@ tests/, tests/load/                  pytest suite, k6 load/smoke scenarios
 requirements/serve.txt               hash-pinned lock for the production image (make lock)
 Dockerfile, docker-compose.yml       production image; local stack with Postgres + pgvector
 graphify-out/                        generated knowledge graph of the codebase (/graphify)
-.github/workflows/                   ci, release, eval, train, uptime, codeql
+.github/workflows/                   ci, release, security, eval, train, uptime, codeql
 ```
+
+## Documentation
+
+| Area | Documents |
+| --- | --- |
+| Architecture | [System](docs/architecture/SYSTEM_ARCHITECTURE.md), [request lifecycle](docs/architecture/REQUEST_LIFECYCLE.md), [deployment](docs/architecture/DEPLOYMENT_ARCHITECTURE.md), [security](docs/architecture/SECURITY_ARCHITECTURE.md), [model pipeline](docs/architecture/MODEL_PIPELINE.md), [decisions](docs/architecture/DECISIONS.md), [overview](docs/ARCHITECTURE.md) |
+| Operations | [Deployment](docs/DEPLOYMENT.md), [runbook](docs/operations/RUNBOOK.md), [incident response](docs/operations/INCIDENT_RESPONSE.md), [rollback](docs/operations/ROLLBACK.md), [cost management](docs/operations/COST_MANAGEMENT.md), [backup and recovery](docs/operations/BACKUP_AND_RECOVERY.md) |
+| Security | [Security policy](SECURITY.md), [security audit and threat model](docs/security/SECURITY_AUDIT.md), [license audit](docs/legal/LICENSE_AUDIT.md) |
+| Audit | [Initial audit](docs/audit/INITIAL_AUDIT.md), [performance baseline](docs/audit/PERFORMANCE_BASELINE.md), [final verification](docs/audit/FINAL_VERIFICATION.md), [implementation status](docs/IMPLEMENTATION_STATUS.md) |
+| Project | [Model card](MODEL_CARD.md), [contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [changelog](CHANGELOG.md), [citation](CITATION.cff) |
 
 ## Development
 
 ```bash
-make test lint          # pytest + ruff
+make test lint          # pytest + ruff + mypy
 make worker-test        # Worker typecheck + vitest
 make web-test           # web UI typecheck + vitest (make web-dev to run it)
 make eval               # score the configured model, gated vs eval/baseline.json

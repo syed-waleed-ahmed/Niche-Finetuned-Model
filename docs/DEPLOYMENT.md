@@ -23,10 +23,20 @@ Allowances as published in November 2026; check each provider before relying on 
 | Errors | Sentry | developer plan | optional |
 | CI/CD | GitHub Actions + GHCR | free for public repositories | build, eval, deploy, uptime |
 
-Capacity, honestly: one CPU replica generates about 10-15 tokens/s, so an uncached
-256-token answer takes 15-25 s. Free tiers support hundreds to a few thousand
-uncached answers per day; the cache, extra origins, and back-pressure make that
-capacity predictable. Scaling beyond it is a configuration change (section 9).
+### Capacity
+
+**Measured** (see [audit/PERFORMANCE_BASELINE.md](audit/PERFORMANCE_BASELINE.md)):
+
+- one 2-vCPU Cloud Run instance generates 8 to 10 tokens/s for a single request, one
+  generation at a time;
+- an uncached 256-token answer therefore takes roughly 25 to 30 s;
+- a burst that forces a cold scale-out can see some requests refused with 429 and a retry
+  hint while the next instance loads the model.
+
+**Not claimed:** no daily or concurrent-user figure until a controlled load test is run.
+
+**Scaling:** the cache, extra origins and back-pressure keep behaviour predictable, and
+scaling up is a configuration change (section 9).
 
 ## 2. Accounts and where each value goes
 

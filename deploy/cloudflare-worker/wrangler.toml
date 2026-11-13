@@ -11,6 +11,9 @@
 name = "fastapi-assistant-edge"
 main = "src/index.ts"
 compatibility_date = "2026-10-20"
+# Makes the incoming request's `signal` abort when the client disconnects. The Worker
+# then aborts its origin request, so an abandoned generation can stop (src/proxy.ts).
+compatibility_flags = ["enable_request_signal"]
 workers_dev = true
 
 [observability]

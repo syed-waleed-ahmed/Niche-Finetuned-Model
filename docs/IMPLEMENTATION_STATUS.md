@@ -64,6 +64,12 @@ and the first fine-tuned model replaced the base model (#33). #37 is unreleased.
 | Answers that ran on into an invented turn | Seen live after the fine-tune was deployed: with retrieval on, an answer went on past its end with the template's user role marker and a made-up follow-up question, and it copied a `::: fastapi.BackgroundTasks` directive from a retrieved reference page. The engines now stop at the template's role markers, and the index drops mkdocstrings directives (#35). |
 | Release pull requests from the Train workflow | "Allow GitHub Actions to create and approve pull requests" is now on (Settings > Actions > General; the default token permission stays read-only). Until then the Train workflow pushed the release branch but could not open the pull request, so #33 was opened by hand. |
 
+## In progress
+
+| Item | State | Next step |
+|---|---|---|
+| Abandoned non-streaming requests through the edge (O-2) | #26 cancels a generation when the origin sees its caller disconnect (tested against a real server). Measured live after #37 with `scripts/check_abandoned_request.sh`: a tiny request sent right behind an abandoned 60 s generation waited 59.8 s, the same as before #37 (59.7 s), so the disconnect does not reach the origin through the Cloudflare edge. #38 enables `enable_request_signal` and makes the Worker abort its origin request when the client leaves. In `wrangler dev` that signal did not fire for an abandoned request, so production behaviour is unknown. | Run the script again after #38 is deployed. If the wait is still about 60 s, either Cloudflare does not report the disconnect or Cloud Run does not pass the abort to the container, and this stays a documented limit. |
+
 ## Optional, owner's choice
 
 Each item needs an account or a decision that only the repository owner can make.

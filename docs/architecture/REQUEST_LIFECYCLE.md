@@ -216,8 +216,14 @@ generation is 120 s, under the edge's 150 s, so the origin always answers first.
 long answer is cut at 60 s of generation (about 500 tokens at the measured 8 to 10
 tokens/s) and returned with `finish_reason` `length`, rather than lost behind a 504.
 
-A client that disconnects early stops its generation, streaming or not: for a
+A disconnect that reaches the origin stops the generation, streaming or not: for a
 non-streaming request, `service.complete` watches the connection and sets the same
-cancel event, and the answer is recorded with `finish_reason` `cancelled` (#26). Changing
+cancel event, and the answer is recorded with `finish_reason` `cancelled` (#26). A
+streamed response notices the disconnect because writes to the client fail. For a
+non-streaming request nothing is written until the end, so the edge has to pass the
+disconnect on: the Worker aborts its origin request when the incoming request's
+`signal` aborts, and logs `client_gone` with status 499 (#38). After #37, before that
+change, the disconnect did not arrive: a request sent behind an abandoned one waited
+59.8 s. Changing
 any of the three values must preserve
 `QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S < ORIGIN_TIMEOUT_MS`.

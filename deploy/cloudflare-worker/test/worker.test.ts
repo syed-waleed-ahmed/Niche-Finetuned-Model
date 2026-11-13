@@ -708,3 +708,77 @@ describe("rate limit when Redis replies with a command error", () => {
     expect(h.logs[0]).toMatchObject({ rl_scope: "local", redis_error: "ERR wrong type" });
   });
 });
+
+describe("a client that disconnects before the origin answers", () => {
+  /** A POST whose `signal` the test can abort, as the runtime does when the client leaves. */
+  function abortable(): { request: Request; leave: () => void } {
+    const controller = new AbortController();
+    const request = new Request("https://edge.test/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7", ...KEY },
+      body: JSON.stringify(QUESTION),
+      signal: controller.signal,
+    });
+    return { request, leave: () => controller.abort() };
+  }
+
+  it("aborts the origin request, asks no other origin, and leaves the circuit closed", async () => {
+    const signals: (AbortSignal | null)[] = [];
+    let primaryAnswers = false;
+    const origin = mockFetch({
+      [ORIGIN_0]: (call, signal) => {
+        if (primaryAnswers) return json(ANSWER);
+        signals.push(signal);
+        return hang(call, signal);
+      },
+      [ORIGIN_1]: () => json(ANSWER),
+    });
+    // No Redis, so nothing is answered from the cache.
+    const h = harness({ fetch: origin.fetch, redis: null });
+
+    for (let i = 0; i < 3; i++) {
+      const { request, leave } = abortable();
+      const pending = h.run(request);
+      await new Promise((resolve) => setTimeout(resolve, 5)); // the origin request is in flight
+      leave();
+      const res = await pending;
+      expect(res.status).toBe(499);
+      expect(signals[i]?.aborted).toBe(true);
+    }
+    // The backup origin was never asked to start the abandoned work.
+    expect(origin.calls.every((c) => c.url.startsWith(ORIGIN_0))).toBe(true);
+    expect(h.logs.at(-1)).toMatchObject({ status: 499, client_gone: true, attempts: 1, origin_index: null });
+    expect(h.logs.at(-1)?.["upstream_failures"]).toEqual(["origin-0: client disconnected"]);
+
+    // Three disconnects would open the primary's circuit if they counted as failures;
+    // the next request would then skip it and be answered by the backup.
+    primaryAnswers = true;
+    const next = await h.run(post("/generate", QUESTION, KEY));
+    expect(next.status).toBe(200);
+    expect(h.logs.at(-1)).toMatchObject({ origin_index: 0, attempts: 1 });
+    expect(h.logs.at(-1)).not.toHaveProperty("skipped_origins");
+  });
+
+  it("does not contact an origin for a request that is already abandoned", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER), [ORIGIN_1]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch, redis: null });
+    const { request, leave } = abortable();
+    leave();
+    const res = await h.run(request);
+    expect(res.status).toBe(499);
+    expect(origin.calls).toHaveLength(0);
+    expect(h.logs[0]).toMatchObject({ client_gone: true, attempts: 0 });
+  });
+
+  it("still reports a timeout as a timeout", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: hang });
+    const h = harness(
+      { fetch: origin.fetch, redis: null },
+      baseEnv({ ORIGINS: ORIGIN_0, ORIGIN_TIMEOUT_MS: "20" }),
+    );
+    const { request } = abortable(); // the client stays connected
+    const res = await h.run(request);
+    expect(res.status).toBe(504);
+    expect(h.logs[0]).not.toHaveProperty("client_gone");
+  });
+});

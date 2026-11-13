@@ -195,6 +195,7 @@ The Worker writes one JSON line per request (`event: "request"`):
 | `attempts` | How many origin fetches were made. |
 | `upstream_failures` | One entry per failed attempt, for example `origin-0: timeout after 150000 ms`, `origin-0: TypeError: ...`, or `origin-0: HTTP 503`. An HTTP status is recorded only when another origin was tried after it. |
 | `skipped_origins` | Origins skipped because their circuit breaker was open: 3 consecutive network failures or timeouts open it for 30 s. With a single origin nothing is skipped, because the last origin is always tried. |
+| `client_gone` | `true`, with `status: 499`, when the client disconnected before an origin answered. The Worker aborted its origin request; the origin is not counted as failed and no backup origin is tried. |
 | `upstream_normalized` | `true` when the origin's platform (Cloud Run's front end) answered 429, 502, 503 or 504 with a non-JSON body. The edge rewrote it into the JSON error shape and added `Retry-After: 10` when it was missing. |
 | `redis_error` | Upstash transport or command errors (only when Upstash is configured). |
 | `error` | An exception inside the Worker. The client got `500 Internal edge error` (`edge_error`). |

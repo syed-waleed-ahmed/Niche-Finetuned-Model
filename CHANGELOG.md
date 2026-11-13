@@ -33,7 +33,13 @@ The deployed model is versioned separately, by `model_version` in
   `stream`) stops generating when its caller disconnects, as streamed requests
   already did. Until now it kept the only generation slot busy for up to
   `GENERATION_TIMEOUT_S`. `Engine.generate` takes an optional `cancel` event; the
-  remote engine honours it only before the request is sent (#26).
+  remote engine honours it only before the request is sent (#26). This takes effect
+  when the disconnect reaches the origin; measured after #37, it did not through the
+  Cloudflare edge.
+- Edge Worker: when the client disconnects before an origin answers, the Worker
+  aborts its origin request (`enable_request_signal`), logs `client_gone` with
+  status 499, does not count the origin as failed and does not try a backup
+  origin (#38).
 
 ## [2.2.0] - 2026-11-13
 

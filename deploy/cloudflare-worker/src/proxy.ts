@@ -66,6 +66,8 @@ export interface ForwardResult {
   timedOut: boolean;
   /** Origins skipped because their circuit was open. */
   skipped: number[];
+  /** True when the client disconnected before any origin answered. */
+  clientGone: boolean;
 }
 
 /**
@@ -125,9 +127,15 @@ export async function forwardWithFailover(
     fetch: FetchLike;
     breaker?: CircuitBreaker;
     now?: () => number;
+    /**
+     * Aborted when the client disconnects (the incoming request's `signal`). The
+     * pending origin request is then aborted too, so the origin can stop generating
+     * an answer nobody will read.
+     */
+    clientSignal?: AbortSignal;
   },
 ): Promise<ForwardResult> {
-  const { origins, timeoutMs, breaker } = options;
+  const { origins, timeoutMs, breaker, clientSignal } = options;
   const now = options.now ?? (() => Date.now());
   const failures: string[] = [];
   let attempts = 0;
@@ -144,6 +152,7 @@ export async function forwardWithFailover(
     const i = order[pos] as number;
     const base = origins[i] as string;
     const hasNext = pos < order.length - 1;
+    if (clientSignal?.aborted) break;
     attempts++;
 
     // The timeout covers the wait for response headers (and buffering of a
@@ -154,6 +163,8 @@ export async function forwardWithFailover(
       expired = true;
       controller.abort(new Error(`origin timeout after ${timeoutMs} ms`));
     }, timeoutMs);
+    const onClientGone = (): void => controller.abort(new Error("client disconnected"));
+    clientSignal?.addEventListener("abort", onClientGone, { once: true });
 
     let res: Response;
     try {
@@ -166,11 +177,21 @@ export async function forwardWithFailover(
       });
     } catch (err) {
       clearTimeout(timer);
+      clientSignal?.removeEventListener("abort", onClientGone);
+      // The client left: the origin did nothing wrong, so its circuit is untouched
+      // and no other origin is asked to start the same work.
+      if (clientSignal?.aborted && !expired) {
+        failures.push(`origin-${i}: client disconnected`);
+        break;
+      }
       timedOut = expired;
       breaker?.failure(i, now());
       failures.push(`origin-${i}: ${expired ? `timeout after ${timeoutMs} ms` : describeError(err)}`);
       continue;
     }
+    // From here the body is streamed straight through; the runtime cancels that
+    // stream itself when the client goes away.
+    clientSignal?.removeEventListener("abort", onClientGone);
     timedOut = false;
     breaker?.success(i);
 
@@ -198,6 +219,7 @@ export async function forwardWithFailover(
       failures,
       timedOut: false,
       skipped,
+      clientGone: false,
     };
   }
 
@@ -209,6 +231,7 @@ export async function forwardWithFailover(
     failures,
     timedOut,
     skipped,
+    clientGone: clientSignal?.aborted === true && last === null && !timedOut,
   };
 }
 

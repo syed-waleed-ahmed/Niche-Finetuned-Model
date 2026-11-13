@@ -397,8 +397,7 @@ The static `API_KEY` cannot be revoked. Rotate it instead (7.2).
 
 ### 7.6 Deploy a new model release
 
-1. Normal path (credentials configured; the first training run is in progress, audit
-   F-04):
+1. Normal path (credentials configured; the first release, #33, was made this way):
    1. Run the "Train on Kaggle" workflow. It trains, publishes the GGUF and runs the
       eval gate. On a fresh setup, run it once with `push_only: true`, attach the
       `HF_TOKEN` secret to the new `fastapi-assistant-train` kernel on Kaggle, then

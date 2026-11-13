@@ -27,7 +27,8 @@ service supports. The only capacity evidence is the set of one-off probes in
 **`maxScale` is the only setting that caps spend.**
 
 - Cloud Run never runs more than `CLOUD_RUN_MAX_INSTANCES` instances (default 2,
-  rendered into `deploy/cloudrun/service.yaml`).
+  rendered into `deploy/cloudrun/service.yaml`). The live deployment sets it to 1,
+  because it runs as a public demo that serves requests without a key.
 - The GCP budget created by `deploy/gcp/bootstrap.sh` only notifies:
   - default `BUDGET_USD=5`;
   - emails at 50% and 100%;
@@ -47,7 +48,7 @@ service supports. The only capacity evidence is the set of one-off probes in
 | GitHub Actions | Standard GitHub-hosted runners, including the `ubuntu-24.04-arm` runner used by Release, are free for public repositories [vendor, re-check] | CI, Security, CodeQL, Release (amd64 and arm64 builds, Worker deploy and k6 smoke test), Train (polls the Kaggle kernel, up to 330 minutes per run), and Uptime (about 4,320 runs per 30 days) | Free while the repository is public; see section 5 |
 | GitHub Container Registry | Free for public packages [vendor, re-check] | Multi-arch images, tagged `sha-<12>` and `latest` | Private packages count against account storage [vendor, re-check] |
 | Hugging Face Hub | Free public model repositories [vendor, re-check] | GGUF download at every cold start | Not billed. Availability and download limits are outside our control (see [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md)). |
-| Kaggle | A weekly GPU quota, not officially published (about 30 hours per week is commonly cited) [vendor, re-check] | Training, about 1 hour per run. Credentials are configured; the first training run is in progress. | The kernel stops |
+| Kaggle | A weekly GPU quota, not officially published (about 30 hours per week is commonly cited) [vendor, re-check] | Training, about 1 hour per run. Credentials are configured; the first release took one run. | The kernel stops |
 
 Optional services. **None is configured today**; check them before enabling.
 
@@ -67,7 +68,7 @@ The configuration (`deploy/cloudrun/service.yaml`) is:
 | CPU and memory per instance | 2 vCPU, 2 GiB |
 | Billing | Request-based (`run.googleapis.com/cpu-throttling: "true"`) |
 | `minScale` | 0 |
-| `maxScale` | 2 |
+| `maxScale` | 2 by default; 1 on the live deployment (`CLOUD_RUN_MAX_INSTANCES`) |
 | `containerConcurrency` | 4 |
 | `MAX_CONCURRENCY` | 1 |
 | `MAX_QUEUE` | 3 |
@@ -90,7 +91,7 @@ Derived from the allowance:
 | Billable instance time covered by the memory allowance | 360,000 GiB-s / 2 GiB | 180,000 s, about 50 hours per month |
 | Limiting allowance | | vCPU-seconds |
 | Worst case at `maxScale 2`, both instances busy for a 30-day month | 2 x 2 vCPU x 2,592,000 s | 10,368,000 vCPU-s, about **58 times** the free vCPU allowance |
-| Worst case at `maxScale 1` | 1 x 2 vCPU x 2,592,000 s | 5,184,000 vCPU-s, about 29 times the free allowance |
+| Worst case at `maxScale 1` (the live setting) | 1 x 2 vCPU x 2,592,000 s | 5,184,000 vCPU-s, about 29 times the free allowance |
 
 Per-request examples come from the single-request measurements in the audit. They are
 not averages.

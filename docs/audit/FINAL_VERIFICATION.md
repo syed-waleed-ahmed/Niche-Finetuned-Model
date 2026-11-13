@@ -88,13 +88,13 @@ Listed with instructions in [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STAT
 
 - merge #13: done (and the follow-ups #14 to #16);
 - create the Cloudflare API token: done (Release deploys the Worker since #15);
-- add the training credentials: done (a training run is in progress);
+- add the training credentials: done (the first fine-tuned release is live since #33);
 - dismiss CodeQL #1 and #2 and Dependabot #1: done;
 - private vulnerability reporting: done (enabled after the merge);
 - apply the branch-protection ruleset to `main` (O-4): done ("Protect main");
 - optionally add Upstash, Neon, Sentry, Grafana Cloud and a backup origin: open;
-- publish `v2.0.0` at `684a10d`: done; publish `v2.1.0` after the 2.1.0 version bump
-  is merged: open.
+- publish `v2.0.0` at `684a10d`: done; `v2.1.0` and `v2.2.0`: done (both published on
+  2026-11-13).
 
 ## 7. Update after the merges (2026-11-13)
 
@@ -127,6 +127,7 @@ unchanged; only the statuses of items 16 and 20 moved.
 - **Private vulnerability reporting** is enabled.
 - **Branch protection:** the "Protect main" ruleset is active (pull requests and the
   core CI and security checks required; no force-push or deletion).
-- **Releases:** `v2.0.0` is published at `684a10d`.
-- **Still open:** project-wide deployer roles (O-4), the `v2.1.0` release, and the
+- **Releases:** `v2.0.0` is published at `684a10d`, `v2.1.0` at `6518441` and `v2.2.0`
+  at `c4d1041`.
+- **Still open:** project-wide deployer roles (O-4) and the
   optional services in items 21 to 23.

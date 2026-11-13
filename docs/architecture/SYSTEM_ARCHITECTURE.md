@@ -27,11 +27,11 @@ Release workflow deploys both Cloud Run and the edge Worker from `main`.
 
 A FastAPI-specialised small language model served as an HTTP service with a native
 API (`POST /generate`) and an OpenAI-compatible API (`/v1/chat/completions`,
-`/v1/models`, `/v1/feedback`). The model is TinyLlama-1.1B-Chat, intended to carry a
-LoRA fine-tune, served as a quantized GGUF by llama.cpp on CPU.
+`/v1/models`, `/v1/feedback`). The model is TinyLlama-1.1B-Chat with a
+LoRA fine-tune merged in, served as a quantized GGUF by llama.cpp on CPU.
 
-The deployed model is currently the base TinyLlama GGUF, not a fine-tune
-(`"finetuned": false` in `model-release.json`; audit finding F-04). See
+The deployed model is the first fine-tuned release, `v2026.11.13-2b04940`
+(`"finetuned": true` in `model-release.json`; audit finding F-04, resolved in #33). See
 [MODEL_PIPELINE.md](MODEL_PIPELINE.md).
 
 ## 2. Context diagram
@@ -65,7 +65,7 @@ flowchart LR
     Hub[("Hugging Face Hub<br/>GGUF at a pinned revision")]
     GHA["GitHub Actions<br/>CI, Release, Security, Eval, Train"]
     GHCR[("GHCR<br/>multi-arch image")]
-    Kaggle["Kaggle GPU kernel<br/>first training run in progress"]
+    Kaggle["Kaggle GPU kernel<br/>trains each model release"]
 
     Browser -->|"GET /, /assets"| Assets
     Browser -->|"same-origin API calls"| Worker
@@ -188,7 +188,8 @@ From the audit's live baseline (single requests, Cloud Run, 2 vCPU, Q4_K_M):
 | `POST /generate`, 64 tokens | 8.6 s first call, 6.3 s repeat |
 
 No load test has been run. The audit's capacity statement applies: one generation
-per instance, at most two instances, further requests queued up to `MAX_QUEUE` and
+per instance, at most `CLOUD_RUN_MAX_INSTANCES` instances (two when the audit was
+written, one on the live public demo), further requests queued up to `MAX_QUEUE` and
 then rejected with 429. No figure for supported users is claimed. Two one-off burst
 probes and what they showed about scale-out are recorded in
 [docs/audit/PERFORMANCE_BASELINE.md](../audit/PERFORMANCE_BASELINE.md).

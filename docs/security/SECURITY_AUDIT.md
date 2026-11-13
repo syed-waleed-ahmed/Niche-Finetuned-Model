@@ -9,6 +9,12 @@ Date: 2026-11-13. This document is the security view of the system. It covers:
 - prompt-injection and model-output risks;
 - recommendations, ordered by value.
 
+**Update, later the same day.** After this review the deployment was switched to
+public demo mode (`PUBLIC_DEMO=true`, #24): the edge and the origin serve requests
+without a key, limited to 10 a minute per IP per isolate, and `maxScale` was lowered
+from 2 to 1. Rows S1, D1 and D7 say what that changes. The first fine-tuned model was
+deployed (F-04, #33).
+
 ## 1. Scope and method
 
 **In scope:**
@@ -145,10 +151,10 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| S1 | Use of the API without a valid key | Edge rejects missing keys (401). Origin checks the static key with `hmac.compare_digest`, or a SHA-256 hash lookup in Postgres (`auth.py`). Keys are 256-bit random values. | **Medium.** One static key is shared by all clients. A leak means rotating it for everyone, and abuse cannot be tied to a client. Per-user keys need Neon (not configured). |
+| S1 | Use of the API without a valid key | Edge rejects missing keys (401). Origin checks the static key with `hmac.compare_digest`, or a SHA-256 hash lookup in Postgres (`auth.py`). Keys are 256-bit random values. | **Medium.** One static key is shared by all clients. A leak means rotating it for everyone, and abuse cannot be tied to a client. Per-user keys need Neon (not configured). In public demo mode, requests without a key are served by design, so this row covers keyed access only; a wrong key is still rejected with 401. |
 | S2 | Bypassing the edge by calling Cloud Run directly | Origin secret check returns 403 (verified live). The Worker never forwards a client-supplied `x-origin-secret`. | **Low.** The secret is static, with no rotation schedule, and shared by all origins. Leaking it removes every edge control. |
 | S3 | Forging client identity or ids through headers | The Worker drops client `x-forwarded-for`, `x-request-id` (replaced by a sanitised or generated id) and `cf-*`. The origin only logs these values; it makes no security decision on them. | **Low** |
-| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` is not configured (O-4); protection rules for the `production` environment were not reviewed. |
+| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` is now configured (the "Protect main" ruleset, O-4); protection rules for the `production` environment were not reviewed. |
 
 ### Tampering
 
@@ -183,13 +189,13 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| D1 | Request floods exhausting compute or budget | Key presence check at the edge; per-key and per-IP limits (in-isolate today, F-03); admission control (1 running, 3 queued, then 429; 503 after 60 s); `containerConcurrency 4`; `maxScale 2`; budget alert | **Medium.** The in-isolate limiter counts per Cloudflare isolate. Every made-up key gets its own bucket and reaches the origin (cheap 401, but billable requests). One valid key can keep both instances busy. The measured burst behaviour is in PERFORMANCE_BASELINE. |
+| D1 | Request floods exhausting compute or budget | Key presence check at the edge (not in public demo mode); per-key and per-IP limits (in-isolate today, F-03); admission control (1 running, 3 queued, then 429; 503 after 60 s); `containerConcurrency 4`; `maxScale` (2 at review time, 1 on the live public demo); budget alert | **Medium.** The in-isolate limiter counts per Cloudflare isolate. Every made-up key gets its own bucket and reaches the origin (cheap 401, but billable requests). One valid key can keep both instances busy. In public demo mode anyone can occupy the single instance without a key, held back only by the per-IP limit of 10 a minute per isolate; the cost stays bounded by `maxScale 1` (D7). The measured burst behaviour is in PERFORMANCE_BASELINE. |
 | D2 | Long generations holding the only slot | `GENERATION_TIMEOUT_S=60` on Cloud Run, inside the edge's 150 s timeout together with the 60 s queue wait, so every generation ends in an answer; streaming generations stop when the client disconnects | **Low.** A non-streaming caller that disconnects early still leaves its generation running for up to 60 s (O-2, residual). |
 | D3 | Token-dense prompts | Token count with the loaded tokenizer before admission; 400 `context_length_exceeded` (F-01) | **Low** |
 | D4 | A dead or slow origin stalling every request | Per-isolate circuit breaker; 504 on timeout (F-12, edge) | **Low** (a single origin today, so the breaker mostly affects logging) |
 | D5 | Exhausting the Workers Free plan daily request limit | Cloudflare's platform protections. Edge 404s and 401s are cheap but still count. | **Medium.** Past the limit, the whole edge (API and probes) fails until the daily reset. |
 | D6 | Hugging Face unavailable at cold start | Running instances keep serving | **Medium** (F-06 residual: weights are downloaded, not baked, to stay in free storage) |
-| D7 | Denial of wallet | `maxScale` hard cap; budget alerts; request-based billing | **Medium.** The worst case at `maxScale 2` is about 58 times the free vCPU allowance per month ([../operations/COST_MANAGEMENT.md](../operations/COST_MANAGEMENT.md)). Alerts notify a person; nothing stops spending automatically. |
+| D7 | Denial of wallet | `maxScale` hard cap; budget alerts; request-based billing | **Medium.** The worst case is about 58 times the free vCPU allowance per month at `maxScale 2`, and about 29 times at the live setting of 1 ([../operations/COST_MANAGEMENT.md](../operations/COST_MANAGEMENT.md)). Alerts notify a person; nothing stops spending automatically. |
 
 ### Elevation of privilege
 
@@ -218,7 +224,7 @@ deploys the Worker on every run (F-10), so edge fixes no longer need a manual de
 | F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
 | F-02 | P1 | Unbounded request bodies | Fixed | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
 | F-03 | P1 | No rate limiting live | Partially mitigated | The in-isolate fallback limiter is always on (edge). A shared limit needs Upstash, which is BLOCKED on an owner credential. |
-| F-04 | P1 | Live model is the base TinyLlama | In progress | Credentials are configured (Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` on the Kaggle kernel). The first runs exposed Kaggle environment problems, fixed in #15 and #16; a training run is in progress. The live model stays the base GGUF until a fine-tune passes the eval gates and its release PR is merged. |
+| F-04 | P1 | Live model is the base TinyLlama | Fixed (#33) | The first fine-tuned release, `v2026.11.13-2b04940`, passed both eval gates (0.546 against the base model's 0.402 with the production backend) and is deployed. The first training runs exposed Kaggle environment problems, fixed in #15 and #16. |
 | F-20 | P1 | HIGH CVEs with fixes in the image | Fixed | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed). All 14 Trivy code-scanning alerts (#7 to #20) are closed as fixed by the scan of the deployed image. |
 | F-21 | P1 | False-positive secret alert on the RAG index | Fixed | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |
 | F-05 | P2 | 5xx labelled `invalid_request_error` | Fixed | 5xx is `server_error`; admission rejections are `overloaded` |
@@ -302,8 +308,9 @@ chat-template role markers in their text. The model has no tools, functions, net
 file or database access. Injection can therefore only change the text returned to the
 same user, or, with the shared cache, to someone who sends a byte-identical request.
 
-**Answers are untrusted text.** The deployed model is the base TinyLlama (F-04) and is
-known to give wrong FastAPI answers. Treat every answer, especially code, as untrusted:
+**Answers are untrusted text.** The deployed model is a fine-tuned TinyLlama-1.1B and is
+known to give wrong FastAPI answers, including in code that parses
+([MODEL_CARD.md](../../MODEL_CARD.md)). Treat every answer, especially code, as untrusted:
 
 - review it before running;
 - never pipe it into a shell or `eval`.

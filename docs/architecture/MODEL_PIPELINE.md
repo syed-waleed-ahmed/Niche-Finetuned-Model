@@ -175,14 +175,14 @@ PR replaces it together with `eval/baseline.json` and `eval/baseline.md`.
 
 | Field | Current value | Becomes |
 | --- | --- | --- |
-| `model_version` | `base-tinyllama-q4km` | `MODEL_VERSION` (responses, metrics, usage), Cloud Run revision label, edge cache namespace |
+| `model_version` | `v2026.11.13-2b04940` | `MODEL_VERSION` (responses, metrics, usage), Cloud Run revision label, edge cache namespace |
 | `base_model` | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | `BASE_MODEL_NAME` |
-| `finetuned` | `false` | `FINETUNED_WEIGHTS`, reported as `uses_adapter` by `/health` |
-| `chat_format` | `zephyr` | `LLAMACPP_CHAT_FORMAT`; absent for a fine-tune, which uses the GGUF's embedded template |
-| `gguf.repo_id`, `gguf.filename`, `gguf.revision` | TheBloke repository, file and commit | `GGUF_REPO_ID`, `GGUF_FILENAME`, `GGUF_REVISION` |
+| `finetuned` | `true` | `FINETUNED_WEIGHTS`, reported as `uses_adapter` by `/health` |
+| `chat_format` | absent (the base release set `zephyr`) | `LLAMACPP_CHAT_FORMAT`; absent for a fine-tune, which uses the GGUF's embedded template |
+| `gguf.repo_id`, `gguf.filename`, `gguf.revision` | `syed-waleed-ahmed/fastapi-assistant-gguf`, `model-Q4_K_M.gguf`, the release tag | `GGUF_REPO_ID`, `GGUF_FILENAME`, `GGUF_REVISION` |
 | `gguf.sha256` | 64 hex characters | `GGUF_SHA256`, verified before load |
-| `adapter` | `null` | `ADAPTER_REPO_ID`, `ADAPTER_REVISION` (transformers backend only) |
-| `eval` | `null` | Eval summary of the release |
+| `adapter` | `syed-waleed-ahmed/fastapi-assistant-lora` at the release tag | `ADAPTER_REPO_ID`, `ADAPTER_REVISION` (transformers backend only) |
+| `eval` | the Kaggle gate's summary (score 0.538) | Eval summary of the release |
 
 The translation is `export.manifest_env`, exposed as
 `fastapi-assistant export env model-release.json`.
@@ -210,8 +210,8 @@ so the gate compares future candidates against the restored model.
 
 ## 12. Known gaps
 
-- No training run has completed yet (F-04; a run is in progress), so the fine-tune and
-  its eval results do not exist.
+- Only one fine-tuned release exists. Its keyword recall did not improve on the base
+  model's, and retrieval has not been measured with it ([ROADMAP.md](../../ROADMAP.md)).
 - **Fixed during this review.** `train.yml` passes the commit SHA as `ref`, but
   `kaggle/pipeline.py` used to clone with `git clone --branch <ref>`, which rejects a
   commit hash. The pipeline now runs `git init`, `git fetch --depth 1 origin <ref>`

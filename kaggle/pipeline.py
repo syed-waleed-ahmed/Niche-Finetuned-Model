@@ -94,6 +94,9 @@ def main() -> int:
     constraints = WORK / "preinstalled-torch.txt"
     constraints.write_text(_preinstalled_pins(("torch", "torchvision", "torchaudio")))
     sh(sys.executable, "-m", "pip", "install", "--quiet", "-c", str(constraints), "-e", ".[train]")
+    # The image's optional torchao is older than peft accepts, and peft refuses to apply
+    # LoRA while it is installed. Nothing in this pipeline uses torchao.
+    sh(sys.executable, "-m", "pip", "uninstall", "--quiet", "-y", "torchao")
 
     adapter_dir = WORK / "adapter"
     env = {

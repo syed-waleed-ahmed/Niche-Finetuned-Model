@@ -20,11 +20,12 @@ A small language model that answers questions about the
 `fastapi-assistant` service in this repository.
 
 **Status (2026-11-13): the deployed model is the base TinyLlama chat model, not a
-fine-tuned one.** The LoRA fine-tuning pipeline exists and is tested, but no training
-run has been published: it needs Kaggle and Hugging Face credentials that only the
-owner can create (finding F-04 in [docs/audit/INITIAL_AUDIT.md](docs/audit/INITIAL_AUDIT.md)).
-Every number in this card describes the base model. This card will be updated when a
-fine-tuned release passes the release gates.
+fine-tuned one.** The LoRA fine-tuning pipeline exists and is tested, but no
+fine-tuned model has been published yet (finding F-04 in
+[docs/audit/INITIAL_AUDIT.md](docs/audit/INITIAL_AUDIT.md)). The training credentials
+are now configured and a training run is in progress. Every number in this card
+describes the base model. This card will be updated when a fine-tuned release passes
+the release gates.
 
 ## Model details
 

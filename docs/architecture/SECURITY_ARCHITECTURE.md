@@ -90,7 +90,7 @@ the order of 2^255 guesses, so a slow password hash (bcrypt, scrypt, Argon2) add
 practical protection. It would add cost to every request, because the hash is
 computed before the TTL cache lookup. CodeQL alert #2
 (`py/weak-sensitive-data-hashing` on `storage/base.py` `hash_api_key`) is accepted
-for this reason (F-15).
+for this reason and dismissed as "won't fix" (F-15).
 
 ### Metrics
 
@@ -128,7 +128,7 @@ Each limit stops a class of abuse before it reaches the expensive step.
 | System prompt | Client system messages are dropped; the service's own prompt is always used | Origin | `prompts.py` `normalize_chat` |
 | Prompt tokens | Must leave 16 tokens of the 2,048-token context; answer clamped to the room left | Origin, before admission | `engines/base.py` `fit` |
 | Concurrency | 1 generation per instance, 3 waiting, 60 s queue timeout | Origin | `admission.py`, `service.yaml` |
-| Generation time | 120 s per generation, checked per token | Origin | `engines/base.py` `Deadline` |
+| Generation time | 60 s per generation on Cloud Run (120 s default), checked per token; queue plus generation stays under the edge's 150 s timeout | Origin | `engines/base.py` `Deadline`, `service.yaml` |
 | Spend | `maxScale` 2 by default; budget alert notifies only | Cloud Run | `service.yaml`, `bootstrap.sh` |
 
 Client-facing error messages are fixed strings ("Generation failed", "Model not
@@ -186,7 +186,7 @@ can only read secrets (`roles/secretmanager.secretAccessor`).
 | --- | --- | --- |
 | API keys | Never logged at the edge or the origin; the edge logs only the identity type (`key` or `ip`) | `index.ts`, `api.py` |
 | Questions and answers | Stored with usage events only when `STORE_TRANSCRIPTS=true` (default false) | `service.py` `record_usage` |
-| Feedback | Stored in Postgres; without a database, the rating and comment are written to the log | `api.py` `feedback` |
+| Feedback | Stored in Postgres; without a database, only the rating and the comment length are written to the log, never the comment text | `api.py` `feedback` |
 | Errors | Sentry only when `SENTRY_DSN` is a URL, with `send_default_pii=False` | `api.py` `_init_sentry` |
 | Request ids | Client `X-Request-ID` accepted at the edge only if it matches `[A-Za-z0-9._:-]{1,128}` | `src/http.ts` `sanitizeRequestId` |
 
@@ -200,9 +200,9 @@ Accepted or open, each traceable to code:
   authentication, after the body cap and JSON decode and before any model work.
 - **The fallback rate limiter is per isolate.** Without Upstash, each Cloudflare
   isolate counts separately, so the effective limit is a multiple of the configured
-  one (`src/ratelimit.ts`). See [DECISIONS.md](DECISIONS.md), ADR-008. The Worker
-  deployed today predates this fallback, so no rate limit is live until it is
-  redeployed ([docs/IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md)).
+  one (`src/ratelimit.ts`). See [DECISIONS.md](DECISIONS.md), ADR-008. This fallback
+  is the rate limit that is live today
+  ([docs/IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md)).
 - **Probes are public** and report backend and model version (F-16, accepted).
 - **CORS allows any origin** (F-18, accepted; header authentication).
 - **Controls that switch off when unset:** origin lock (`ORIGIN_SHARED_SECRET`),

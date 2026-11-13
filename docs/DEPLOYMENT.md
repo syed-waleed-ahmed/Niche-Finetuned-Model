@@ -55,8 +55,9 @@ scaling up is a configuration change (section 9).
 | `SENTRY_DSN` | Sentry project settings | Secret Manager `sentry-dsn`, VM `.env` |
 | `SMOKE_API_KEY` | issued by `scripts/setup_secrets.sh` | GitHub secret |
 | `HF_NAMESPACE` | your Hugging Face user or org | GitHub variable |
-| `HF_TOKEN` | Hugging Face token with write access | Kaggle secret attached to the kernel |
-| `KAGGLE_USERNAME` + `KAGGLE_KEY` (or `KAGGLE_API_TOKEN`) | Kaggle account settings, API | GitHub secrets |
+| `HF_TOKEN` | Hugging Face token with write access | Kaggle secret attached to the `fastapi-assistant-train` kernel (first run the Train workflow once with `push_only: true` to create the kernel) |
+| `KAGGLE_API_TOKEN` (or the legacy `KAGGLE_KEY`) | Kaggle account settings, API | GitHub secret |
+| `KAGGLE_USERNAME` | your Kaggle username | GitHub variable (a secret of the same name is also accepted) |
 
 ### Secrets in one command
 
@@ -165,11 +166,13 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
 2. Run the "Train on Kaggle" workflow. It trains on a free GPU, requires the
    fine-tune to beat the base model, exports and publishes the GGUF, re-scores it
    with the production backend, and opens a PR that updates `model-release.json`
-   and `eval/baseline.json`.
-3. Review the eval table in the PR and merge. Release redeploys Cloud Run. The
-   edge job, which also bumps the Worker's cache namespace (`MODEL_VERSION`), runs only
-   once `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set; until then,
-   redeploy the Worker by hand with `--var MODEL_VERSION:<new version>`.
+   and `eval/baseline.json`. The first time, run it with `push_only: true`, attach
+   `HF_TOKEN` to the new kernel on Kaggle, then run it again normally.
+3. Review the eval table in the PR and merge. Release redeploys Cloud Run and the
+   Worker; the edge job also bumps the Worker's cache namespace (`MODEL_VERSION`).
+   The edge job runs only when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are
+   set (both are set for this repository); without them, redeploy the Worker by hand
+   with `--var ORIGINS:<origins> --var MODEL_VERSION:<new version>`.
 
 ## 9. Runbook
 

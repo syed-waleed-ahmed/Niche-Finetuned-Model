@@ -4,7 +4,7 @@ sdk: docker
 app_port: 8080
 pinned: false
 license: mit
-short_description: Fine-tuned small model that answers FastAPI questions
+short_description: Small language model that answers FastAPI questions
 ---
 
 # FastAPI Assistant (Hugging Face Space origin)

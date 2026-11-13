@@ -12,7 +12,7 @@ logs and metrics are, and how to do the routine tasks. For outages use
 | Edge | Cloudflare Worker `fastapi-assistant-edge`, which also serves the web UI from `web/dist` | `deploy/cloudflare-worker/`, `web/` |
 | Origin | Cloud Run service `fastapi-assistant` in `us-central1`: llama.cpp on CPU, 2 vCPU and 2 GiB per instance, `minScale 0`, `maxScale 2` | `deploy/cloudrun/service.yaml`, `.github/workflows/release.yml` |
 | Model | Base TinyLlama 1.1B Chat, Q4_K_M GGUF, downloaded from the Hugging Face Hub at a pinned revision and checked against a SHA-256 | `model-release.json` |
-| Uptime probe | GitHub Actions, `GET /health` through the edge every 10 minutes | `.github/workflows/uptime.yml` |
+| Uptime probe | GitHub Actions every 10 minutes through the edge: `GET /health`, then the authenticated `GET /v1/models` when `SMOKE_API_KEY` is set | `.github/workflows/uptime.yml` |
 | Secrets | GitHub Actions secrets, copied into Google Secret Manager by Release; one Worker secret | `scripts/setup_secrets.sh` |
 
 **Not configured today.** Each of these changes what you can observe:
@@ -25,9 +25,12 @@ logs and metrics are, and how to do the routine tasks. For outages use
 - **Grafana Cloud scraping:** nothing collects `/metrics`, so the rules in
   `deploy/grafana/alerts.yaml` are not active.
 
-**Edge deploys are manual.** The Worker is deployed from a workstation with wrangler,
-because the Cloudflare API token for CI does not exist yet (audit finding F-10). A
-merge to `main` therefore redeploys Cloud Run, but not the Worker.
+**Edge deploys run in CI.** The Release workflow deploys the Worker and the web UI
+from `main` (job `deploy-edge`, with `ORIGINS` from the `EDGE_ORIGINS` variable and
+`MODEL_VERSION` from `model-release.json`), then runs a k6 smoke test through the edge
+(`smoke-edge`). A merge to `main` therefore redeploys Cloud Run and the Worker
+together (audit finding F-10, resolved). A manual `wrangler deploy` (7.7) is an
+emergency fallback only.
 
 **Paging today.** Only two signals reach a person:
 
@@ -82,15 +85,17 @@ Notes:
 | `GET /metrics` | 404 (blocked at the edge) | Needs `Authorization: Bearer $METRICS_TOKEN`; otherwise 401 | Prometheus text for **one** instance (see section 6). |
 
 **What the uptime probe covers.** `uptime.yml` runs
-`curl -fsS --retry 3 ... "$EDGE_URL/health"`. It proves that the edge, Cloud Run and
-one container answer. It does not exercise:
+`curl -fsS --retry 3 ... "$EDGE_URL/health"`, which proves that the edge, Cloud Run
+and one container answer. When the `SMOKE_API_KEY` secret is set, it then calls
+`GET /v1/models` through the edge with that key. That call is authenticated end to
+end and passes the origin secret check, so a secret mismatch (every API call 403) or
+a rejected key (401) fails the probe. It does not exercise:
 
 - `/ready`;
-- authentication;
-- the origin secret (`/health` is exempt from it);
 - generation.
 
-So a secret mismatch, which makes every API call 403, leaves the probe green.
+Without `SMOKE_API_KEY`, the second step is skipped and a secret mismatch leaves the
+probe green.
 
 **Scheduled runs are best effort.** GitHub can delay scheduled runs. It also disables
 them in a public repository after 60 days without repository activity. Check that the
@@ -134,7 +139,7 @@ curl -sS -o /dev/null -w 'metrics at edge: %{http_code}\n' "$EDGE_URL/metrics"
 | 1 | `200 text/html` |
 | 2 | 200 JSON with `model_loaded: true` and `load_state: "ready"` on a warm instance; `ready: 200` |
 | 3 | `no key: 401` (edge body type `authentication_error`) |
-| 4 | `HTTP 200` with `x-request-id`, `x-served-by: origin-0` and `x-cache: BYPASS` (no Upstash). Once the hardened Worker is deployed, also `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`. |
+| 4 | `HTTP 200` with `x-request-id`, `x-served-by: origin-0`, `x-cache: BYPASS` (no Upstash), and `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`. |
 | 5 | `{"detail":"Direct origin access is not allowed"}`, `direct: 403` |
 | 6 | `metrics, no token: 401`, `metrics at edge: 404` |
 
@@ -200,12 +205,13 @@ the cache (only with Upstash).
 The image sets `LOG_JSON=true`, so each application log line is a JSON object on
 stdout. Its fields are:
 
-- always: `ts`, `level`, `logger`, `message`;
+- always: `ts`, `level`, `severity`, `logger`, `message`;
 - per request: `request_id`, `method`, `path`, `status_code`, `duration_ms`;
 - on errors: `exc_info`.
 
-The JSON uses `level`, not `severity`. Cloud Logging therefore does not set a severity
-on these lines, so filter on `jsonPayload.level`, not `severity`.
+`severity` carries the same value as `level`, and Cloud Logging maps it to the entry's
+severity, so both `severity>=ERROR` and `jsonPayload.level="ERROR"` work as filters.
+The queries below use `jsonPayload.level`.
 
 ```bash
 BASE='resource.type="cloud_run_revision" AND resource.labels.service_name="fastapi-assistant"'
@@ -234,7 +240,7 @@ Useful application messages:
 | `Failed to load model (llamacpp backend)` | Load failed. `exc_info` has the cause, for example `Checksum mismatch for ...`. |
 | `Generation failed` / `Streaming generation failed` | An engine error. The client got 500, or an SSE `error` event after a 200. |
 | `Retrieval failed; answering without context` | Retrieval degraded; the answer was still produced. |
-| `feedback rating=...` | Feedback, logged because there is no database. It includes the user's comment text. |
+| `feedback rating=... comment_chars=...` | Feedback, logged because there is no database. Only the rating and the comment length are logged, never the comment text. |
 
 ## 6. Metrics
 
@@ -379,20 +385,23 @@ The static `API_KEY` cannot be revoked. Rotate it instead (7.2).
    - copies the amd64 image to Artifact Registry;
    - syncs the secrets;
    - deploys Cloud Run;
-   - polls `/health` and `/ready`.
+   - polls `/health` and `/ready`;
+   - builds `web/` and deploys the Worker with its static assets (`deploy-edge`);
+   - runs the k6 smoke test through the edge (`smoke-edge`).
 
    Merges that change only `**.md`, `docs/**`, `eval/**`, `graphify-out/**` or
    `tests/load/**` do not trigger it.
 2. Watch it: `gh run list --workflow release.yml --limit 3`, then `gh run watch <id>`.
-3. If the change touched `deploy/cloudflare-worker/` or `web/`, deploy the Worker by
-   hand (7.7).
-4. Verify with section 4.
+3. Verify with section 4.
 
 ### 7.6 Deploy a new model release
 
-1. Normal path (BLOCKED today on Kaggle and Hugging Face credentials, audit F-04):
+1. Normal path (credentials configured; the first training run is in progress, audit
+   F-04):
    1. Run the "Train on Kaggle" workflow. It trains, publishes the GGUF and runs the
-      eval gate.
+      eval gate. On a fresh setup, run it once with `push_only: true`, attach the
+      `HF_TOKEN` secret to the new `fastapi-assistant-train` kernel on Kaggle, then
+      run it normally.
    2. It opens a PR that changes `model-release.json` and `eval/baseline.json`.
    3. Review the eval table and merge. Release deploys it.
 2. Manual pin, for example a different published GGUF:
@@ -410,16 +419,21 @@ The static `API_KEY` cannot be revoked. Rotate it instead (7.2).
 3. A wrong `sha256` makes the new revision fail its startup probe. The deploy fails
    and the previous revision keeps serving (see INCIDENT_RESPONSE.md, "Checksum
    mismatch").
-4. With Upstash configured, also redeploy the Worker with
-   `--var MODEL_VERSION:<model_version>` (7.7). The answer cache is namespaced by
-   that value, and CI cannot bump it while edge deploys are manual.
+4. The answer cache is namespaced by `MODEL_VERSION`. Release's `deploy-edge` job sets
+   it on the Worker from `model-release.json`, so no manual step is needed (it matters
+   only once Upstash is configured).
 5. Verify. `curl -sS "$EDGE_URL/health"` must show the new `model_version`.
 
-### 7.7 Deploy the Worker by hand
+### 7.7 Deploy the Worker by hand (emergency fallback)
+
+Release deploys the Worker on every run. Deploy by hand only when Release cannot, for
+example during a Cloudflare token problem or a CI outage. The next Release run
+replaces whatever you deploy here with `main`.
 
 `wrangler deploy` **replaces all vars** with those in `wrangler.toml`, where
 `ORIGINS = ""`, unless you pass them. A deploy without
-`--var ORIGINS:...` makes every API call return `502 No origin configured`.
+`--var ORIGINS:...` makes every API call return `502 No origin configured`. Always
+pass both `--var ORIGINS:...` and `--var MODEL_VERSION:...`, as below.
 
 ```bash
 git switch main && git pull --ff-only
@@ -438,8 +452,8 @@ Then:
 1. Run `wr deployments list` and confirm the new version.
 2. Rerun section 4.
 
-The `--message` records which commit is live, because the Worker is not deployed by CI.
-Secrets carry over between deploys.
+The `--message` records which commit is live, so a manual deploy can be told apart
+from a Release deploy in `wr deployments list`. Secrets carry over between deploys.
 
 ### 7.8 Change the instance cap
 
@@ -458,10 +472,10 @@ well.
 ## 8. Known gaps
 
 - **No active metric alerts.** `deploy/grafana/alerts.yaml` is not loaded anywhere.
-- **The uptime probe checks only `/health`** (section 3).
+- **The uptime probe does not exercise generation** (section 3).
 - **Metrics are per instance and short-lived** (section 6).
-- **The live Worker may not match `main`.** It is deployed by hand. Use
-  `wr deployments list` and the deploy message.
+- **A manual Worker deploy drifts from `main` until the next Release.** Use
+  `wr deployments list` and the deploy message to see what is live.
 - **Abuse cannot be attributed.** Worker logs do not include the key identity or the
   client IP, and the origin sees only the edge.
 

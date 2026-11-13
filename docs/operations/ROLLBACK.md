@@ -10,7 +10,7 @@ setup in [RUNBOOK.md](RUNBOOK.md) section 2.
 | A Cloud Run deploy (code, image or config) | Send traffic to the previous revision. No build is needed. | 2 |
 | The model (a bad `model-release.json`) | The previous revision also carries the previous model, so send traffic to it. Then revert the file. | 2, then 4 |
 | Anything on `main` that must not be redeployed | Revert the commit on `main`; Release redeploys Cloud Run. | 3 |
-| The Worker or web UI (a manual `wrangler deploy`) | `wrangler rollback` to an explicit earlier version | 5 |
+| The Worker or web UI (a Release `deploy-edge` run or a manual `wrangler deploy`) | `wrangler rollback` to an explicit earlier version | 5 |
 | A secret rotation that broke traffic | Restore the previous Secret Manager version to GitHub and the Worker, then run Release | 6 |
 
 **Fix the source as well.** Rolling back a deployment does not change `main`. The next
@@ -102,10 +102,10 @@ gh run list --workflow release.yml --limit 1
 gh run watch <run-id>
 ```
 
-The Release builds, scans, syncs secrets and deploys Cloud Run. It finishes by polling
-`/health` and `/ready` on the new revision. It does **not** deploy the Worker while
-edge deploys are manual (audit F-10). If the revert touched
-`deploy/cloudflare-worker/` or `web/`, also follow RUNBOOK 7.7.
+The Release builds, scans, syncs secrets and deploys Cloud Run, polling `/health` and
+`/ready` on the new revision. It then deploys the Worker and web UI from the reverted
+`main` (`deploy-edge`) and runs the k6 edge smoke test, so a revert that touched
+`deploy/cloudflare-worker/` or `web/` needs no extra step.
 
 **3b. Faster but temporary: re-run an earlier successful Release.**
 
@@ -118,7 +118,7 @@ gh run watch <run-id-of-the-last-good-release>
 Things to know about a re-run:
 
 - **It uses that run's commit**, including the workflow file and `model-release.json`
-  as they were then.
+  as they were then. It redeploys the Worker and web UI from that commit too.
 - **Secrets are synced from today's GitHub secrets**, not the old values.
 - **Only runs on `main` can deploy.** Workload Identity Federation accepts only GitHub
   tokens for this repository on `refs/heads/main`. A `gh workflow run --ref <other branch>`
@@ -145,17 +145,21 @@ the Hub. Retraining is never needed.
    behaves badly in production, the gate can fail. If that check is required by
    branch protection, the owner must decide whether to override it. Keep step 1 in
    place meanwhile.
-4. **Worker cache.** Only matters once Upstash is configured: redeploy the Worker
-   with `--var MODEL_VERSION:<restored model_version>` (RUNBOOK 7.7). Cached answers
-   are namespaced by that value, and only the blocked CI edge job bumps it
-   automatically.
+4. **Worker cache.** Only matters once Upstash is configured. Cached answers are
+   namespaced by `MODEL_VERSION`, and the revert's Release run sets it on the Worker
+   from the restored `model-release.json` (`deploy-edge`). After a traffic-only
+   rollback (step 1), the Worker keeps the newer value until that Release; to change
+   it sooner, redeploy by hand with `--var MODEL_VERSION:<restored model_version>`
+   (RUNBOOK 7.7).
 5. **Verify.** `curl -sS "$EDGE_URL/health"` shows the restored `model_version`, and
    `assistant_build_info` on `/metrics` agrees.
 
 ## 5. Worker and web UI rollback
 
 The web UI is part of the Worker deployment (Workers Static Assets). Rolling back the
-Worker rolls back the UI too.
+Worker rolls back the UI too. Release deploys the Worker from `main` on every run, so
+a rollback lasts only until the next Release; fix or revert on `main` as well
+(section 1).
 
 1. **List recent deployments and their version ids.** `wrangler secret put` creates a
    deployment too, so expect "secret change" entries between code deploys.

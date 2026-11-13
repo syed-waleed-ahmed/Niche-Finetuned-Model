@@ -21,13 +21,14 @@ Neon database.
 | Source, workflows, deploy configuration, `model-release.json`, `eval/baseline.json`, datasets (`data/*.jsonl`), Grafana dashboard and alerts (`deploy/grafana/`) | The GitHub repository, `main` | Full git history; every clone is a copy. Keep a periodic mirror (section 4.1). | Restore from a mirror or any up-to-date clone |
 | Container images | GHCR: multi-arch, tagged `sha-<12>` and `latest`. Artifact Registry: amd64, the two most recent versions. | Rebuildable from git. Dependencies are hash-pinned, but each build applies the Debian security updates available that day, so a rebuild is not byte-identical. | Re-run Release for the commit |
 | Model weights (GGUF) | The Hugging Face repository and commit named in `model-release.json`. Today this is a third-party repository (`TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF`) that the owner does not control. | Pinned by commit revision and SHA-256. Any copy with the same SHA-256 is the same model. No copy is kept by this project today. | Cold starts fail; running instances keep serving until they stop (section 4.3) |
-| Fine-tuned adapter and GGUF (future releases) | The owner's Hugging Face namespace (`HF_NAMESPACE`), tagged per release | Hugging Face repository history; Kaggle kernel output; the `release` workflow artifact (short retention) | Retrain from git (data and code are versioned). BLOCKED today on credentials (audit F-04). |
+| Fine-tuned adapter and GGUF (future releases) | The owner's Hugging Face namespace (`HF_NAMESPACE`), tagged per release | Hugging Face repository history; Kaggle kernel output; the `release` workflow artifact (short retention) | Retrain from git (data and code are versioned) with the "Train on Kaggle" workflow. The credentials are configured; the first training run is in progress (audit F-04). |
 | Documentation index for retrieval | Built at image build time from FastAPI docs `0.162.5` (`DEFAULT_FASTAPI_REF`) and baked into the image | Rebuildable: `fastapi-assistant rag build` | Rebuilt by the next image build |
 | Secrets: `ORIGIN_SHARED_SECRET`, `API_KEY`, `METRICS_TOKEN`, `SMOKE_API_KEY`; optional `DATABASE_URL`, `SENTRY_DSN`, `UPSTASH_*` | GitHub Actions secrets. They are write-only: they cannot be read back. | Google Secret Manager keeps every version that Release synced until it is destroyed; readable by authorized accounts. The Worker holds its own write-only copy of `ORIGIN_SHARED_SECRET`. `setup_secrets.sh` keeps local copies in `~/.config/fastapi-assistant/` (`metrics_token`, and `api_key` in non-interactive mode). | Recover from Secret Manager, or generate new values (section 4.4) |
-| GitHub repository variables: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `EDGE_ORIGINS`, `EDGE_URL`, optional `CLOUD_RUN_MAX_INSTANCES` and `HF_NAMESPACE` | GitHub | `bootstrap.sh` prints the GCP values again when re-run. Keep a private record: `gh variable list` (the output contains the project id; store it privately). | Re-create with `gh variable set` |
+| CI credentials: the `CLOUDFLARE_API_TOKEN` and `KAGGLE_API_TOKEN` GitHub secrets, and `HF_TOKEN` attached to the Kaggle kernel | GitHub and Kaggle. They are write-only: they cannot be read back. | None. They are not synced to Secret Manager. | Issue a new token at the vendor (Cloudflare, Kaggle, Hugging Face) and set it again. Nothing that serves traffic depends on them. |
+| GitHub repository variables: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `EDGE_ORIGINS`, `EDGE_URL`, `CLOUDFLARE_ACCOUNT_ID`, `KAGGLE_USERNAME`, `HF_NAMESPACE`, optional `CLOUD_RUN_MAX_INSTANCES` | GitHub | `bootstrap.sh` prints the GCP values again when re-run. Keep a private record: `gh variable list` (the output contains the project id; store it privately). | Re-create with `gh variable set` |
 | GCP infrastructure: Artifact Registry repository and cleanup policy, service accounts, Workload Identity Federation, IAM bindings, budget | `deploy/gcp/bootstrap.sh`, safe to re-run | The script is the backup | Re-run `bootstrap.sh` |
 | Cloud Run service | `deploy/cloudrun/service.yaml`, rendered by Release | Revisions (see [ROLLBACK.md](ROLLBACK.md)) | Re-run Release |
-| Edge Worker and web UI | `deploy/cloudflare-worker/`, `web/`, plus deploy-time vars `ORIGINS` and `MODEL_VERSION` | Cloudflare keeps recent versions (`wr deployments list`) | Deploy from git (RUNBOOK 7.7) |
+| Edge Worker and web UI | `deploy/cloudflare-worker/`, `web/`, plus deploy-time vars `ORIGINS` and `MODEL_VERSION` | Cloudflare keeps recent versions (`wr deployments list`) | Re-run Release, which deploys the Worker from git; or deploy by hand (RUNBOOK 7.7) |
 | Neon Postgres (not configured today): API key hashes, usage events, feedback, optional pgvector index | Neon | Neon's point-in-time restore, within the restore window of the plan in use [vendor, re-check]. Optionally, scheduled `pg_dump` exports kept elsewhere. | Restore with Neon (section 4.5). Keys can be re-issued. |
 | Upstash Redis (not configured today): rate-limit counters, answer cache, verified-key markers | Upstash | None needed: all of it is disposable and rebuilt by traffic | Nothing to restore; the Worker runs without it |
 | Logs | Cloud Logging (the default bucket keeps logs for a limited period [vendor, re-check]); Workers Logs (a few days on the Free plan [vendor, re-check]); GitHub Actions run logs (time-limited retention [vendor, re-check]) | None | Export anything needed for an incident review promptly |
@@ -123,9 +124,10 @@ Instances that are already running keep serving until Cloud Run stops them.
    Check it with `sha256sum`, or `"$PY" -c "from pathlib import Path; from fastapi_assistant.hub import sha256_file; print(sha256_file(Path('<file>')))"`.
 3. Publish it where the service can fetch it, then pin the new location in
    `model-release.json`:
-   - Normal route: upload it to a Hugging Face repository the owner controls (needs a
-     Hugging Face write token: BLOCKED today). Change `repo_id` and `revision`, and keep
-     `sha256` the same. Merge, and Release deploys it.
+   - Normal route: upload it to a Hugging Face repository the owner controls, under
+     `HF_NAMESPACE` (needs a Hugging Face write token for that account). Change
+     `repo_id` and `revision`, and keep `sha256` the same. Merge, and Release deploys
+     it.
    - Alternative: baking the file into the image needs Dockerfile and Release changes
      that are not prepared, and costs Artifact Registry storage (see
      [COST_MANAGEMENT.md](COST_MANAGEMENT.md)).
@@ -179,8 +181,11 @@ raises an error and the request fails with a server error instead of being admit
 
 ### 4.6 Cloudflare Worker or account
 
-- **Same account.** Deploy from git (RUNBOOK 7.7). If the Worker was deleted,
-  re-create its secret from Secret Manager:
+- **Same account.** Re-run Release (`gh workflow run release.yml --ref main`). Its
+  `deploy-edge` job deploys the Worker from git and uploads `ORIGIN_SHARED_SECRET`
+  from the GitHub secret. If the Worker was deleted and that job fails, re-create the
+  secret from Secret Manager first (this also creates the Worker), then re-run Release
+  or deploy by hand (RUNBOOK 7.7):
 
   ```bash
   gcloud secrets versions access latest --secret origin-shared-secret | wr secret put ORIGIN_SHARED_SECRET
@@ -189,8 +194,12 @@ raises an error and the request fails with a server error instead of being admit
 - **New account.**
   1. `wr login`.
   2. Set the secret as above.
-  3. Deploy (RUNBOOK 7.7).
-  4. The Worker gets a new `workers.dev` URL. Update it with
+  3. In the new account, create an API token from the "Edit Cloudflare Workers"
+     template. Store it with `gh secret set CLOUDFLARE_API_TOKEN`, and the account id
+     with `gh variable set CLOUDFLARE_ACCOUNT_ID --body <account id>`, so Release
+     deploys to the new account.
+  4. Re-run Release, or deploy by hand (RUNBOOK 7.7).
+  5. The Worker gets a new `workers.dev` URL. Update it with
      `gh variable set EDGE_URL --body <new URL>`, and tell API clients.
 
 ### 4.7 Rebuild the whole stack from scratch
@@ -201,7 +210,8 @@ downtime.
 **Prerequisites:**
 
 - the owner's Google Cloud billing account;
-- a Cloudflare account;
+- a Cloudflare account, with the `CLOUDFLARE_API_TOKEN` secret and the
+  `CLOUDFLARE_ACCOUNT_ID` variable set so Release can deploy the Worker (section 4.6);
 - admin access to the GitHub repository;
 - `gcloud`, `gh`, Node 22, and a Python 3.11 virtualenv with the project installed
   (`pip install -e .`);
@@ -243,15 +253,20 @@ downtime.
    ```
 
    Then watch it with `gh run watch`. The `Deploy Cloud Run` job ends by polling
-   `/health` and `/ready`. The first cold start downloads the model.
+   `/health` and `/ready`. The first cold start downloads the model. This run also
+   deploys the Worker, still with the previous (or an empty) `EDGE_ORIGINS`; step 7
+   corrects that.
 6. **Point the edge at the origin:**
 
    ```bash
    gh variable set EDGE_ORIGINS --body "$(gcloud run services describe fastapi-assistant --region us-central1 --format='value(status.url)')"
    ```
 
-7. **Deploy the Worker and web UI** (RUNBOOK 7.7). If the Worker URL changed, set
-   `gh variable set EDGE_URL --body <worker URL>`. That enables the Uptime workflow.
+7. **Deploy the Worker and web UI.** Re-run Release
+   (`gh workflow run release.yml --ref main`) so `deploy-edge` uses the new
+   `EDGE_ORIGINS`, or deploy by hand (RUNBOOK 7.7). If the Worker URL changed, set
+   `gh variable set EDGE_URL --body <worker URL>`. That enables the Uptime workflow
+   and the edge smoke test.
 8. **Verify.** Run RUNBOOK section 4, checks 1 to 6, then
    `gh workflow run uptime.yml`.
 9. **Give API clients the new key** (and the new URL if it changed).

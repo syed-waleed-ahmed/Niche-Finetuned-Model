@@ -26,9 +26,11 @@ Date: 2026-11-13. This document is the security view of the system. It covers:
 | Dependabot | `.github/dependabot.yml` |
 | Model pin | `model-release.json` |
 
-**Code state.** Branch `feat/production-hardening` as of 2026-11-13: `f262379`
-(hardening) and `e438345`. The second commit adds the Worker change that rewrites
-non-JSON 429 and 5xx responses from the origin's platform.
+**Code state.** Reviewed on the hardening branch (`feat/production-hardening`) as of
+2026-11-13: `f262379` (hardening) and `e438345`. The second commit adds the Worker
+change that rewrites non-JSON 429 and 5xx responses from the origin's platform. That
+branch was merged into `main` in PR #13 (`b146406`) and deployed, and the follow-ups
+#14 to #16 are merged too. The statuses below were updated after those merges.
 
 **Live state.** As recorded in INITIAL_AUDIT section 3 and in
 [../audit/PERFORMANCE_BASELINE.md](../audit/PERFORMANCE_BASELINE.md).
@@ -136,8 +138,8 @@ flowchart LR
 
 ## 4. STRIDE threat model
 
-Statuses refer to the hardened branch. Items marked "edge" need the Worker to be
-deployed by hand after merging (F-10). Residual risk assumes that deployment.
+Statuses refer to `main` after the merge of #13, which is deployed to Cloud Run and to
+the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 ### Spoofing
 
@@ -146,7 +148,7 @@ deployed by hand after merging (F-10). Residual risk assumes that deployment.
 | S1 | Use of the API without a valid key | Edge rejects missing keys (401). Origin checks the static key with `hmac.compare_digest`, or a SHA-256 hash lookup in Postgres (`auth.py`). Keys are 256-bit random values. | **Medium.** One static key is shared by all clients. A leak means rotating it for everyone, and abuse cannot be tied to a client. Per-user keys need Neon (not configured). |
 | S2 | Bypassing the edge by calling Cloud Run directly | Origin secret check returns 403 (verified live). The Worker never forwards a client-supplied `x-origin-secret`. | **Low.** The secret is static, with no rotation schedule, and shared by all origins. Leaking it removes every edge control. |
 | S3 | Forging client identity or ids through headers | The Worker drops client `x-forwarded-for`, `x-request-id` (replaced by a sanitised or generated id) and `cf-*`. The origin only logs these values; it makes no security decision on them. | **Low** |
-| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` and protection rules for the `production` environment were not reviewed. |
+| S4 | A fork, a pull request or a non-`main` branch obtaining deploy credentials | The WIF provider condition is `assertion.repository == '<repo>' && assertion.ref == 'refs/heads/main'` (`bootstrap.sh`). Deploy jobs run only in Release, on pushes to `main` or dispatches. | **Medium.** Anyone who can get a commit onto `main` deploys with the deployer's rights (E3). Branch protection on `main` is not configured (O-4); protection rules for the `production` environment were not reviewed. |
 
 ### Tampering
 
@@ -204,32 +206,32 @@ deployed by hand after merging (F-10). Residual risk assumes that deployment.
 
 Source: [../audit/INITIAL_AUDIT.md](../audit/INITIAL_AUDIT.md).
 
-**What "fixed" means.** "Fixed (branch)" means fixed on `feat/production-hardening`
-and **not deployed until merged**. Merging to `main` redeploys Cloud Run
-automatically. While CI edge deploys are blocked (F-10), the edge parts go live only
-when someone deploys the Worker by hand from `main` (RUNBOOK 7.7). The edge parts are:
-the edge half of F-02, F-03, F-07's header stripping, F-12, and the 429
-normalisation.
+**What "fixed" means.** "Fixed" means fixed in code that is merged into `main` and
+deployed. These fixes were made on `feat/production-hardening` and merged in #13
+(`b146406`). Release redeployed Cloud Run, and the Worker was deployed from `main`
+the same day (FINAL_VERIFICATION item 18). The edge parts are: the edge half of F-02,
+F-03, F-07's header stripping, F-12, and the 429 normalisation. Since #15, Release
+deploys the Worker on every run (F-10), so edge fixes no longer need a manual deploy.
 
 | ID | Sev | Finding | Status | Notes |
 |---|---|---|---|---|
-| F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed (branch) | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
-| F-02 | P1 | Unbounded request bodies | Fixed (branch) | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
+| F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
+| F-02 | P1 | Unbounded request bodies | Fixed | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
 | F-03 | P1 | No rate limiting live | Partially mitigated | The in-isolate fallback limiter is always on (edge). A shared limit needs Upstash, which is BLOCKED on an owner credential. |
-| F-04 | P1 | Live model is the base TinyLlama | BLOCKED | Needs Kaggle and Hugging Face tokens. The pipeline is ready. |
-| F-20 | P1 | HIGH CVEs with fixes in the image | Fixed (branch) | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed) |
-| F-21 | P1 | False-positive secret alert on the RAG index | Fixed (branch) | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |
-| F-05 | P2 | 5xx labelled `invalid_request_error` | Fixed (branch) | 5xx is `server_error`; admission rejections are `overloaded` |
-| F-06 | P2 | Cold start downloads the GGUF unchecked | Fixed (branch) for integrity | SHA-256 recorded and verified. The runtime dependency on Hugging Face remains by choice (baking costs storage); see D6. |
-| F-07 | P2 | No browser security headers; trace header leaked | Fixed (branch) | UI: CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP. API: `nosniff`, `X-Frame-Options`, `Referrer-Policy`. Edge strips `x-cloud-trace-context`. |
-| F-08 | P2 | Type checking not enforced | Fixed (branch) | mypy runs in CI |
-| F-09 | P2 | Dependency audit not in CI | Fixed (branch) | `security.yml`: `pip-audit`, `npm audit`, dependency review on PRs, weekly schedule |
-| F-10 | P2 | Edge deploys are manual | BLOCKED | Needs a scoped Cloudflare API token. The workflow and `EDGE_ORIGINS` are ready. |
+| F-04 | P1 | Live model is the base TinyLlama | In progress | Credentials are configured (Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` on the Kaggle kernel). The first runs exposed Kaggle environment problems, fixed in #15 and #16; a training run is in progress. The live model stays the base GGUF until a fine-tune passes the eval gates and its release PR is merged. |
+| F-20 | P1 | HIGH CVEs with fixes in the image | Fixed | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed). All 14 Trivy code-scanning alerts (#7 to #20) are closed as fixed by the scan of the deployed image. |
+| F-21 | P1 | False-positive secret alert on the RAG index | Fixed | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |
+| F-05 | P2 | 5xx labelled `invalid_request_error` | Fixed | 5xx is `server_error`; admission rejections are `overloaded` |
+| F-06 | P2 | Cold start downloads the GGUF unchecked | Fixed for integrity | SHA-256 recorded and verified. The runtime dependency on Hugging Face remains by choice (baking costs storage); see D6. |
+| F-07 | P2 | No browser security headers; trace header leaked | Fixed | UI: CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP. API: `nosniff`, `X-Frame-Options`, `Referrer-Policy`. Edge strips `x-cloud-trace-context`. |
+| F-08 | P2 | Type checking not enforced | Fixed | mypy runs in CI |
+| F-09 | P2 | Dependency audit not in CI | Fixed | `security.yml`: `pip-audit`, `npm audit`, dependency review on PRs, weekly schedule. Dependabot alert #1 (`diskcache`) is dismissed with the reason in section 7. |
+| F-10 | P2 | Edge deploys are manual | Fixed | The `CLOUDFLARE_API_TOKEN` secret and `CLOUDFLARE_ACCOUNT_ID` variable are set. Release deploys the Worker (`deploy-edge`) and runs the k6 smoke test (`smoke-edge`); both succeeded in Release run 43460008003. A manual `wrangler deploy` is an emergency fallback (RUNBOOK 7.7). |
 | F-11 | P2 | Only one origin live | BLOCKED | The Hugging Face Space needs an HF token; the VM is optional. Failover code is unit-tested only. |
-| F-12 | P2 | A dead primary costs every request the full timeout; timeouts reported as 502 | Fixed (branch) | Circuit breaker (3 failures, 30 s); 504 `upstream_timeout` (edge) |
-| F-13 | P2 | No queue-wait or TTFT metrics | Fixed (branch) | `assistant_queue_wait_seconds`, `assistant_time_to_first_token_seconds`, plus `assistant_prompt_too_long_total` |
-| F-14 | P2 | Open-source governance files missing | In progress | Being addressed by the documentation work on this branch |
-| F-15 | P3 | Two CodeQL alerts (key printed once by the CLI; fast hash for API keys) | Accepted | Intended behaviour. Keys are 256-bit random values, so a fast hash is correct. Dismissal is an owner action. |
+| F-12 | P2 | A dead primary costs every request the full timeout; timeouts reported as 502 | Fixed | Circuit breaker (3 failures, 30 s); 504 `upstream_timeout` (edge) |
+| F-13 | P2 | No queue-wait or TTFT metrics | Fixed | `assistant_queue_wait_seconds`, `assistant_time_to_first_token_seconds`, plus `assistant_prompt_too_long_total` |
+| F-14 | P2 | Open-source governance files missing | Fixed | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, CITATION, MODEL_CARD, issue and PR templates merged in #13. Private vulnerability reporting is enabled. |
+| F-15 | P3 | Two CodeQL alerts (key printed once by the CLI; fast hash for API keys) | Accepted | Intended behaviour. Keys are 256-bit random values, so a fast hash is correct. The owner dismissed both alerts as "won't fix". |
 | F-16 | P3 | Public probes | Accepted | Low sensitivity; needed for uptime checks |
 | F-17 | P3 | Legacy entry points | Accepted | Kept for backward compatibility |
 | F-18 | P3 | CORS allows any origin | Accepted | Header authentication, never cookies, so no CSRF exposure |
@@ -243,6 +245,16 @@ error shape, adds `Retry-After: 10` when it is missing, and logs
 `upstream_normalized: true` (edge). This is an availability and contract fix, not a
 security fix. The probes are the only capacity evidence; no user capacity is claimed.
 
+**Alert state after the merges (2026-11-13).**
+
+| Source | State |
+|---|---|
+| CodeQL #1 and #2 | Dismissed by the owner as "won't fix" (F-15) |
+| CodeQL #3 (`py/stack-trace-exposure`) | Introduced and fixed within #14; closed as fixed |
+| Trivy #7 to #20 (image) | All 14 closed as fixed by the scan of the deployed image (F-20) |
+| Dependabot #1 (`diskcache`, PYSEC-2026-2447) | Dismissed (section 7) |
+| Private vulnerability reporting | Enabled |
+
 ## 6. Observations from this review
 
 These are not in the initial audit. Each one cites the code that shows it.
@@ -250,14 +262,14 @@ These are not in the initial audit. Each one cites the code that shows it.
 | ID | Rating | Observation | Evidence |
 |---|---|---|---|
 | O-1 | Low | The GCP project id, the runtime service-account address and the Cloud Run URL appear in Release logs, which anyone with read access to the repository's Actions can see. The origin is protected by the shared secret, so this is not exploitable by itself, but it publishes values the operations docs treat as private. | `release.yml`: `cat service.rendered.yaml` (line 218); the `Smoke test the origin` step expands the URL (lines 230 to 232) |
-| O-2 | Low (was Medium) | Mitigated on the branch: `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. Residual: non-streaming generations are still not cancelled when the caller disconnects early. | `schemas.py` (`le=1024`); `service.complete` uses `engine.generate` with no cancel event (`engines/base.py`, `BaseEngine.generate`); `ORIGIN_TIMEOUT_MS=60000` |
-| O-3 | Low | Placeholder values (`""`, `disabled`, `none`, `null`) for `API_KEY` silently disable origin authentication when no database is configured. Release rejects only an empty value. **Status:** Fixed on the branch: a placeholder `API_KEY` is rejected at startup, an empty one means unset, and an origin with no authentication logs a warning. | `config.py` `_unset_placeholders`; `auth.Authenticator.enabled`; `release.yml` "Sync secrets" |
-| O-4 | Medium | The deployer service account holds project-wide `roles/secretmanager.admin` and `roles/run.admin`. Its protection is only as strong as the branch protection on `main`, which was not reviewed. | `bootstrap.sh` lines 52 to 55 and 78 |
+| O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. Residual: non-streaming generations are still not cancelled when the caller disconnects early. | `schemas.py` (`le=1024`); `service.complete` uses `engine.generate` with no cancel event (`engines/base.py`, `BaseEngine.generate`); `ORIGIN_TIMEOUT_MS=60000` |
+| O-3 | Low | Placeholder values (`""`, `disabled`, `none`, `null`) for `API_KEY` silently disable origin authentication when no database is configured. Release rejects only an empty value. **Status:** Fixed (merged in #13): a placeholder `API_KEY` is rejected at startup, an empty one means unset, and an origin with no authentication logs a warning. | `config.py` `_unset_placeholders`; `auth.Authenticator.enabled`; `release.yml` "Sync secrets" |
+| O-4 | Medium | The deployer service account holds project-wide `roles/secretmanager.admin` and `roles/run.admin`. Its protection is only as strong as the branch protection on `main`. **Status:** Partly mitigated. The "Protect main" ruleset is active: pull requests and the core CI and security checks are required, and force-pushes and deletion are blocked, with admin bypass only through a pull request. The roles themselves are still project-wide. | `bootstrap.sh` lines 52 to 55 and 78 |
 | O-5 | Low | Worker request logs omit the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse cannot be attributed | `deploy/cloudflare-worker/src/index.ts` `RequestLog` |
-| O-6 | Low (latent) | With Upstash configured, if the pipeline returns HTTP 200 but the `INCR` reply is an error, the request proceeds with no rate limit. Errors at the HTTP level correctly fall back to the local limiter. **Status:** Fixed on the branch: an unusable `INCR` reply now falls back to the in-isolate limiter (test: "rate limit when Redis replies with a command error"). | `index.ts`: `rateLimit` stays null when `toCount` returns null |
-| O-7 | Low | Without a database, feedback comments are logged at INFO, including the user's text **Status:** Fixed on the branch: only the rating and the comment length are logged. | `api.py`, `feedback` |
-| O-8 | Low | JSON logs use `level`, not `severity`, so Cloud Logging severity filters and log-based alerts miss application errors **Status:** Fixed on the branch: JSON log lines also carry `severity`. | `logging_config.py` |
-| O-9 | Low | The uptime probe checks only `/health`, which is exempt from the origin secret. An origin-secret mismatch or broken authentication does not fail it. **Status:** Fixed on the branch: the uptime workflow also calls the authenticated `/v1/models` through the edge with `SMOKE_API_KEY`. Generation failures are still not probed. | `uptime.yml`; `api.py` `_OPEN_PATHS` |
+| O-6 | Low (latent) | With Upstash configured, if the pipeline returns HTTP 200 but the `INCR` reply is an error, the request proceeds with no rate limit. Errors at the HTTP level correctly fall back to the local limiter. **Status:** Fixed (merged in #13): an unusable `INCR` reply now falls back to the in-isolate limiter (test: "rate limit when Redis replies with a command error"). | `index.ts`: `rateLimit` stays null when `toCount` returns null |
+| O-7 | Low | Without a database, feedback comments are logged at INFO, including the user's text **Status:** Fixed (merged in #13): only the rating and the comment length are logged. | `api.py`, `feedback` |
+| O-8 | Low | JSON logs use `level`, not `severity`, so Cloud Logging severity filters and log-based alerts miss application errors **Status:** Fixed (merged in #13): JSON log lines also carry `severity`. | `logging_config.py` |
+| O-9 | Low | The uptime probe checks only `/health`, which is exempt from the origin secret. An origin-secret mismatch or broken authentication does not fail it. **Status:** Fixed (merged in #13): the uptime workflow also calls the authenticated `/v1/models` through the edge with `SMOKE_API_KEY`. Generation failures are still not probed. | `uptime.yml`; `api.py` `_OPEN_PATHS` |
 | O-10 | Low | First-party actions are pinned to major-version tags, not SHAs. This is consistent with the initial audit, which claims SHA pinning for third-party actions only. | `.github/workflows/*.yml` |
 
 ## 7. Accepted advisory: `diskcache` PYSEC-2026-2447
@@ -268,7 +280,7 @@ These are not in the initial audit. Each one cites the code that shows it.
 | Advisory | PYSEC-2026-2447: unsafe deserialisation of cached values. No fixed release exists. |
 | Why it is installed | It is a dependency of `llama-cpp-python`, for its optional `LlamaDiskCache` prompt cache |
 | Why it is unreachable | The service never constructs `LlamaDiskCache` or any `diskcache` cache, and never calls `Llama.set_cache`. A search of `src/`, `kaggle/` and `main.py` finds no `diskcache`, `set_cache`, `LlamaDiskCache` or `pickle` use. Exploiting the advisory needs an attacker who can write to a cache directory the process reads. No such directory exists in the image, and the container runs as a non-root user. |
-| How it is recorded | `security.yml` runs `pip-audit ... --ignore-vuln PYSEC-2026-2447`, with the reason written next to the flag |
+| How it is recorded | `security.yml` runs `pip-audit ... --ignore-vuln PYSEC-2026-2447`, with the reason written next to the flag. Dependabot alert #1 for this advisory is dismissed. |
 | Revisit when | A fixed `diskcache` release ships (then upgrade and remove the ignore); any code starts using a llama.cpp cache; or `llama-cpp-python` drops or replaces the dependency |
 
 ## 8. Prompt injection and model-output risks
@@ -319,26 +331,35 @@ demonstration. Add a usage policy before opening the service more widely.
 
 ## 9. Recommendations, ordered by value
 
-1. **Merge `feat/production-hardening`, then deploy the Worker from `main` by hand**
-   (RUNBOOK 7.7, recording the commit with `--message`). Until then, most fixes in
-   section 5 are not live.
-2. **Protect `main` and the `production` environment.** Merging to `main` is
-   equivalent to deploying with secret-administrator rights (S4, E3, O-4):
-   - require pull-request review;
-   - require the CI, Security and eval-gate checks;
-   - restrict who can push.
+Items marked **Done** were completed after this review; they stay in the list so the
+numbering does not change.
 
-   It costs nothing and is an owner setting.
+1. **Done: merge the hardening branch and deploy it.** Merged in #13 and deployed to
+   Cloud Run and the Worker the same day; the fixes in section 5 are live.
+2. **Partly done: protect `main` and the `production` environment.** Merging to
+   `main` is equivalent to deploying with secret-administrator rights (S4, E3, O-4).
+   The "Protect main" ruleset is active:
+   - require pull requests;
+   - require the checks Python 3.10, 3.11 and 3.12, Postgres + pgvector integration,
+     Cloudflare Worker, Web UI, Container build smoke test and scan, Secret scan, and
+     pip-audit;
+   - block force-pushes and deletion;
+   - allow the admin to bypass only through a pull request.
+
+   Protection rules for the `production` environment are a separate setting. It costs
+   nothing and is an owner setting.
 3. **Configure Upstash** for a shared rate limit and the answer cache (closes F-03;
    owner credential). The command budget is in `deploy/cloudflare-worker/README.md`.
 4. **Cancel non-streaming generations on client disconnect (O-2 residual).** The
    timeout budget is now consistent (the origin always answers before the edge gives
    up); what remains is a caller that leaves early.
-5. **Create the scoped Cloudflare API token** (F-10), so the Worker deploys from `main`
-   with the k6 smoke test, and the live edge can no longer drift from the repository.
-6. **Add an authenticated synthetic check.** Run it through the edge with
-   `SMOKE_API_KEY`, a tiny `max_new_tokens` and a low frequency, so that 401, 403 and
-   generation failures notify someone (O-9). Load `deploy/grafana/alerts.yaml` once
+5. **Done: create the scoped Cloudflare API token** (F-10). Release deploys the Worker
+   from `main` and runs the k6 smoke test, so the live edge no longer drifts from the
+   repository.
+6. **Add an authenticated synthetic check.** Partly done: the uptime workflow now calls
+   the authenticated `/v1/models` through the edge with `SMOKE_API_KEY`, so 401 and 403
+   failures notify someone (O-9). Still open: a generation check with a tiny
+   `max_new_tokens` at a low frequency. Load `deploy/grafana/alerts.yaml` once
    scraping exists.
 7. **Narrow the deployer's IAM.** Grant Secret Manager rights on the five named
    secrets instead of the whole project (O-4).
@@ -351,12 +372,15 @@ demonstration. Add a usage policy before opening the service more widely.
     affecting every client. Log the edge key identity hash for attribution (S1, R1,
     O-5).
 11. **Hold a copy of the model weights you control.** Use the owner's Hugging Face
-    namespace (BLOCKED on a token) and keep an offline verified copy (D6, F-11).
-12. **Map `level` to `severity`** in the JSON log formatter (O-8). **Stop logging
-    feedback comment text** when there is no database (O-7).
+    namespace (`HF_NAMESPACE`, now configured) and keep an offline verified copy (D6,
+    F-11).
+12. **Done: map `level` to `severity`** in the JSON log formatter (O-8), and **stop
+    logging feedback comment text** when there is no database (O-7). Both merged in
+    #13.
 13. **Set a rotation schedule** for the origin secret and the API key. Destroy
     superseded Secret Manager versions (RUNBOOK 7.2 and 7.3).
-14. **Pin first-party GitHub Actions to commit SHAs** (O-10). **Treat Upstash pipeline
-    command errors like transport errors** in the edge limiter (O-6).
-15. **Dismiss CodeQL alerts #1 and #2** with the recorded reasons (F-15; owner
-    action).
+14. **Pin first-party GitHub Actions to commit SHAs** (O-10). Done: **treat Upstash
+    pipeline command errors like transport errors** in the edge limiter (O-6, merged in
+    #13).
+15. **Done: dismiss CodeQL alerts #1 and #2** with the recorded reasons (F-15). The
+    owner dismissed both as "won't fix".

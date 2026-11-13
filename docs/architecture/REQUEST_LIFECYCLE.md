@@ -105,15 +105,15 @@ All in `deploy/cloudflare-worker/src/index.ts` (`handle`), unless noted.
 | 6. Fallback limit | When Upstash is not configured or the pipeline throws, the same fixed window is counted in isolate memory. Rate limiting never turns off. | `src/ratelimit.ts` `LocalRateLimiter` |
 | 7. 429 | Count above the limit: 429 `rate_limited`, `Retry-After` (seconds to the end of the window), `X-RateLimit-Limit`, `-Remaining`, `-Reset`. | `src/ratelimit.ts` |
 | 8. Cache HIT rule | A request is cacheable only when Redis answered, it is a `POST` to `/generate` or `/v1/chat/completions`, the body is a JSON object of at most 64 KiB, and `stream` is absent, null or false. A stored answer is served only if the key's `kv:` marker exists, that is, the origin accepted this key within `KEY_VERIFIED_TTL_SECONDS` (300 s). Unknown keys always reach the origin. | `src/cache.ts`, `index.ts` step 5b |
-| 9. Forward | Origins tried in order. Open circuits are skipped while another origin is available; if every circuit is open, all are tried. The timeout (`ORIGIN_TIMEOUT_MS`, 60 s) covers the wait for response headers only, never a streaming body. | `src/proxy.ts` `forwardWithFailover` |
+| 9. Forward | Origins tried in order. Open circuits are skipped while another origin is available; if every circuit is open, all are tried. The timeout (`ORIGIN_TIMEOUT_MS`, 150 s as deployed; 60 s code default) covers the wait for response headers only, never a streaming body. | `src/proxy.ts` `forwardWithFailover` |
 | 10. Circuit breaker | Three consecutive network failures or timeouts open an origin's circuit for 30 s. Any HTTP response, even a 503, closes it. State is per isolate. | `src/proxy.ts` `CircuitBreaker`, `src/config.ts` |
 | 11. Write-back | On a cache MISS: the key marker is written on any 2xx; the answer is written on a 200 JSON body of at most 64 KiB, with TTL `CACHE_TTL_SECONDS` (86,400). Both writes go in one pipeline inside `waitUntil`, so they do not delay the response. | `index.ts`, `src/cache.ts` |
 | 12. Platform errors | If the response that survives failover is a 429, 502, 503 or 504 without a JSON content type, it came from the platform in front of the origin (for example Cloud Run's front end while a new instance starts), not from the app. The Worker discards the body and answers the same status in its JSON shape: type `overloaded` for 429, `upstream_unavailable` otherwise, with the platform's `Retry-After` or 10 s, and logs `upstream_normalized: true`. The app's own 429 and 503 are JSON and pass through unchanged. | `index.ts` (`PLATFORM_RETRY_AFTER_SECONDS`) |
 | 13. Response headers | Strips `x-cloud-trace-context`, `server`, `via`, `alt-svc`; sets `nosniff`, `X-Cache` (`HIT`, `MISS` or `BYPASS`), `X-Served-By` (`edge-cache` or `origin-<n>`), `X-Request-ID`, rate-limit headers; rewrites an origin `Location` to the edge hostname. | `src/http.ts`, `src/proxy.ts` |
 
 With Upstash not configured (audit F-03), every request is `X-Cache: BYPASS` and rate
-limiting runs in the per-isolate fallback. The Worker deployed today predates that
-fallback; see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md), section 1.
+limiting runs in the per-isolate fallback, which is what the deployed Worker does
+today; see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md), section 1.
 
 ## 3. Origin steps
 

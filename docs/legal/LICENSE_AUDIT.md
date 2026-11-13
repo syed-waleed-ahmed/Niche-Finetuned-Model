@@ -1,6 +1,7 @@
 # Third-party license audit
 
-Date: 2026-11-13. Branch: `feat/production-hardening` (commit `caad7bb`).
+Date: 2026-11-13. Audited on the hardening branch `feat/production-hardening` at
+commit `caad7bb`; that branch was merged into `main` in PR #13.
 
 This audit lists every third-party component that the project distributes or uses,
 the license each one declares, and how that was checked. It is an engineering

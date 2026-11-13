@@ -19,10 +19,9 @@ its scaling path), [docs/DEPLOYMENT.md](../DEPLOYMENT.md) (the setup runbook),
 [docs/IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) (what is live today),
 [README.md](../../README.md) (quickstart and API).
 
-These documents describe the code on the current branch. The live deployment was
-built from `main` before the hardening changes described here, so some behaviour
-(for example the fallback rate limiter and the token budget) is not live until the
-branch is merged and released.
+These documents describe the code on `main`. The hardening changes described here
+were merged in PR #13 and are live, together with the follow-ups #14 to #16: the
+Release workflow deploys both Cloud Run and the edge Worker from `main`.
 
 ## 1. What the system is
 
@@ -37,8 +36,10 @@ The deployed model is currently the base TinyLlama GGUF, not a fine-tune
 
 ## 2. Context diagram
 
-Dashed nodes are optional or not deployed. Solid nodes are live, according to the
-audit's live deployment baseline and the implementation status.
+Dashed nodes are optional or not deployed, and dashed links have not been used in
+production yet (no fine-tune has been published). Solid nodes and links are live or
+in use, according to the audit's live deployment baseline and the implementation
+status.
 
 ```mermaid
 flowchart LR
@@ -64,7 +65,7 @@ flowchart LR
     Hub[("Hugging Face Hub<br/>GGUF at a pinned revision")]
     GHA["GitHub Actions<br/>CI, Release, Security, Eval, Train"]
     GHCR[("GHCR<br/>multi-arch image")]
-    Kaggle["Kaggle GPU kernel<br/>not run yet"]
+    Kaggle["Kaggle GPU kernel<br/>first training run in progress"]
 
     Browser -->|"GET /, /assets"| Assets
     Browser -->|"same-origin API calls"| Worker
@@ -79,12 +80,12 @@ flowchart LR
     AR -->|"amd64 image"| Run
     GHA -->|"build and push"| GHCR
     GHA -->|"copy image, sync secrets, deploy"| GCP
-    GHA -.->|"wrangler deploy, skipped"| Worker
-    GHA -.->|"train.yml"| Kaggle
+    GHA -->|"wrangler deploy, k6 smoke"| Worker
+    GHA -->|"train.yml"| Kaggle
     Kaggle -.->|"publish tagged GGUF"| Hub
 
     classDef optional stroke-dasharray: 5 5
-    class Redis,Backup,PG,Kaggle optional
+    class Redis,Backup,PG optional
 ```
 
 ## 3. Components and responsibilities

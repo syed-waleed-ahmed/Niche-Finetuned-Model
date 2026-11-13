@@ -38,7 +38,10 @@ Cloudflare without running the Worker; every other path falls through to the Wor
 so the API and its 404 rule are unchanged. UI and API share one hostname, which is
 why the UI needs no CORS configuration and can read the edge's `X-Cache` and
 `X-RateLimit-*` headers. The release workflow runs `npm ci && npm run build` here
-before `wrangler deploy`; `wrangler dev` also needs `dist/` to exist.
+before `wrangler deploy` on every release, so a merge to `main` that changes the UI
+goes live with the next Release run. A manual `wrangler deploy`
+(`docs/operations/RUNBOOK.md`, section 7.7) is only for local testing or an
+emergency. `wrangler dev` also needs `dist/` to exist.
 
 Do not add a file to `public/` named after an API path (`generate`, `v1`, `health`,
 `ready`, `docs`, `redoc`, `openapi.json`, `metrics`): it would shadow the API. A unit

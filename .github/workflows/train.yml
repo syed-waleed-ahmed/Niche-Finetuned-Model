@@ -158,4 +158,4 @@ jobs:
             echo
             echo "Merging deploys this release (release.yml reads model-release.json)."
           } > body.md
-          gh pr create --title "Release model $version" --body-file body.md --base main
+          gh pr create --title "Release model $version" --body-file body.md --base main --label model-release

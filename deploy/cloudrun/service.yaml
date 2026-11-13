@@ -62,6 +62,8 @@ spec:
             - { name: GENERATION_TIMEOUT_S, value: "60" }
             - { name: RAG_ENABLED, value: "false" }  # opt-in per request; see eval/
             - { name: SENTRY_ENVIRONMENT, value: "cloud-run" }
+            # "true" only when the repository variable PUBLIC_DEMO is true (release.yml).
+            - { name: PUBLIC_DEMO, value: "${PUBLIC_DEMO}" }
             - name: ORIGIN_SHARED_SECRET
               valueFrom: { secretKeyRef: { name: origin-shared-secret, key: latest } }
             # Static owner key; per-user keys come from Postgres when DATABASE_URL is set.

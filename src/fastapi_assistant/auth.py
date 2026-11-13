@@ -66,9 +66,13 @@ class Authenticator:
         static_key: str | None,
         store: Store | None,
         cache_ttl_s: float = 60.0,
+        allow_anonymous: bool = False,
     ) -> None:
         self._static_key = static_key
         self._store = store
+        # Public demo: a request without a key is accepted as anonymous (the edge
+        # rate-limits it per client IP). A key that IS sent must still be valid.
+        self._allow_anonymous = allow_anonymous
         self._cache = _TTLCache(cache_ttl_s)
         self._negative_ttl = min(cache_ttl_s, 10.0)
 
@@ -81,6 +85,8 @@ class Authenticator:
         if not self.enabled:
             return ANONYMOUS
         if not key:
+            if self._allow_anonymous:
+                return ANONYMOUS
             raise AuthError("Missing API key")
         if self._static_key and hmac.compare_digest(key, self._static_key):
             return STATIC_KEY_PRINCIPAL

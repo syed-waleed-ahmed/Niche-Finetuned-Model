@@ -17,7 +17,8 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
 **[Live demo](https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev)** ·
 [Examples](examples/) · [Model card](MODEL_CARD.md) ·
 [Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) ·
-[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+[Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) ·
+[Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions)
 
 ![The web UI: ask a FastAPI question and get a streamed answer with cited documentation sources](docs/assets/web-ui.jpg)
 
@@ -324,9 +325,15 @@ graphify-out/                        generated knowledge graph of the codebase (
 | Operations | [Deployment](docs/DEPLOYMENT.md), [runbook](docs/operations/RUNBOOK.md), [incident response](docs/operations/INCIDENT_RESPONSE.md), [rollback](docs/operations/ROLLBACK.md), [cost management](docs/operations/COST_MANAGEMENT.md), [backup and recovery](docs/operations/BACKUP_AND_RECOVERY.md) |
 | Security | [Security policy](SECURITY.md), [security audit and threat model](docs/security/SECURITY_AUDIT.md), [license audit](docs/legal/LICENSE_AUDIT.md) |
 | Audit | [Initial audit](docs/audit/INITIAL_AUDIT.md), [performance baseline](docs/audit/PERFORMANCE_BASELINE.md), [final verification](docs/audit/FINAL_VERIFICATION.md), [implementation status](docs/IMPLEMENTATION_STATUS.md) |
-| Project | [Model card](MODEL_CARD.md), [contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [support](SUPPORT.md), [changelog](CHANGELOG.md), [citation](CITATION.cff), [third-party notices](THIRD_PARTY_NOTICES.md) |
+| Project | [Model card](MODEL_CARD.md), [roadmap](ROADMAP.md), [contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [support](SUPPORT.md), [changelog](CHANGELOG.md), [citation](CITATION.cff), [third-party notices](THIRD_PARTY_NOTICES.md) |
 
 ## Development
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/syed-waleed-ahmed/Niche-Finetuned-Model)
+
+The [dev container](.devcontainer/devcontainer.json) installs everything the test
+suites need (Python 3.11 with CPU-only torch, Node.js 22, the git hooks), in GitHub
+Codespaces or locally with VS Code Dev Containers.
 
 ```bash
 make test lint          # pytest + ruff + mypy
@@ -344,6 +351,12 @@ Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers:
 - the rules for the evaluation data (never edit the held-out set or the baselines to
   improve a score);
 - how to propose a model release.
+
+New here? Issues labelled
+[good first issue](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/labels/good%20first%20issue)
+are small and self-contained, and the [roadmap](ROADMAP.md) shows where the project is
+heading. Questions and ideas go to
+[Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions).
 
 Everyone taking part agrees to the [Code of Conduct](CODE_OF_CONDUCT.md).
 

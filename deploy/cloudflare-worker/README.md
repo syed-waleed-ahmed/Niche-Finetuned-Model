@@ -6,13 +6,17 @@ Edge layer in front of the FastAPI inference service. Each origin replica runs a
 - **rate limits** per API key (or per client IP when anonymous) in a fixed one-minute window;
 - serves a **shared answer cache** for non-streaming `POST /generate` and `POST /v1/chat/completions`;
 - **fails over** across `ORIGINS` in order (Cloud Run first, then backups);
-- **locks the origins**: it adds `X-Origin-Secret`, and origins reject requests without it.
+- **locks the origins**: it adds `X-Origin-Secret`, and origins reject requests without it;
+- **serves the web UI** (`web/dist`, see `web/README.md`) as static assets on the same hostname.
 
 It fits the Workers free plan: one Upstash pipeline call before the origin, at most
 one after (inside `waitUntil`), and only hashing/small JSON work on the CPU path.
 
 ## Request flow
 
+0. Static assets first: a `GET` whose path matches a file built from `web/` is served
+   by Cloudflare's asset layer and never reaches this code. `wrangler dev` and
+   `wrangler deploy` therefore need `npm run build` in `web/` beforehand.
 1. `/metrics` and unknown paths: 404 at the edge (no Redis, no origin).
 2. `/generate`, `/v1/*` without `X-API-Key` / `Authorization: Bearer`: 401 at the edge
    (when `REQUIRE_API_KEY=true`). CORS preflights (`OPTIONS`) skip this check.

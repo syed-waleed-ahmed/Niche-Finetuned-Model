@@ -32,8 +32,10 @@ trade-offs behind each decision.
 ```mermaid
 flowchart LR
     Client["Clients<br/>curl, OpenAI SDKs, apps"]
+    Browser["Browser<br/>web UI (web/)"]
 
     subgraph Edge["Cloudflare Worker (edge)"]
+        Assets["static assets<br/>(built web UI)"]
         W["key check, rate limit,<br/>shared answer cache,<br/>origin failover, origin lock"]
     end
 
@@ -50,6 +52,8 @@ flowchart LR
     Obs["Grafana Cloud + Sentry"]
 
     Client -->|HTTPS| W
+    Browser -->|GET /| Assets
+    Browser -->|same-origin API calls| W
     W <--> Redis
     W -->|X-Origin-Secret| CR
     W -.->|on 429/5xx/timeout| VM
@@ -79,7 +83,8 @@ flowchart LR
 
 | Component | Responsibility |
 | --- | --- |
-| `deploy/cloudflare-worker` | Edge: API-key presence check, per-key and per-IP rate limits, shared answer cache, ordered origin failover, injects `X-Origin-Secret`. |
+| `deploy/cloudflare-worker` | Edge: API-key presence check, per-key and per-IP rate limits, shared answer cache, ordered origin failover, injects `X-Origin-Secret`. Also serves the built web UI as static assets. |
+| `web/` | Browser playground (React + TypeScript, no server): streaming answers with sources, usage and edge headers, `Retry-After` handling, feedback, both APIs, copyable client snippets. Same hostname as the API, so there is no CORS surface and no extra host. |
 | `api.py` | App factory, routes (`/generate`, `/v1/chat/completions`, `/v1/models`, `/v1/feedback`, probes, `/metrics`), middleware (request id, origin lock, access log, metrics), error mapping. |
 | `service.py` | One code path for both APIs: retrieval, admission, generation, metrics, usage accounting. |
 | `admission.py` | Bounded concurrency plus bounded wait queue; rejects with `Retry-After`. |

@@ -165,7 +165,17 @@ def create_app(
             allow_credentials=False,
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["*"],
-            expose_headers=["X-Request-ID", "X-Process-Time-Ms", "Retry-After"],
+            expose_headers=[
+                "X-Request-ID",
+                "X-Process-Time-Ms",
+                "Retry-After",
+                # Set by the edge Worker and passed through with the origin's CORS headers.
+                "X-Cache",
+                "X-Served-By",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-RateLimit-Reset",
+            ],
         )
 
     # -- middleware ---------------------------------------------------------------

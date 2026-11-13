@@ -1,0 +1,6 @@
+# Served by Cloudflare Workers Static Assets. Hashed bundles never change, so
+# browsers may cache them forever; the HTML shell is revalidated on every load.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/
+  Cache-Control: no-cache

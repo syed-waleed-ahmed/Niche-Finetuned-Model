@@ -16,6 +16,15 @@ workers_dev = true
 [observability]
 enabled = true
 
+# The web UI (../../web) is served as static assets from the same hostname as the
+# API. A request that matches a built file (/, /assets/*, /favicon.svg) is answered by
+# Cloudflare without invoking this Worker; everything else falls through to the
+# routing below, so the API contract and the 404-for-unknown rule are unchanged.
+# Build it first: `npm ci && npm run build` in ../../web (wrangler refuses to deploy
+# or run `dev` when the directory is missing).
+[assets]
+directory = "../../web/dist"
+
 [vars]
 # Comma-separated origin base URLs, primary first (Cloud Run, then backups).
 ORIGINS = "https://assistant-xxxxxxxxxx-uc.a.run.app,https://your-space.hf.space"

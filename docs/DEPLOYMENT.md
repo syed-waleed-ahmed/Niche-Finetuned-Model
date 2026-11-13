@@ -98,6 +98,13 @@ curl -s "$EDGE_URL/generate" -H "X-API-Key: $KEY" -H 'Content-Type: application/
 
 The second identical call returns `X-Cache: HIT` in milliseconds.
 
+The same deploy publishes the web UI: Release builds `web/` and Wrangler uploads
+`web/dist` as static assets, so `$EDGE_URL/` opens the playground while every API
+path still reaches the Worker. Visitors need a key: create one with
+`fastapi-assistant keys create demo` and share it, or set `REQUIRE_API_KEY=false` on
+the Worker (and leave `API_KEY`/`DATABASE_URL` unset on the origins) for an anonymous
+demo limited by `RATE_LIMIT_PER_MINUTE_ANON` per IP.
+
 ## 6. Backup origin (Oracle VM)
 
 1. Create an Ampere A1 instance (Ubuntu 24.04, 2 OCPU / 12 GB) with

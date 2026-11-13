@@ -90,6 +90,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  web:
+    name: Web UI
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # The edge deploy serves this build; a broken build must fail here, not there.
+      - run: npm run build
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-24.04

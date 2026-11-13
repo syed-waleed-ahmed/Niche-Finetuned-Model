@@ -204,9 +204,14 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: deploy/cloudflare-worker/package-lock.json
+          cache-dependency-path: |
+            deploy/cloudflare-worker/package-lock.json
+            web/package-lock.json
       - run: npm ci
         working-directory: deploy/cloudflare-worker
+      # The Worker serves web/dist as static assets (wrangler.toml [assets]).
+      - run: npm ci && npm run build
+        working-directory: web
       - id: model
         run: echo "version=$(jq -r .model_version model-release.json)" >> "$GITHUB_OUTPUT"
       - uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3

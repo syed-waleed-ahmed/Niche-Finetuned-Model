@@ -14,6 +14,13 @@ updates:
       worker-minor-and-patch:
         update-types: [minor, patch]
 
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+
   - package-ecosystem: docker
     directories: [/, /deploy/hf-space]
     schedule: { interval: weekly }

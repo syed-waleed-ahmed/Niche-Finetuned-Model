@@ -75,6 +75,12 @@ fastapi-assistant serve             # add "use_retrieval": true per request
 Open http://localhost:8000/docs. With Docker: `docker compose up --build` starts the
 service with Postgres + pgvector on port 8080.
 
+To try it in a browser, run the web UI against that server (Node 22+):
+
+```bash
+cd web && npm install && npm run dev      # http://localhost:5173, proxies the API
+```
+
 For development and training (torch, peft):
 
 ```bash
@@ -128,6 +134,32 @@ for chunk in client.chat.completions.create(
 Errors are explicit: 401 (missing/invalid key), 429 with `Retry-After` (capacity),
 503 with `Retry-After` (model loading or queue timeout). `/v1/*` errors use the
 OpenAI error shape.
+
+## Web UI
+
+`web/` is a small React + TypeScript playground for the service, served by the edge
+Worker as static assets on the same hostname as the API (so no CORS, no extra host,
+no cost). It shows what the API does: answers stream token by token, each one with
+its documentation sources, model version, token usage, latency and edge cache
+status; a 429 or 503 is shown with its `Retry-After` countdown and retried; answers
+can be rated (`POST /v1/feedback`). A settings panel holds the API key (browser
+only), switches between the native `/generate` API and the OpenAI-compatible
+multi-turn `/v1/chat/completions`, and toggles streaming and retrieval. A code panel
+turns the current question into copyable curl, Python and JavaScript requests.
+
+```bash
+cd web
+npm install
+npm run dev          # against http://localhost:8000 (see vite.config.ts for the proxy)
+npm run typecheck && npm test && npm run build
+```
+
+`npm run build` writes `web/dist`, which `deploy/cloudflare-worker/wrangler.toml`
+serves via Workers Static Assets. The release workflow builds it before deploying
+the Worker. A public demo needs either a dedicated key (`fastapi-assistant keys
+create demo`) that visitors paste into Settings, or `REQUIRE_API_KEY=false` on the
+Worker and no `API_KEY`/`DATABASE_URL` on the origins, in which case per-IP rate
+limits apply.
 
 ## Evaluation
 
@@ -220,6 +252,7 @@ src/fastapi_assistant/
 data/                                curated train/eval sets
 eval/                                baseline reports the gate compares against
 model-release.json                   the deployed model, pinned to Hub revisions
+web/                                 browser playground (React + Vite), served by the Worker
 deploy/                              Cloudflare Worker, Cloud Run, VM, HF Space, Grafana
 kaggle/, scripts/                    GPU training pipeline, GGUF export
 loadtest/                            k6 scenarios
@@ -231,6 +264,7 @@ loadtest/                            k6 scenarios
 ```bash
 make test lint          # pytest + ruff
 make worker-test        # Worker typecheck + vitest
+make web-test           # web UI typecheck + vitest (make web-dev to run it)
 make eval               # score the configured model, gated vs eval/baseline.json
 TEST_DATABASE_URL=postgresql://... pytest -m postgres   # Postgres integration tests
 ```

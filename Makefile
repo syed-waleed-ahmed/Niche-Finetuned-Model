@@ -4,7 +4,7 @@ PY ?= python
 CLI ?= $(PY) -m fastapi_assistant
 
 .PHONY: help install dev train serve cli eval eval-rag data-validate rag-index lock test lint fmt \
-        worker-test docker-build docker-run compose-up clean
+        worker-test web-dev web-build web-test docker-build docker-run compose-up clean
 
 help:
 	@echo "Targets:"
@@ -18,6 +18,9 @@ help:
 	@echo "  rag-index      Build the local documentation index"
 	@echo "  lock           Regenerate the hash-pinned serving lock file"
 	@echo "  test / lint / fmt / worker-test"
+	@echo "  web-dev        Run the web UI against a local API (http://localhost:5173)"
+	@echo "  web-build      Build the web UI into web/dist (served by the edge Worker)"
+	@echo "  web-test       Web UI typecheck + unit tests"
 	@echo "  docker-build / docker-run / compose-up"
 
 install:
@@ -63,6 +66,15 @@ fmt:
 
 worker-test:
 	cd deploy/cloudflare-worker && npm ci && npm run typecheck && npm test
+
+web-dev:
+	cd web && npm install && npm run dev
+
+web-build:
+	cd web && npm ci && npm run build
+
+web-test:
+	cd web && npm ci && npm run typecheck && npm test
 
 docker-build:
 	docker build -t fastapi-assistant:latest .

@@ -8,9 +8,11 @@ how a model release rolls out and rolls back.
 **The deployed model is the base TinyLlama-1.1B-Chat GGUF (Q4_K_M), not a
 fine-tune.** `model-release.json` has `"finetuned": false` and points at
 `TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF` at a pinned commit, with its SHA-256. The
-training pipeline has never run, because it needs Kaggle and Hugging Face
-credentials that only the repository owner can create (audit finding F-04). Every
-stage below is implemented; none has produced a release yet.
+Kaggle and Hugging Face credentials are now configured (audit finding F-04). The
+first training runs exposed environment problems in the Kaggle image, fixed in #15
+and #16, and a training run is in progress. Every stage below is implemented; none has
+produced a release yet. Until a fine-tune passes both gates and its release PR is
+merged, the deployed model stays the base GGUF.
 
 The base model's score on the held-out set, with the production backend, is the bar
 the first fine-tune must clear (`eval/baseline.json`):
@@ -79,10 +81,18 @@ merged with `data merge`.
 
 ## 4. Training on Kaggle
 
-`train.yml` (manual dispatch, inputs `base_model`, `num_epochs`, `learning_rate`)
-renders `kaggle/pipeline.py` with those inputs, the commit and `HF_NAMESPACE`, and
-pushes it as a private GPU kernel (`kaggle/kernel-metadata.json`). It then polls
-the kernel for up to 300 minutes and downloads its outputs.
+`train.yml` (manual dispatch, inputs `base_model`, `num_epochs`, `learning_rate` and
+`push_only`) renders `kaggle/pipeline.py` with those inputs, the commit and
+`HF_NAMESPACE`, and pushes it as a private GPU kernel named
+`<KAGGLE_USERNAME>/fastapi-assistant-train` (`kaggle/kernel-metadata.json`). It then
+polls the kernel for up to 300 minutes and downloads its outputs. With
+`push_only: true` it creates or updates the kernel without running it, which is the
+first-time setup step (see the credentials below).
+
+On the kernel, the pipeline installs the `train` extra with the GPU image's own CUDA
+`torch`, `torchvision` and `torchaudio` pinned as pip constraints, so the install
+cannot replace them, and then uninstalls the image's `torchao`, which is older than
+`peft` accepts (#16).
 
 | Setting | Value | Source |
 | --- | --- | --- |
@@ -94,10 +104,18 @@ the kernel for up to 300 minutes and downloads its outputs.
 | Prompt format | `prompts.build_messages` and `encode_chat`, the same format serving uses | `data.py`, `prompts.py` |
 | Version label | `v<YYYY.MM.DD>-<short commit>` | `kaggle/pipeline.py` |
 
-Credentials needed: `KAGGLE_USERNAME` and `KAGGLE_KEY` (or `KAGGLE_API_TOKEN`) as
-GitHub secrets, `HF_NAMESPACE` as a GitHub variable, and `HF_TOKEN` attached to the
-kernel as a Kaggle secret. Without `HF_TOKEN` or a namespace, the kernel trains and
-evaluates but publishes nothing, and `train.yml` stops.
+Credentials needed (all configured for this repository):
+
+- the `KAGGLE_API_TOKEN` GitHub secret (or the legacy `KAGGLE_KEY`);
+- the Kaggle username as the `KAGGLE_USERNAME` GitHub variable (a secret of that name
+  is also accepted);
+- `HF_NAMESPACE` as a GitHub variable;
+- `HF_TOKEN` attached to the kernel as a Kaggle secret. On first setup, run
+  `train.yml` once with `push_only: true`, attach the secret to the new kernel on
+  Kaggle, then run the workflow normally.
+
+Without `HF_TOKEN` or a namespace, the kernel trains and evaluates but publishes
+nothing, and `train.yml` stops.
 
 ## 5. Gate 1: beat the base model
 
@@ -182,8 +200,7 @@ The translation is `export.manifest_env`, exposed as
    becomes ready.
 4. `deploy-edge` sets the Worker's `MODEL_VERSION` to the new version, which moves
    the shared answer cache to a new namespace so answers from the previous model are
-   never served. While that job is skipped (F-10) this step is manual; with Upstash
-   not configured the cache is off anyway.
+   never served. With Upstash not configured the cache is off anyway.
 
 ## 11. Rollback
 
@@ -194,10 +211,17 @@ so the gate compares future candidates against the restored model.
 
 ## 12. Known gaps
 
-- Training has not run (F-04), so the fine-tune and its eval results do not exist.
+- No training run has completed yet (F-04; a run is in progress), so the fine-tune and
+  its eval results do not exist.
 - **Fixed during this review.** `train.yml` passes the commit SHA as `ref`, but
   `kaggle/pipeline.py` used to clone with `git clone --branch <ref>`, which rejects a
   commit hash. The pipeline now runs `git init`, `git fetch --depth 1 origin <ref>`
   and `git checkout FETCH_HEAD`. That form was checked to work against GitHub with
-  both a commit SHA and a branch name. The rest of the pipeline is untested end to
-  end until the first real run.
+  both a commit SHA and a branch name.
+- **Fixed after the first runs.** The Kaggle CLI 2.2.5 imports `six` without declaring
+  it, so `train.yml` installs it (#15). After a Dependabot floor bump, installing the
+  `train` extra replaced the image's CUDA `torch` and broke its `torchvision`; then the
+  image's `torchao` made `peft` refuse to apply LoRA. The pipeline now pins the
+  preinstalled `torch`, `torchvision` and `torchaudio`, uninstalls `torchao`, and the
+  `torch` floor is back to `>=2.2.0` (#16). The rest of the pipeline is untested end
+  to end on Kaggle until a run completes.

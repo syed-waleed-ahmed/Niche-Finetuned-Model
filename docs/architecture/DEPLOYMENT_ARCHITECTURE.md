@@ -7,33 +7,34 @@ are configured but not deployed. Step-by-step setup lives in
 ## 1. Live versus configured
 
 Status as recorded on 2026-11-13 in
-[docs/audit/INITIAL_AUDIT.md](../audit/INITIAL_AUDIT.md) and
+[docs/audit/INITIAL_AUDIT.md](../audit/INITIAL_AUDIT.md),
+[docs/audit/FINAL_VERIFICATION.md](../audit/FINAL_VERIFICATION.md) and
 [docs/IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md).
 
-This document set describes the code on the current branch. The live Worker and the
-live Cloud Run revision were built from `main` before these hardening changes (the
-audit's Cloud Run revision is built from `684a10d`). Behaviour such as the fallback
-rate limiter, the body caps, the token budget and GGUF verification goes live only
-when the branch is merged and released.
+This document set describes the code on `main`. The hardening changes (PR #13) and
+the follow-ups #14 to #16 are merged and deployed: behaviour such as the fallback rate
+limiter, the body caps, the token budget and GGUF verification is live. Release
+deploys both Cloud Run and the Worker from `main`.
 
 | Component | Status | Evidence |
 | --- | --- | --- |
-| Edge Worker `fastapi-assistant-edge` with the web UI, at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev | Live. Deployed from a workstation with wrangler, not by Release. | Audit section 3; F-10 |
+| Edge Worker `fastapi-assistant-edge` with the web UI, at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev | Live. Deployed by Release (`deploy-edge`) from `main`. | Release run 43460008003; F-10 (resolved) |
 | Cloud Run service `fastapi-assistant` | Live, deployed by Release from `main` | Audit header; `.github/workflows/release.yml` |
 | Model | Base TinyLlama-1.1B-Chat GGUF Q4_K_M, not fine-tuned | `model-release.json` (`"finetuned": false`); F-04 |
 | Authentication | Static owner key from Secret Manager; origin locked to the edge | Implementation status |
 | Secret Manager, Artifact Registry, Workload Identity Federation, budget alert | Live | Audit section 5; `deploy/gcp/bootstrap.sh` |
-| Upstash Redis (shared rate limit and cache) | Not configured, so the answer cache is off. The live Worker predates the fallback limiter and applies no rate limit; once this branch's Worker is deployed, rate limiting runs per isolate. | F-03; implementation status |
+| Upstash Redis (shared rate limit and cache) | Not configured, so the answer cache is off and rate limiting runs per isolate (the fallback limiter). | F-03; implementation status |
 | Neon Postgres (per-user keys, usage, feedback) | Not configured | Implementation status |
 | Sentry, Grafana Cloud | Not connected | Implementation status |
 | `uptime.yml` | Live: `EDGE_URL` is set | Implementation status |
-| Release jobs `deploy-edge`, `smoke-edge` | Skipped: no `CLOUDFLARE_ACCOUNT_ID` variable, so the smoke test (which needs a successful edge deploy) never runs | F-10; `release.yml` |
+| Release jobs `deploy-edge`, `smoke-edge` | Live: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. Both jobs succeeded in Release run 43460008003 (the merge of #15). | F-10 (resolved); `release.yml` |
 | Backup origins: Hugging Face Space, Oracle VM | Configuration only, not deployed. `ORIGINS` lists Cloud Run only. | F-11; `deploy/hf-space/`, `deploy/vm/` |
-| Train on Kaggle | Never run: needs Kaggle and Hugging Face tokens | F-04; `.github/workflows/train.yml` |
+| Train on Kaggle | Configured: the Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` attached to the kernel on Kaggle. The first runs exposed Kaggle environment problems, fixed in #15 and #16; a training run is in progress. No fine-tune is deployed yet. | F-04; `.github/workflows/train.yml` |
 
 ## 2. Delivery pipeline
 
-Dashed nodes are skipped today.
+All the jobs below run on every Release today. A deploy job is skipped only when its
+platform variable is not set (section 3).
 
 ```mermaid
 flowchart TB
@@ -66,13 +67,12 @@ flowchart TB
     SM --> CR
 
     Worker["Cloudflare Worker<br/>plus web/dist assets"]
-    DeployEdge -.->|"wrangler deploy"| Worker
-
-    classDef skipped stroke-dasharray: 5 5
-    class DeployEdge,Smoke,Worker skipped
+    DeployEdge -->|"wrangler deploy"| Worker
+    Smoke -->|"k6 through the edge"| Worker
 ```
 
-The Worker itself is live; the dashed link means Release does not deploy it yet.
+Since #15, `deploy-edge` and `smoke-edge` run on every Release (first success: run
+43460008003).
 
 ## 3. Release workflow stages
 
@@ -86,7 +86,7 @@ and on manual dispatch. Runs never overlap (`concurrency: release`, not cancelle
 | `publish` | After `build` | Creates one multi-arch manifest tagged `sha-<12 chars>` and `latest`. | |
 | `scan` | After `publish` | Trivy scans the published image twice: once to upload SARIF to code scanning, once with `exit-code: 1` on fixable `CRITICAL,HIGH` (`ignore-unfixed: true`). `/models/rag_index` is skipped because the baked documentation contains an example JWT (F-21). | Fails the release on a fixable HIGH or CRITICAL CVE |
 | `deploy-cloudrun` | `vars.GCP_PROJECT_ID` set; after `scan` | Authenticates with Workload Identity Federation (no key file). Copies the amd64 image into Artifact Registry. Syncs five secrets into Secret Manager. Renders `deploy/cloudrun/service.yaml` with `envsubst` from repository variables and `fastapi-assistant export env model-release.json`. Deploys, grants `allUsers` the invoker role, then polls `/health` and `/ready` on the new URL. | Smoke: `/ready` must answer 200 |
-| `deploy-edge` | `vars.CLOUDFLARE_ACCOUNT_ID` set; not after a failure | Builds `web/` and runs `wrangler deploy` with `MODEL_VERSION` from `model-release.json` (the cache namespace) and `ORIGINS` from `vars.EDGE_ORIGINS`; pushes the Worker secrets `ORIGIN_SHARED_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`. Authenticates with `secrets.CLOUDFLARE_API_TOKEN`; the job condition checks only the account ID variable, so the token must exist too or `wrangler` fails. | |
+| `deploy-edge` | `vars.CLOUDFLARE_ACCOUNT_ID` set; not after a failure | Builds `web/` and runs `wrangler deploy` with `MODEL_VERSION` from `model-release.json` (the cache namespace) and `ORIGINS` from `vars.EDGE_ORIGINS`. Uploads the Worker secret `ORIGIN_SHARED_SECRET`, plus `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` only when both GitHub secrets are set (#15). Authenticates with `secrets.CLOUDFLARE_API_TOKEN`; the job condition checks only the account ID variable, so the token must exist too or `wrangler` fails. | |
 | `smoke-edge` | `vars.EDGE_URL` set and `deploy-edge` succeeded | `k6 run -e SCENARIO=smoke tests/load/k6.js` through the edge. | k6 thresholds |
 
 Both deploy jobs use the `production` GitHub environment.
@@ -160,8 +160,11 @@ directory `../../web/dist`. `ORIGINS` is empty in the file on purpose; an unset 
 fails closed with 502. Secrets (`ORIGIN_SHARED_SECRET`, Upstash URL and token) are set
 with `wrangler secret put`, never in the file.
 
-Until Release deploys the Worker (F-10), its version can drift from `main`, and its
-`MODEL_VERSION` cache namespace is whatever the last manual deploy set.
+Release deploys the Worker on every run (F-10, resolved in #15), passing `ORIGINS` and
+`MODEL_VERSION`, so the live Worker and its cache namespace track `main`. A manual
+`wrangler deploy` is an emergency fallback only; it must pass both vars
+([docs/operations/RUNBOOK.md](../operations/RUNBOOK.md) section 7.7), and the next
+Release replaces it.
 
 ## 7. Backup origins (not deployed)
 
@@ -170,7 +173,8 @@ Until Release deploys the Worker (F-10), its version can drift from `main`, and 
 | Hugging Face Docker Space | `deploy/hf-space/Dockerfile`, `README.md` | Runs the published GHCR image unchanged as uid 1000. |
 | Oracle Cloud Always Free VM | `deploy/vm/cloud-init.yaml`, `docker-compose.yml`, `config.alloy`, `.env.example` | `app`, `cloudflared` (outbound-only tunnel, no inbound ports) and Grafana Alloy (metrics and logs). `MAX_QUEUE=4`. |
 
-To activate one, append its URL to `EDGE_ORIGINS` and redeploy the Worker. The
+To activate one, append its URL to `EDGE_ORIGINS` and re-run Release, which redeploys
+the Worker. The
 Worker's failover and circuit breaker are unit-tested
 (`deploy/cloudflare-worker/test/`) but have not run in production (F-11).
 
@@ -182,8 +186,8 @@ Worker's failover and circuit breaker are unit-tested
 | `security.yml` | Push, PR, weekly | pip-audit on `requirements/serve.txt`, npm audit (Worker, web), dependency review on PRs |
 | `codeql.yml` | Push, PR, weekly | CodeQL for Python, JavaScript/TypeScript and Actions |
 | `eval.yml` | PRs touching the model, eval data, prompts, engines or evaluation; called by `train.yml` | Model eval gate, see [MODEL_PIPELINE.md](MODEL_PIPELINE.md) |
-| `train.yml` | Manual | Kaggle training to a release PR |
-| `uptime.yml` | Every 10 minutes, if `EDGE_URL` is set | `GET /health` through the edge; also keeps one instance warm |
+| `train.yml` | Manual | Kaggle training to a release PR; the `push_only` input creates or updates the kernel without running it |
+| `uptime.yml` | Every 10 minutes, if `EDGE_URL` is set | `GET /health` through the edge, then the authenticated `GET /v1/models` when `SMOKE_API_KEY` is set; also keeps one instance warm |
 
 ## 9. Rollout and rollback of service code
 

@@ -4,12 +4,14 @@ Date: 2026-11-13.
 
 | Item | Identifier |
 |---|---|
-| Branch | `feat/production-hardening` |
-| Pull request | #13 |
-| Commit verified | `05129c5` |
+| Branch | `feat/production-hardening`, merged into `main` in #13 (the branch has since been deleted) |
+| Pull request | #13; follow-ups #14, #15 and #16, also merged (section 7) |
+| Commit verified | `05129c5` (branch head at verification); merged as `b146406`. `main` is now at `eced3bb`, the merge of #16 |
 | Live deployment verified | Before merge: Cloud Run from `155e580` and Worker `8ec9a2fc`. After merge: Cloud Run from `b146406` and the Worker deployed from `main` (item 18) |
 
 PR #13 was merged and deployed the same day; item 18 records the post-deploy checks.
+Section 7 records what changed after the follow-up merges. The evidence in sections 1
+to 4 is left as it was recorded.
 
 Statuses:
 
@@ -17,6 +19,7 @@ Statuses:
 |---|---|
 | PASS | Verified with the evidence shown |
 | PASS WITH LIMITATIONS | Verified, with a stated, accepted gap |
+| IN PROGRESS | No longer blocked and under way, but not yet verifiable |
 | BLOCKED | Needs something only the repository owner can provide (credentials, account settings, a merge) |
 | FAIL | Verified broken |
 
@@ -41,7 +44,7 @@ Statuses:
 | 8 | Image vulnerability gate | PASS | The CI Trivy gate now fails on fixable HIGH and CRITICAL CVEs, and it passed on the hardened image. Debian updates are applied, and pip, setuptools and wheel are removed. The Release gate uses the same rule and runs after merge. |
 | 9 | Dependency audits | PASS WITH LIMITATIONS | pip-audit on the serving lock passes with one documented exception, PYSEC-2026-2447 (`diskcache`, no fix exists, code path unreachable). npm audit finds 0 vulnerabilities for the Worker and the web UI. Dependency review passes. |
 | 10 | Secret scanning | PASS | gitleaks over the full history passes in CI. No secret values were printed or committed during this work, and the API key was read from a private file without being echoed. |
-| 11 | Static analysis | PASS WITH LIMITATIONS | CodeQL passes for Python, JavaScript/TypeScript and Actions. Two alerts are open, and both are intended behaviour: #1 prints a new key once in the CLI, and #2 hashes 256-bit random API keys with SHA-256. Dismissing them is an owner action. |
+| 11 | Static analysis | PASS WITH LIMITATIONS | CodeQL passes for Python, JavaScript/TypeScript and Actions. Two alerts are open, and both are intended behaviour: #1 prints a new key once in the CLI, and #2 hashes 256-bit random API keys with SHA-256. Dismissing them is an owner action. **Update:** both were dismissed as "won't fix" after the merge (section 7). |
 | 12 | Threat model | PASS | `docs/security/SECURITY_AUDIT.md` has a STRIDE analysis with a status for every finding. Five observations raised during documentation were fixed on this branch (O-3, O-6, O-7, O-8, O-9). |
 | 13 | Licenses | PASS WITH LIMITATIONS | `docs/legal/LICENSE_AUDIT.md`. Notices now ship in the image, the web bundle and future model folders. Still unverified: the Debian layer inventory, the native libraries in `psycopg-binary`, and the model-provider terms for drafted dataset rows. The dataset is not cleared for standalone publication. |
 
@@ -51,7 +54,7 @@ Statuses:
 |---|---|---|---|
 | 14 | Eval gate | PASS | The CI eval job ran the 108-item held-out set with llama.cpp in 24 minutes. Composite 0.4023 (keyword recall 0.4321, code validity 0.4904, ROUGE-L 0.2891, latency p50 6.86 s). The allowed regression from the committed 0.410 baseline is 0.02. No eval data or baseline was modified. |
 | 15 | Held-out discipline | PASS | Training no longer reads the eval file; checkpoint selection uses a validation slice of the training file. Covered by tests. No model had been trained with the old behaviour. |
-| 16 | Fine-tuned model in production | BLOCKED | Needs Kaggle and Hugging Face credentials (audit F-04). The live model is the base TinyLlama GGUF, labelled as such everywhere. The clone defect that would have failed the first training run is fixed. |
+| 16 | Fine-tuned model in production | IN PROGRESS | Was BLOCKED: needed Kaggle and Hugging Face credentials (audit F-04). The live model is the base TinyLlama GGUF, labelled as such everywhere. The clone defect that would have failed the first training run is fixed. **Update:** the credentials are now set and a training run is in progress (section 7). |
 
 ## 4. Deployment
 
@@ -60,7 +63,7 @@ Statuses:
 | 17 | Live stack end to end (current `main`) | PASS | 15 of 15 scripted checks against the public edge. Covered: health, web UI, `/metrics` hidden, 401 without a key, 401 with a bad key, 403 direct to origin, a metrics token required, generate, 422, CORS, native SSE, and the OpenAI SDK list, chat and stream. |
 | 18 | Hardened code live | PASS | Merged as `b146406`. Release 43435695506 succeeded: build, a scan gated on HIGH, and the Cloud Run deploy. The Worker was deployed from `main`, with `ORIGIN_TIMEOUT_MS` 150000 and `MAX_REQUEST_BYTES` 65536 confirmed in its bindings. Live afterwards: the original 15 end-to-end checks pass again. The new checks pass too: token-dense prompt gives 400 (3,560 tokens counted by the live model); the streaming variant gives 400 before the stream; a 70 KB body gives 413 at the edge; the fallback rate limit shows `x-ratelimit-limit: 20`; responses carry `nosniff`, `DENY` and `no-referrer`; `x-cloud-trace-context` and the origin's `Server` header are removed (Cloudflare adds its own); the UI is served with a CSP and its notices file; a made-up key gets 401. In Chrome, the UI loads under the CSP with no violations and the health badge reads "base model". |
 | 19 | Capacity | PASS WITH LIMITATIONS | Two controlled probes only (`PERFORMANCE_BASELINE.md`). One generation runs at a time per instance, with a maximum of 2 instances. A burst during scale-out drew plain-text 429s from the platform; the edge normalises them on this branch. No user capacity is claimed. |
-| 20 | CI-driven edge deploys | BLOCKED | Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (F-10). |
+| 20 | CI-driven edge deploys | PASS | Was BLOCKED on `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (F-10). **Update:** both are set. In Release run 43460008003 (the merge of #15), the `deploy-edge` and `smoke-edge` jobs succeeded (section 7). |
 | 21 | Shared rate limits, cache, per-user keys | BLOCKED | Optional. Needs Upstash and Neon credentials. The service degrades gracefully without them (ADR-005). |
 | 22 | Backup origin | BLOCKED | Optional. Needs a Hugging Face token or a VM (F-11). |
 | 23 | Observability backends | BLOCKED | Optional. Sentry DSN and Grafana Cloud are not connected. Metrics, JSON logs (now with `severity`) and the uptime probe work without them. |
@@ -75,15 +78,50 @@ Statuses:
 - **Fallback rate limiting:** it is per isolate, so the effective limit is a multiple of
   the configured one.
 - **Deploy identity:** the deploy service account has project-wide Secret Manager and
-  Cloud Run admin roles (O-4). Branch protection on `main` was not reviewed.
+  Cloud Run admin roles (O-4). The "Protect main" ruleset now requires pull requests
+  and passing checks for `main` and blocks force-pushes, which narrows this; the
+  roles themselves are still project-wide.
 
 ## 6. Owner actions
 
 Listed with instructions in [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md):
 
-- merge #13: done;
-- create the Cloudflare API token;
-- optionally add credentials for training, Upstash and Neon;
-- dismiss CodeQL #1 and #2 and Dependabot #1;
+- merge #13: done (and the follow-ups #14 to #16);
+- create the Cloudflare API token: done (Release deploys the Worker since #15);
+- add the training credentials: done (a training run is in progress);
+- dismiss CodeQL #1 and #2 and Dependabot #1: done;
 - private vulnerability reporting: done (enabled after the merge);
-- optionally tag `v2.0.0`.
+- apply the branch-protection ruleset to `main` (O-4): done ("Protect main");
+- optionally add Upstash, Neon, Sentry, Grafana Cloud and a backup origin: open;
+- publish `v2.0.0` at `684a10d`: done; publish `v2.1.0` after the 2.1.0 version bump
+  is merged: open.
+
+## 7. Update after the merges (2026-11-13)
+
+Recorded after #14, #15 and #16 were merged into `main`. The evidence above is
+unchanged; only the statuses of items 16 and 20 moved.
+
+- **Edge deploys (item 20, F-10): resolved.** The `CLOUDFLARE_API_TOKEN` secret and
+  the `CLOUDFLARE_ACCOUNT_ID` variable are set. Release run 43460008003 (the merge of
+  #15) deployed the Worker in `deploy-edge` and passed the k6 `smoke-edge` job. Every
+  Release now deploys the Worker from `main`; a manual `wrangler deploy` is an
+  emergency fallback only.
+- **Training (item 16, F-04): in progress.** The `KAGGLE_API_TOKEN` secret, the
+  `KAGGLE_USERNAME` and `HF_NAMESPACE` variables, and the `HF_TOKEN` Kaggle secret on
+  the `fastapi-assistant-train` kernel are set. The first runs exposed environment
+  problems in the Kaggle image: the Kaggle CLI's undeclared `six` dependency (#15),
+  and the image's CUDA `torch` being replaced and an incompatible `torchao` blocking
+  LoRA (#16). A training run is in progress. Until a fine-tuned release passes both
+  eval gates and its release PR is merged, the live model stays the base GGUF
+  (`finetuned: false`).
+- **Code scanning.** CodeQL alerts #1 and #2 were dismissed by the owner as "won't
+  fix" (intended behaviour, F-15). Alert #3 (`py/stack-trace-exposure`) was introduced
+  and fixed within #14. All 14 Trivy image alerts (#7 to #20) are closed as fixed by
+  the scan of the deployed image. Dependabot alert #1 (`diskcache`, PYSEC-2026-2447)
+  is dismissed.
+- **Private vulnerability reporting** is enabled.
+- **Branch protection:** the "Protect main" ruleset is active (pull requests and the
+  core CI and security checks required; no force-push or deletion).
+- **Releases:** `v2.0.0` is published at `684a10d`.
+- **Still open:** project-wide deployer roles (O-4), the `v2.1.0` release, and the
+  optional services in items 21 to 23.

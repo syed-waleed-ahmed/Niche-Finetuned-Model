@@ -180,10 +180,13 @@ The deployed model is whatever `model-release.json` pins. A release changes that
 and nothing about the eval set.
 
 **Maintainers** run the "Train on Kaggle" workflow (`.github/workflows/train.yml`).
-It needs the `KAGGLE_USERNAME` and `KAGGLE_KEY` (or `KAGGLE_API_TOKEN`) secrets, the
-`HF_NAMESPACE` variable, and an `HF_TOKEN` secret attached to the Kaggle kernel. It
-trains on a free Kaggle GPU, requires the fine-tune to score at least as well as the
-base model, merges and quantizes it, publishes the adapter and the GGUF to the
+It needs the `KAGGLE_API_TOKEN` secret (or the legacy `KAGGLE_KEY`), the Kaggle
+username as the `KAGGLE_USERNAME` variable (a secret is also accepted), the
+`HF_NAMESPACE` variable, and an `HF_TOKEN` secret attached to the Kaggle kernel. On
+first setup, run the workflow once with `push_only: true` to create the kernel, attach
+`HF_TOKEN` to it on Kaggle, then run the workflow normally. It trains on a free
+Kaggle GPU, requires the fine-tune to beat the base model's composite score by at
+least 0.005 (`min_improvement`), merges and quantizes it, publishes the adapter and the GGUF to the
 Hugging Face Hub under a new tag, scores the GGUF with the production backend, and
 opens a pull request that updates `model-release.json` and `eval/baseline.json`.
 Review the eval table in that pull request; merging it deploys the model, and

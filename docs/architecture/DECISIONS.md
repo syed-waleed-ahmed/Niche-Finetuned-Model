@@ -158,8 +158,9 @@ The web UI is served from the same Worker as static assets.
 - One hostname serves the UI and the API, so the UI makes same-origin calls.
 - Failover and the circuit breaker are unit-tested but have not run in production,
   because only one origin is configured (F-11).
-- Until Release can deploy the Worker (F-10), the live Worker is deployed by hand and
-  can drift from `main`.
+- Release deploys the Worker from `main` (F-10, resolved in #15), so the live Worker
+  tracks `main`. A manual deploy is an emergency fallback and lasts until the next
+  Release.
 
 ---
 

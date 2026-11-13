@@ -44,10 +44,10 @@ service supports. The only capacity evidence is the set of one-off probes in
 | Secret Manager | 6 active secret versions and 10,000 access operations per month [vendor, re-check] | 5 secrets (`origin-shared-secret`, `api-key`, `metrics-token`, `database-url`, `sentry-dsn`). Every rotation adds versions. Each new Cloud Run instance reads all 5 at start; each Release reads them to compare. | Billed per version and per 10,000 operations above the allowance |
 | Cloud Logging and Monitoring | A monthly log-ingestion allowance per project; Google Cloud's own metrics are free [vendor, re-check] | One JSON line per request plus Cloud Run's request log | Billed per GiB ingested above the allowance |
 | Cloud Billing budgets | Free | One budget | |
-| GitHub Actions | Standard GitHub-hosted runners, including the `ubuntu-24.04-arm` runner used by Release, are free for public repositories [vendor, re-check] | CI, Security, CodeQL, Release (amd64 and arm64 builds), and Uptime (about 4,320 runs per 30 days) | Free while the repository is public; see section 5 |
+| GitHub Actions | Standard GitHub-hosted runners, including the `ubuntu-24.04-arm` runner used by Release, are free for public repositories [vendor, re-check] | CI, Security, CodeQL, Release (amd64 and arm64 builds, Worker deploy and k6 smoke test), Train (polls the Kaggle kernel, up to 330 minutes per run), and Uptime (about 4,320 runs per 30 days) | Free while the repository is public; see section 5 |
 | GitHub Container Registry | Free for public packages [vendor, re-check] | Multi-arch images, tagged `sha-<12>` and `latest` | Private packages count against account storage [vendor, re-check] |
 | Hugging Face Hub | Free public model repositories [vendor, re-check] | GGUF download at every cold start | Not billed. Availability and download limits are outside our control (see [BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md)). |
-| Kaggle | A weekly GPU quota, not officially published (about 30 hours per week is commonly cited) [vendor, re-check] | Training, about 1 hour per run. Not running today (BLOCKED on credentials). | The kernel stops |
+| Kaggle | A weekly GPU quota, not officially published (about 30 hours per week is commonly cited) [vendor, re-check] | Training, about 1 hour per run. Credentials are configured; the first training run is in progress. | The kernel stops |
 
 Optional services. **None is configured today**; check them before enabling.
 
@@ -107,7 +107,8 @@ Other inputs:
   `Model ready ... in N s` give the time for each start.
 - **Probe traffic.** It is cheap per request but continuous:
   - the uptime probe sends about 4,320 `/health` calls per 30 days (one every
-    10 minutes, plus up to 3 retries when a run fails);
+    10 minutes, plus up to 3 retries when a run fails), and as many authenticated
+    `/v1/models` calls when `SMOKE_API_KEY` is set;
   - each UI tab left open sends one `/health` every 30 seconds, about 86,400 calls
     per 30 days.
 
@@ -137,7 +138,7 @@ leaves its generation running until it finishes or hits the budget.
 | Weights not baked into the image (`BAKE_MODEL=false`) | `Dockerfile`, Release does not set it | The 0.7 GB GGUF alone exceeds Artifact Registry's 0.5 GB free storage |
 | Artifact Registry cleanup policy: keep 2 versions, delete older after a day | `deploy/gcp/bootstrap.sh` | Keeps image storage near the free allowance |
 | Secret Manager version added only when a value changed | `release.yml`, "Sync secrets" | Rotations, not deploys, create versions |
-| Uptime probe every 10 minutes, not more often | `uptime.yml` | Keeps probe volume to about 4,300 requests per month |
+| Uptime probe every 10 minutes, not more often | `uptime.yml` | Keeps probe volume to about 4,300 runs per month (two requests each with `SMOKE_API_KEY` set) |
 | Build artifacts kept for 1 day | `release.yml` (`retention-days: 1`) | Minimal artifact storage |
 
 ## 5. Watching spend

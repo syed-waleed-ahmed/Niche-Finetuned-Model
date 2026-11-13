@@ -46,7 +46,7 @@ Response headers added: `X-Cache: HIT|MISS|BYPASS`, `X-Served-By: origin-<i>` (o
 | `RATE_LIMIT_PER_MINUTE` | var | `20` | Requests/minute per API key |
 | `RATE_LIMIT_PER_MINUTE_ANON` | var | `10` | Requests/minute per IP (anonymous and public paths) |
 | `CACHE_TTL_SECONDS` | var | `86400` | Lifetime of a cached answer |
-| `ORIGIN_TIMEOUT_MS` | var | `60000` | Per-origin wait for response headers before failover |
+| `ORIGIN_TIMEOUT_MS` | var | `150000` | Per-origin wait for response headers before failover. Must exceed the origin's queue plus generation budget (60 s + 60 s on Cloud Run); the code default is `60000` |
 | `MODEL_VERSION` | var | `v1` | Cache namespace; bump to invalidate every cached answer |
 | `REQUIRE_API_KEY` | var | `true` | Reject keyless calls to protected paths at the edge |
 | `KEY_VERIFIED_TTL_SECONDS` | var | `300` | Lifetime of the "origin accepted this key" marker |
@@ -98,8 +98,22 @@ when the checkout path contains `&`. If `npx` fails for that reason, use
 
 ## Deploy
 
+**In this repository, CI deploys the Worker on every release.** The Release workflow
+(`.github/workflows/release.yml`, job `deploy-edge`) builds `web/`, runs
+`wrangler deploy` with `ORIGINS` from the `EDGE_ORIGINS` repository variable and
+`MODEL_VERSION` from `model-release.json`, uploads `ORIGIN_SHARED_SECRET` (and the
+Upstash secrets when they are set), then runs a k6 smoke test through the edge
+(`smoke-edge`). It needs the `CLOUDFLARE_API_TOKEN` secret and the
+`CLOUDFLARE_ACCOUNT_ID` variable.
+
+Use the manual steps below for your own account, for local testing, or as an
+emergency fallback when Release cannot run. `wrangler deploy` replaces every var with
+the values in `wrangler.toml`, where `ORIGINS` is empty on purpose, so always pass
+`--var ORIGINS:...` and `--var MODEL_VERSION:...` (see
+`docs/operations/RUNBOOK.md`, section 7.7). The next Release replaces a manual deploy.
+
 1. Set `ORIGIN_SHARED_SECRET` on every origin replica (FastAPI setting
-   `origin_shared_secret`), then set `ORIGINS` in `wrangler.toml`.
+   `origin_shared_secret`).
 2. Log in and set the secrets:
 
    ```bash
@@ -109,10 +123,10 @@ when the checkout path contains `&`. If `npx` fails for that reason, use
    npx wrangler secret put UPSTASH_REDIS_REST_TOKEN
    ```
 
-3. Deploy and smoke-test:
+3. Build the web UI (`npm ci && npm run build` in `web/`), then deploy and smoke-test:
 
    ```bash
-   npx wrangler deploy
+   npx wrangler deploy --var ORIGINS:<origin URLs, comma-separated> --var MODEL_VERSION:<model_version>
    curl -i https://fastapi-assistant-edge.<your-subdomain>.workers.dev/health
    curl -i -X POST https://fastapi-assistant-edge.<your-subdomain>.workers.dev/generate \
      -H "X-API-Key: $KEY" -H "Content-Type: application/json" -d '{"question":"hi"}'

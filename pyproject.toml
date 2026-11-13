@@ -55,7 +55,7 @@ datagen = ["anthropic>=2.8.0"]
 # Everything the production CPU image needs.
 serve = ["fastapi-assistant[llamacpp,postgres,rag,sentry]"]
 dev = [
-  "pytest>=8.0.0",
+  "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "ruff>=0.6.0",
 ]

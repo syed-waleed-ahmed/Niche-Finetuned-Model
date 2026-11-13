@@ -435,7 +435,7 @@ describe("Redis failures and absence", () => {
     const res = await h.run(post("/generate", QUESTION, KEY));
     expect(res.headers.get("x-cache")).toBe("MISS");
     await h.ctx.flush();
-    const redisCalls = f.calls.filter((c) => c.url.startsWith("https://r.upstash.test"));
+    const redisCalls = f.calls.filter((c) => new URL(c.url).host === "r.upstash.test");
     expect(redisCalls.map((c) => c.url)).toEqual([
       "https://r.upstash.test/pipeline",
       "https://r.upstash.test/pipeline",

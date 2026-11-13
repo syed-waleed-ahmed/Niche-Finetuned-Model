@@ -269,9 +269,7 @@ def create_app(
 
     @app.exception_handler(ModelNotReadyError)
     async def not_ready_error(request: Request, exc: ModelNotReadyError):
-        return _error(
-            request, 503, f"Model not ready: {exc}", "model_not_ready", {"Retry-After": "30"}
-        )
+        return _error(request, 503, "Model not ready", "model_not_ready", {"Retry-After": "30"})
 
     # -- dependencies --------------------------------------------------------------
     async def require_principal(
@@ -319,10 +317,8 @@ def create_app(
         if engine.is_loaded:
             return _health("ready")
         engine.start_background_load()
-        detail = engine.load_state
-        if engine.load_error:
-            detail = f"{detail}: {engine.load_error}"
-        raise HTTPException(status_code=503, detail=f"Model not ready: {detail}")
+        # The load error itself is logged server-side, never returned to clients.
+        raise HTTPException(status_code=503, detail=f"Model not ready: {engine.load_state}")
 
     @ops.get("/metrics", include_in_schema=False)
     def metrics_endpoint(authorization: str | None = Header(default=None)) -> Response:
@@ -409,7 +405,7 @@ def create_app(
                 except Exception as exc:
                     log.exception("Streaming generation failed", extra={"request_id": request_id})
                     message = (
-                        f"Model not ready: {exc}"
+                        "Model not ready"
                         if isinstance(exc, ModelNotReadyError)
                         else "Generation failed"
                     )
@@ -493,7 +489,9 @@ def create_app(
                 raw, max_turns=settings.max_chat_turns, context=service.context(passages)
             )
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=400, detail="The conversation must end with a user message"
+            ) from exc
         params = service.params(
             payload.max_completion_tokens or payload.max_tokens, payload.temperature, payload.top_p
         )

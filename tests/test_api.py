@@ -213,3 +213,19 @@ def test_metrics_can_be_disabled(make_settings, fake_engine):
     app = create_app(settings=make_settings(enable_metrics=False), engine=fake_engine)
     with TestClient(app) as client:
         assert client.get("/metrics").status_code == 404
+
+
+def test_errors_never_echo_internal_exception_text(make_settings):
+    """Load failures are logged server-side; clients only see a generic status."""
+    app = create_app(settings=make_settings(), engine=FakeEngine(loaded=False, fail_load=True))
+    with TestClient(app) as client:
+        responses = [
+            client.get("/ready"),
+            client.post("/generate", json={"question": "x"}),
+            client.post("/generate", json={"question": "x", "stream": True}),
+            client.post(
+                "/v1/chat/completions", json={"messages": [{"role": "user", "content": "x"}]}
+            ),
+        ]
+    for resp in responses:
+        assert "boom" not in resp.text, resp.text

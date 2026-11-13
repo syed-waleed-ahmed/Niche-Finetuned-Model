@@ -72,15 +72,22 @@ function bool(value: VarValue, fallback: boolean): boolean {
   return fallback;
 }
 
+/** Strip trailing "/" characters (a loop, not a regex: linear on any input). */
+export function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
+
 export function parseOrigins(value: VarValue): string[] {
   return str(value)
     .split(",")
-    .map((o) => o.trim().replace(/\/+$/, ""))
+    .map((o) => trimTrailingSlashes(o.trim()))
     .filter((o) => o.length > 0);
 }
 
 export function loadConfig(env: Env): Config {
-  const redisUrl = str(env.UPSTASH_REDIS_REST_URL).replace(/\/+$/, "");
+  const redisUrl = trimTrailingSlashes(str(env.UPSTASH_REDIS_REST_URL));
   const redisToken = str(env.UPSTASH_REDIS_REST_TOKEN);
   return {
     origins: parseOrigins(env.ORIGINS),

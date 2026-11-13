@@ -168,3 +168,13 @@ describe("forward headers", () => {
     expect(other.get("location")).toBe("https://elsewhere.test/a");
   });
 });
+
+describe("trimTrailingSlashes", () => {
+  it("strips any number of trailing slashes in linear time", async () => {
+    const { trimTrailingSlashes } = await import("../src/config");
+    expect(trimTrailingSlashes("https://a.example///")).toBe("https://a.example");
+    expect(trimTrailingSlashes("https://a.example/path")).toBe("https://a.example/path");
+    expect(trimTrailingSlashes("////")).toBe("");
+    expect(trimTrailingSlashes("/".repeat(100_000) + "x")).toBe("/".repeat(100_000) + "x");
+  });
+});

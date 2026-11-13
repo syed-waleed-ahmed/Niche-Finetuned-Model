@@ -120,9 +120,26 @@ def check_draft(pair: DraftPair) -> str | None:
     return None
 
 
-def _request(client, model: str, chunk: DocChunk, per_chunk: int, effort: str) -> DraftBatch | None:
-    import anthropic
+def _api_errors() -> tuple[tuple[type[BaseException], ...], tuple[type[BaseException], ...]]:
+    """(fatal, skippable) SDK exception types; empty when the SDK is not installed.
 
+    The SDK is optional ([datagen] extra); tests drive this module with a fake client.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return (), ()
+    fatal = (
+        anthropic.BadRequestError,  # configuration problems: stop instead of burning
+        anthropic.AuthenticationError,  # through every chunk
+        anthropic.PermissionDeniedError,
+        anthropic.RateLimitError,  # the SDK already retried with backoff; rerun later
+    )
+    return fatal, (anthropic.APIStatusError, anthropic.APIConnectionError)
+
+
+def _request(client, model: str, chunk: DocChunk, per_chunk: int, effort: str) -> DraftBatch | None:
+    fatal, skippable = _api_errors()
     user = (
         f"Documentation page: {chunk.url}\nSection: {chunk.heading}\n\n"
         f"<documentation>\n{chunk.text}\n</documentation>\n\n"
@@ -145,15 +162,9 @@ def _request(client, model: str, chunk: DocChunk, per_chunk: int, effort: str) -
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
         )
-    except (
-        anthropic.BadRequestError,
-        anthropic.AuthenticationError,
-        anthropic.PermissionDeniedError,
-    ):
-        raise  # configuration problems: stop instead of burning through every chunk
-    except anthropic.RateLimitError:
-        raise  # the SDK already retried with backoff; stop and let the user rerun later
-    except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
+    except fatal:
+        raise
+    except skippable as exc:
         log.warning("Skipping %s: %s", chunk.url, exc)
         return None
 

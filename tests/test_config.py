@@ -39,3 +39,18 @@ def test_derived_paths():
     assert settings.train_path.name == "fastapi_qa_train.jsonl"
     assert settings.eval_path.name == "fastapi_qa_eval.jsonl"
     assert settings.train_path.parent == settings.data_dir
+
+
+def test_sentry_placeholder_does_not_initialize(monkeypatch):
+    """The Cloud Run spec always mounts sentry-dsn; a non-URL value keeps Sentry off."""
+    import sentry_sdk
+
+    from fastapi_assistant.api import _init_sentry
+
+    calls = []
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kw: calls.append(kw))
+    for value in (None, "", "disabled"):
+        _init_sentry(Settings(_env_file=None, sentry_dsn=value))
+    assert calls == []
+    _init_sentry(Settings(_env_file=None, sentry_dsn="https://key@o1.ingest.sentry.io/1"))
+    assert len(calls) == 1

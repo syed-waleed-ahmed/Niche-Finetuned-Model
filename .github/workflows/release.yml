@@ -166,6 +166,37 @@ jobs:
           dst="$REGION-docker.pkg.dev/$PROJECT_ID/fastapi-assistant/app:${{ needs.publish.outputs.tag }}"
           docker buildx imagetools create -t "$dst" "${src%%:*}@$amd64"
           echo "IMAGE=$dst" >> "$GITHUB_ENV"
+      - name: Sync secrets into Secret Manager
+        # GitHub's encrypted secrets (set by scripts/setup_secrets.sh) are the source
+        # of truth; Cloud Run reads them from Secret Manager. A version is added only
+        # when the value changed, so the free tier's 6 active versions are not used up.
+        env:
+          ORIGIN_SHARED_SECRET: ${{ secrets.ORIGIN_SHARED_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          sync() {
+            local name=$1 value=$2
+            if [ -z "$value" ]; then
+              echo "::error::GitHub secret for $name is missing; run scripts/setup_secrets.sh"
+              return 1
+            fi
+            gcloud secrets describe "$name" >/dev/null 2>&1 ||
+              gcloud secrets create "$name" --replication-policy automatic >/dev/null
+            current=$(gcloud secrets versions access latest --secret "$name" 2>/dev/null || true)
+            if [ "$current" != "$value" ]; then
+              printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- >/dev/null
+              echo "$name: new version"
+            else
+              echo "$name: unchanged"
+            fi
+          }
+          sync origin-shared-secret "$ORIGIN_SHARED_SECRET"
+          sync database-url "$DATABASE_URL"
+          sync metrics-token "$METRICS_TOKEN"
+          # Sentry is optional: keep a placeholder so the service spec stays valid.
+          sync sentry-dsn "${SENTRY_DSN:-disabled}"
       - name: Render service.yaml from model-release.json
         run: |
           fastapi-assistant export env model-release.json >> "$GITHUB_ENV"

@@ -79,7 +79,9 @@ def _sources(passages: list[Passage]) -> list[Source]:
 
 
 def _init_sentry(settings: Settings) -> None:
-    if not settings.sentry_dsn:
+    # Anything that is not a DSN URL (unset, "", or a "disabled" placeholder kept in
+    # Secret Manager so the Cloud Run spec stays valid) leaves Sentry off.
+    if not (settings.sentry_dsn or "").startswith(("https://", "http://")):
         return
     import sentry_sdk
 

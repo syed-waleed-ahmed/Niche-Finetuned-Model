@@ -70,23 +70,12 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA@$PROJECT_ID.iam.g
   --role roles/iam.workloadIdentityUser \
   --member "principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$GITHUB_REPO" >/dev/null
 
-echo "== Secrets (values read from env vars; random where sensible)"
-put_secret() {
-  local name=$1 value=$2
-  gcloud secrets describe "$name" >/dev/null 2>&1 ||
-    gcloud secrets create "$name" --replication-policy automatic >/dev/null
-  if [ -n "$value" ]; then
-    printf '%s' "$value" | gcloud secrets versions add "$name" --data-file=- >/dev/null
-  fi
-  gcloud secrets add-iam-policy-binding "$name" --role roles/secretmanager.secretAccessor \
-    --member "serviceAccount:$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" >/dev/null
-}
-ORIGIN_SHARED_SECRET=${ORIGIN_SHARED_SECRET:-$(openssl rand -hex 32)}
-METRICS_TOKEN=${METRICS_TOKEN:-$(openssl rand -hex 24)}
-put_secret origin-shared-secret "$ORIGIN_SHARED_SECRET"
-put_secret metrics-token "$METRICS_TOKEN"
-put_secret database-url "${DATABASE_URL:-}"
-put_secret sentry-dsn "${SENTRY_DSN:-}"
+echo "== Secret Manager access"
+# Secret values never pass through this script: the Release workflow copies them
+# from GitHub's encrypted secrets (set by scripts/setup_secrets.sh) into Secret
+# Manager on each deploy. Here we only grant who may write and who may read.
+gcloud projects add-iam-policy-binding "$PROJECT_ID" --condition=None --quiet   --member "serviceAccount:$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com"   --role roles/secretmanager.admin >/dev/null
+gcloud projects add-iam-policy-binding "$PROJECT_ID" --condition=None --quiet   --member "serviceAccount:$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com"   --role roles/secretmanager.secretAccessor >/dev/null
 
 echo "== Budget alert (notifies at 50% and 100%; it does not cap spend - maxScale does)"
 gcloud billing budgets create --billing-account "$BILLING_ACCOUNT" \
@@ -102,13 +91,6 @@ Done. Store these as GitHub repository *variables* (Settings > Secrets and varia
   GCP_WIF_PROVIDER        projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github
   GCP_DEPLOY_SA           $DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com
 
-Keep these for the Cloudflare Worker and Grafana (they are also in Secret Manager):
-  ORIGIN_SHARED_SECRET    $ORIGIN_SHARED_SECRET
-  METRICS_TOKEN           $METRICS_TOKEN
+Secrets are not handled here. Run scripts/setup_secrets.sh locally; the Release
+workflow copies them into Secret Manager.
 EOF
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "NOTE: database-url has no version yet. Add one: printf '%s' 'postgresql://...' | gcloud secrets versions add database-url --data-file=-"
-fi
-if [ -z "${SENTRY_DSN:-}" ]; then
-  echo "NOTE: sentry-dsn has no version yet. Add one, or remove SENTRY_DSN from deploy/cloudrun/service.yaml."
-fi

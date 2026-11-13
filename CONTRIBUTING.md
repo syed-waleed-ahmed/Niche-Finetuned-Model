@@ -18,7 +18,13 @@ a public issue.
 
 ## Development setup
 
-You need:
+The quickest route is the dev container: open the repository in
+[GitHub Codespaces](https://codespaces.new/syed-waleed-ahmed/Niche-Finetuned-Model),
+or locally with the VS Code Dev Containers extension. It installs Python 3.11 with
+the CPU-only torch build, Node.js 22, every dependency the test suites need and the
+pre-commit hooks (see `.devcontainer/post-create.sh`). Then skip to [Checks](#checks).
+
+To set up your own machine instead, you need:
 
 - Python 3.10, 3.11 or 3.12 (CI tests all three; the production image uses 3.11);
 - Node.js 22 or later, for the edge Worker and the web UI;

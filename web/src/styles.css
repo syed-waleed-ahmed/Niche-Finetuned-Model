@@ -570,6 +570,10 @@ button:disabled {
 
 /* Messages */
 .messages {
+  /* The containing block for absolutely positioned descendants (the visually hidden
+     link labels): without it they escape this scroller's clipping and stretch the
+     page, which then scrolls the header away. */
+  position: relative;
   overflow-y: auto;
   padding: 28px 20px 12px;
   scrollbar-color: var(--border-strong) transparent;

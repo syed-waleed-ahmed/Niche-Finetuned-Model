@@ -1,12 +1,13 @@
 # Implementation status
 
-Last updated: 2026-11-13, after pull requests #13 to #36 were merged into `main`.
-Version 2.2.0 (tag `v2.2.0`) covers everything below: since 2.1.0 the service runs as
-a public demo, the documentation is published as a website, the web UI was
-redesigned, and the first fine-tuned model replaced the base model (#33).
+Last updated: 2026-11-14, after pull requests #13 to #37 were merged into `main`.
+Version 2.2.0 (tag `v2.2.0`) covers #13 to #36: since 2.1.0 the service runs as a
+public demo, the documentation is published as a website, the web UI was redesigned,
+and the first fine-tuned model replaced the base model (#33). #37 is unreleased.
 
 | PR | Change |
 |---|---|
+| #37 | Issues #26 to #29: non-streaming generations stop when the caller disconnects; the edge log identifies the key; Grafana panels and an alert for the 2.1.0 metrics; a JavaScript streaming example. Docs brought up to date with 2.2.0 |
 | #36 | Release 2.2.0; Hub model cards with usage, prompt format, a base-model comparison and limitations |
 | #35 | Stop answers at the chat template's role markers; drop mkdocstrings directives from the retrieval index; docs for the fine-tuned release |
 | #34 | Documentation of the public demo, the docs site and the fine-tuned release; clearer Train workflow failure when Actions may not open pull requests |

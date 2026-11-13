@@ -39,5 +39,6 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 | Public demo access | Visitors can try the live service without a key, behind the edge rate limits (#24). |
 | Documentation website | The guides in `docs/`, published as a searchable site on GitHub Pages (#30). |
 | Web UI refresh | A welcome screen, access onboarding, light and dark themes, and a mobile layout (#32). |
+| The first four starter issues | Non-streaming generations stop when the caller disconnects (#26), edge logs identify the key (#27), Grafana panels for queue wait, first token and prompt rejections (#28), and a JavaScript streaming example (#29). |
 
 See [CHANGELOG.md](CHANGELOG.md) for everything already released.

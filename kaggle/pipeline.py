@@ -21,6 +21,7 @@ import datetime as dt
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -149,6 +150,9 @@ def main() -> int:
     merged_dir, gguf_dir = WORK / "merged", WORK / "gguf"
     sh(*cli, "export", "merge", "--out", str(merged_dir), env=env)
     sh("bash", "scripts/export_gguf.sh", str(merged_dir), str(gguf_dir), CONFIG["quant"])
+    # The merged fp16 checkpoint (about 2.2 GB) is only an input to the GGUF; dropping it
+    # keeps the kernel output, which CI downloads to publish, small.
+    shutil.rmtree(merged_dir, ignore_errors=True)
     gguf_file = f"model-{CONFIG['quant']}.gguf"
     from fastapi_assistant.hub import sha256_file
 

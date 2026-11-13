@@ -188,8 +188,9 @@ def create_app(
                 "X-RateLimit-Reset",
             ],
         )
-    # Added last, so it wraps every other middleware and the cap applies before any
-    # handler reads the body.
+    # Wraps ``receive``, so the cap applies before any handler reads or parses the
+    # body (and so before authentication). The ``request_context`` middleware below
+    # is registered later and runs outside it, so the origin-secret check comes first.
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
 
     # -- middleware ---------------------------------------------------------------

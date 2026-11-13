@@ -31,7 +31,8 @@ designed, is in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 **Non-goals**
 
 - High-throughput multi-tenant inference on free hardware. One CPU replica
-  produces roughly 10-15 tokens/s; capacity grows with replicas or a GPU server
+  produces roughly 8-15 tokens/s (8-10 measured on a 2-vCPU Cloud Run instance; see
+  [audit/PERFORMANCE_BASELINE.md](audit/PERFORMANCE_BASELINE.md)); capacity grows with replicas or a GPU server
   (section 8), not inside this process.
 - General-purpose chat. The service answers FastAPI questions with one system
   prompt.
@@ -234,8 +235,9 @@ short-lived auth cache), so capacity scales by replication. In order of cost:
 - Secrets live in Secret Manager / Worker secrets / GitHub secrets; CI deploys
   through Workload Identity Federation (no long-lived cloud keys). Third-party
   Actions are pinned to commit SHAs.
-- Images: non-root user, no compiler, hash-pinned dependencies, Trivy scan (fails
-  on fixable critical CVEs), CodeQL, gitleaks, Dependabot.
+- Images: non-root user, no compiler or packaging tools, Debian security updates
+  applied, hash-pinned dependencies, Trivy scan (fails on fixable high and critical
+  CVEs), CodeQL, gitleaks, pip-audit, npm audit, dependency review, Dependabot.
 - Generated code is only executed by the evaluator when explicitly enabled
   (`--execute-code`), and only in disposable environments.
 
@@ -249,7 +251,7 @@ short-lived auth cache), so capacity scales by replication. In order of cost:
 | Weights download fails | Load state `failed`; retried on the next `/ready` or request. |
 | Postgres unavailable | Static-key requests keep working; per-user keys fail closed (401/500); usage writes are logged and dropped. |
 | Retrieval fails | Answer without context; logged and counted. |
-| Redis unavailable | Edge fails open: no rate limiting or caching, traffic still flows. |
+| Redis unavailable or not configured | No shared cache; rate limiting falls back to per-isolate in-memory counters (weaker, never off); traffic still flows. |
 | Generation exceeds budget | Truncated with `finish_reason: "timeout"`. |
 | Bad model release | Blocked by the eval gates; otherwise revert `model-release.json`. |
 

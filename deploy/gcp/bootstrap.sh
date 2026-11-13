@@ -8,8 +8,9 @@
 # Creates: Artifact Registry repo (with a cleanup policy to stay inside the 0.5 GB
 # free storage), a runtime service account that can only read its secrets, a
 # deployer service account that GitHub Actions impersonates through Workload
-# Identity Federation (no long-lived keys), four Secret Manager secrets, and a
-# budget alert. Prints the values to store as GitHub repository variables.
+# Identity Federation (no long-lived keys), and a budget alert. Prints the values to
+# store as GitHub repository variables. Secret Manager secrets are not created here:
+# the Release workflow creates and syncs them from GitHub secrets on every deploy.
 set -euo pipefail
 
 : "${PROJECT_ID:?set PROJECT_ID}"

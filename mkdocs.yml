@@ -145,6 +145,7 @@ nav:
   - Project:
       - Implementation status: IMPLEMENTATION_STATUS.md
       - Model card: project/model-card.md
+      - Roadmap: project/roadmap.md
       - Changelog: project/changelog.md
       - Contributing: project/contributing.md
       - Code of conduct: project/code-of-conduct.md

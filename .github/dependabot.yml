@@ -10,6 +10,12 @@ updates:
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # fastembed (retrieval embeddings) requires huggingface-hub<2.0 up to its latest
+      # release (0.9.1), so a 2.x pin makes the serving lock unresolvable and the image
+      # build fail. Remove this once a fastembed release accepts huggingface-hub 2.x.
+      - dependency-name: huggingface-hub
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /deploy/cloudflare-worker

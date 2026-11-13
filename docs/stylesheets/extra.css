@@ -1,0 +1,73 @@
+/* Light touches on top of Material's teal palette, matching the web UI (web/src/styles.css). */
+
+/* ---- Colours --------------------------------------------------------------------- */
+
+/* Header and primary buttons: the web UI's strong teal, which keeps white text legible. */
+[data-md-color-primary="teal"] {
+  --md-primary-fg-color: #0a6f64;
+  --md-primary-fg-color--light: #0d8f80;
+  --md-primary-fg-color--dark: #085a51;
+  --md-primary-bg-color: #ffffff;
+}
+
+/* Light scheme: links in the strong teal, hover in the web UI's accent. */
+[data-md-color-scheme="default"][data-md-color-primary="teal"] {
+  --md-typeset-a-color: #0a6f64;
+}
+
+[data-md-color-scheme="default"][data-md-color-accent="teal"] {
+  --md-accent-fg-color: #0d8f80;
+  --md-accent-fg-color--transparent: #0d8f801a;
+  --md-accent-bg-color: #ffffff;
+}
+
+/* Dark scheme: the web UI's bright teal, with dark text on filled hover states. */
+[data-md-color-scheme="slate"][data-md-color-primary="teal"] {
+  --md-typeset-a-color: #2fc4b2;
+}
+
+[data-md-color-scheme="slate"][data-md-color-accent="teal"] {
+  --md-accent-fg-color: #5fd6c7;
+  --md-accent-fg-color--transparent: #2fc4b21a;
+  --md-accent-bg-color: #06211d;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(.md-button--primary, :hover, :focus) {
+  color: var(--md-typeset-a-color);
+}
+
+/* ---- Home page cards ------------------------------------------------------------- */
+
+.md-typeset .grid.cards > ul > li {
+  border-radius: 0.5rem;
+  transition: border-color 125ms, box-shadow 125ms;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-typeset-a-color);
+}
+
+.md-typeset .grid.cards hr {
+  margin-block: 0.75em;
+}
+
+/* The closing link of each card reads as a call to action. */
+.md-typeset .grid.cards > ul > li > p:last-child > a:only-child {
+  font-weight: 700;
+}
+
+.md-typeset .grid.cards > ul > li > p:last-child > a:only-child::after {
+  content: " \2192";
+}
+
+/* ---- Screenshot ------------------------------------------------------------------ */
+
+.md-typeset figure.screenshot img {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  box-shadow: var(--md-shadow-z2);
+}
+
+.md-typeset figure.screenshot figcaption {
+  max-width: 36rem;
+}

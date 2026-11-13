@@ -230,6 +230,7 @@ come with an updated [MODEL_CARD.md](MODEL_CARD.md).
 - Update the documentation the change affects (README, `docs/`, `.env.example`, the
   model card) and add a line to the `Unreleased` section of
   [CHANGELOG.md](CHANGELOG.md).
+- Preview the docs site: `pip install -r requirements/docs.txt && mkdocs serve`.
 - Never commit secrets, API keys, `.env` files, model weights, or generated
   `outputs/`. CI scans the full history with gitleaks; a leaked secret must be
   rotated, not only deleted.

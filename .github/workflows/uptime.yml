@@ -22,3 +22,13 @@ jobs:
     steps:
       - name: Edge health
         run: curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 30 "${{ vars.EDGE_URL }}/health"
+      # /health needs no credentials, so it stays green when the edge and origin
+      # disagree on the origin secret or the key is wrong. /v1/models is authenticated
+      # end to end and costs no generation.
+      - name: Authenticated API path
+        env:
+          KEY: ${{ secrets.SMOKE_API_KEY }}
+        run: |
+          test -n "$KEY" || { echo "SMOKE_API_KEY is not set; skipping"; exit 0; }
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 30 \
+            -H "Authorization: Bearer $KEY" "${{ vars.EDGE_URL }}/v1/models" >/dev/null

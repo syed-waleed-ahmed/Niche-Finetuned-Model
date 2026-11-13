@@ -13,7 +13,7 @@ Allowances as published in November 2026; check each provider before relying on 
 | --- | --- | --- | --- |
 | Training GPU | Kaggle | about 30 GPU hours/week (not officially published) | about 1 hour per training run |
 | Weights registry | Hugging Face Hub | free public repos | adapter (about 20 MB) + GGUF (about 0.7 GB) per release |
-| Primary origin | Google Cloud Run | 180k vCPU-s, 360k GiB-s, 2M requests per month (request-based billing) | about 25 vCPU-s per uncached answer on 2 vCPU, so roughly 6,000-7,000 answers/month |
+| Primary origin | Google Cloud Run | 180k vCPU-s, 360k GiB-s, 2M requests per month (request-based billing) | CPU time per uncached answer (no monthly answer count is claimed without a load test; see audit/PERFORMANCE_BASELINE.md) |
 | Image storage | Artifact Registry | 0.5 GB | one amd64 image (cleanup policy keeps two) |
 | Backup origin | Oracle Cloud Always Free | Ampere A1: 2 OCPU / 12 GB total (halved in 2026) | one VM |
 | Edge | Cloudflare Workers | 100k requests/day, 10 ms CPU per request | about 1 ms CPU per request |
@@ -23,10 +23,20 @@ Allowances as published in November 2026; check each provider before relying on 
 | Errors | Sentry | developer plan | optional |
 | CI/CD | GitHub Actions + GHCR | free for public repositories | build, eval, deploy, uptime |
 
-Capacity, honestly: one CPU replica generates about 10-15 tokens/s, so an uncached
-256-token answer takes 15-25 s. Free tiers support hundreds to a few thousand
-uncached answers per day; the cache, extra origins, and back-pressure make that
-capacity predictable. Scaling beyond it is a configuration change (section 9).
+### Capacity
+
+**Measured** (see [audit/PERFORMANCE_BASELINE.md](audit/PERFORMANCE_BASELINE.md)):
+
+- one 2-vCPU Cloud Run instance generates 8 to 10 tokens/s for a single request, one
+  generation at a time;
+- an uncached 256-token answer therefore takes roughly 25 to 30 s;
+- a burst that forces a cold scale-out can see some requests refused with 429 and a retry
+  hint while the next instance loads the model.
+
+**Not claimed:** no daily or concurrent-user figure until a controlled load test is run.
+
+**Scaling:** the cache, extra origins and back-pressure keep behaviour predictable, and
+scaling up is a configuration change (section 9).
 
 ## 2. Accounts and where each value goes
 
@@ -156,8 +166,10 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
    fine-tune to beat the base model, exports and publishes the GGUF, re-scores it
    with the production backend, and opens a PR that updates `model-release.json`
    and `eval/baseline.json`.
-3. Review the eval table in the PR and merge. Release redeploys every origin and
-   bumps the Worker's cache namespace.
+3. Review the eval table in the PR and merge. Release redeploys Cloud Run. The
+   edge job, which also bumps the Worker's cache namespace (`MODEL_VERSION`), runs only
+   once `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set; until then,
+   redeploy the Worker by hand with `--var MODEL_VERSION:<new version>`.
 
 ## 9. Runbook
 
@@ -167,7 +179,7 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
 | Leaked API key | `fastapi-assistant keys revoke fa_AbC123`. Origins stop accepting it within `KEY_CACHE_TTL_S` (60 s); cached edge answers stop within `KEY_VERIFIED_TTL_SECONDS` (300 s). |
 | Sustained 429s (`AssistantSaturated`) | Raise `CLOUD_RUN_MAX_INSTANCES` (costs money beyond the free tier), add an origin, or lower `RATE_LIMIT_PER_MINUTE`. |
 | Model never becomes ready | Check the logs for the download or load error (`load_state: failed`); verify the revision in `model-release.json` exists on the Hub. |
-| Rotate the origin secret | Add a new Secret Manager version, update the GitHub secret and the VM `.env`, then run Release. Brief 403s are possible while origins and edge disagree. |
+| Rotate the origin secret | Run `bash scripts/setup_secrets.sh` (updates the GitHub secret and the Worker secret together), update the VM `.env` if one exists, then re-run Release, which copies the GitHub value into Secret Manager. Do not edit Secret Manager directly: the next Release overwrites it. Brief 403s are possible while origin and edge disagree. |
 | Unexpected bill | `maxScale` is the hard cap; the budget alert only notifies. Set `CLOUD_RUN_MAX_INSTANCES=1` and re-run Release. |
 | Postgres outage | Static `API_KEY` traffic keeps working; per-user keys fail closed. Usage writes are dropped and logged. |
 

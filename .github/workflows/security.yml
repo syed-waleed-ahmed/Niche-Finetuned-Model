@@ -1,0 +1,72 @@
+name: Security
+
+# Dependency audits that fail a pull request on known-vulnerable dependencies, and run
+# weekly so advisories published after a merge are caught too. The container image is
+# scanned separately (Trivy, in CI and Release); source code by CodeQL.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: pip-audit (serving lock)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pip-audit
+      # Audits exactly what ships: the hash-pinned lock the image installs from.
+      #
+      # Accepted, reviewed exception (see SECURITY.md):
+      #   PYSEC-2026-2447  diskcache 5.6.3, unsafe deserialisation of cached values.
+      #   No fixed release. Pulled in by llama-cpp-python for LlamaDiskCache, which the
+      #   service never constructs, so the vulnerable code path is unreachable.
+      - run: >-
+          pip-audit --disable-pip --progress-spinner off
+          -r requirements/serve.txt
+          --ignore-vuln PYSEC-2026-2447
+
+  npm:
+    name: npm audit (${{ matrix.dir }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [deploy/cloudflare-worker, web]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # Production dependencies must be clean at any severity; development tooling
+      # (bundlers, test runners) fails the job only on high or critical.
+      - run: npm audit --omit=dev
+        working-directory: ${{ matrix.dir }}
+      - run: npm audit --audit-level=high
+        working-directory: ${{ matrix.dir }}
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never

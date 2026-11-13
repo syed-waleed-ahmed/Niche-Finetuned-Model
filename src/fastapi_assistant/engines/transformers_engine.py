@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Iterator, Sequence
+from typing import Any
 
 import torch
 from transformers import (
@@ -29,6 +30,7 @@ from ..prompts import encode_chat
 from .base import (
     BaseEngine,
     Deadline,
+    FinishReason,
     GenerationParams,
     GenerationResult,
     Message,
@@ -55,8 +57,10 @@ class TransformersEngine(BaseEngine):
     def __init__(self, settings: Settings) -> None:
         super().__init__(settings.base_model_name)
         self._settings = settings
-        self._model = None
-        self._tokenizer = None
+        # Typed as Any: PEFT and transformers return several model/tokenizer classes
+        # with no common public base that declares generate()/apply_chat_template().
+        self._model: Any = None
+        self._tokenizer: Any = None
         # A single transformers model instance is not safe to drive from several
         # threads at once, and on CPU parallel generation only adds contention.
         self._generate_lock = threading.Lock()
@@ -80,7 +84,7 @@ class TransformersEngine(BaseEngine):
             tokenizer.pad_token = tokenizer.eos_token
 
         log.info("Loading base model %s (dtype=%s, cuda=%s)", s.base_model_name, dtype, on_cuda)
-        model = AutoModelForCausalLM.from_pretrained(
+        model: Any = AutoModelForCausalLM.from_pretrained(
             s.base_model_name, device_map=device_map, **dtype_kwargs(dtype)
         )
 
@@ -104,6 +108,16 @@ class TransformersEngine(BaseEngine):
         self._tokenizer = tokenizer
         self._model = model
 
+    # -- context budget ----------------------------------------------------
+    def context_window(self) -> int | None:
+        self.load()
+        window = getattr(self._model.config, "max_position_embeddings", None)
+        return int(window) if window else None
+
+    def count_prompt_tokens(self, messages: Sequence[Message]) -> int:
+        self.load()
+        return len(encode_chat(self._tokenizer, list(messages), add_generation_prompt=True))
+
     # -- helpers -----------------------------------------------------------
     def _prepare(self, messages: Sequence[Message], params: GenerationParams, deadline: Deadline):
         self.load()
@@ -126,7 +140,7 @@ class TransformersEngine(BaseEngine):
         return input_ids, kwargs
 
     @staticmethod
-    def _finish_reason(deadline: Deadline, n_new: int, params: GenerationParams):
+    def _finish_reason(deadline: Deadline, n_new: int, params: GenerationParams) -> FinishReason:
         if deadline.reason is not None:
             return deadline.reason
         return "length" if n_new >= params.max_new_tokens else "stop"

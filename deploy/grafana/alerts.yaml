@@ -13,7 +13,7 @@ groups:
         labels: { severity: page }
         annotations:
           summary: More than 5% of requests are failing with 5xx
-          runbook: docs/DEPLOYMENT.md#runbook
+          runbook: docs/operations/RUNBOOK.md
 
       - alert: AssistantSaturated
         # Sustained 429s mean every replica is busy: add a replica or raise maxScale.

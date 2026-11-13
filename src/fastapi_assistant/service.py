@@ -93,16 +93,28 @@ class AssistantService:
             return None
         return format_context(passages, self.settings.rag_max_context_chars)
 
+    # -- context budget ---------------------------------------------------------
+    async def fit(self, messages: Sequence[Message], params: GenerationParams) -> GenerationParams:
+        """Reject a prompt that cannot fit the context window; clamp the answer budget.
+
+        Runs before admission, so an oversized prompt never takes a queue slot and a
+        streaming client gets a 400 instead of an error event after a 200.
+        """
+        return await run_in_threadpool(self.engine.fit, messages, params)
+
     # -- admission ---------------------------------------------------------------
     async def admit(self) -> Slot:
+        started = time.perf_counter()
         try:
-            return await self.admission.acquire()
+            slot = await self.admission.acquire()
         except QueueFullError:
             self.metrics.rejections.labels(reason="queue_full").inc()
             raise
         except QueueTimeoutError:
             self.metrics.rejections.labels(reason="queue_timeout").inc()
             raise
+        self.metrics.queue_wait_seconds.observe(time.perf_counter() - started)
+        return slot
 
     # -- generation --------------------------------------------------------------
     def _observe(
@@ -159,8 +171,14 @@ class AssistantService:
         cancel = threading.Event()
         gen = self.engine.stream(messages, params, cancel)
         started = time.perf_counter()
+        first_token = True
         try:
             async for event in iterate_in_threadpool(gen):
+                if first_token and event.delta:
+                    first_token = False
+                    self.metrics.time_to_first_token_seconds.labels(endpoint=endpoint).observe(
+                        time.perf_counter() - started
+                    )
                 if event.is_final:
                     self._observe(
                         event.completion_tokens,

@@ -12,6 +12,7 @@ engines that cannot run requests in parallel also hold an internal lock.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import threading
 import time
@@ -26,8 +27,24 @@ FinishReason = Literal["stop", "length", "timeout", "cancelled"]
 LoadState = Literal["idle", "loading", "ready", "failed"]
 
 
+# A prompt must leave at least this many tokens for the answer, or it is rejected.
+MIN_COMPLETION_TOKENS = 16
+
+
 class ModelNotReadyError(RuntimeError):
     """Raised when the model could not be loaded."""
+
+
+class PromptTooLongError(ValueError):
+    """The prompt does not fit in the model's context window (HTTP 400)."""
+
+    def __init__(self, prompt_tokens: int, context_window: int) -> None:
+        self.prompt_tokens = prompt_tokens
+        self.context_window = context_window
+        super().__init__(
+            f"The prompt is {prompt_tokens} tokens; the model's context window is "
+            f"{context_window} tokens, including at least {MIN_COMPLETION_TOKENS} for the answer"
+        )
 
 
 @dataclass(frozen=True)
@@ -87,6 +104,8 @@ class Engine(Protocol):
     def load(self) -> None: ...
 
     def start_background_load(self) -> None: ...
+
+    def fit(self, messages: Sequence[Message], params: GenerationParams) -> GenerationParams: ...
 
     def generate(
         self, messages: Sequence[Message], params: GenerationParams
@@ -201,6 +220,35 @@ class BaseEngine:
 
     def close(self) -> None:
         """Release resources. Default: nothing to do."""
+
+    # -- context budget ----------------------------------------------------
+    def context_window(self) -> int | None:
+        """Total tokens (prompt + completion) the model accepts, or None if unknown."""
+        return None
+
+    def count_prompt_tokens(self, messages: Sequence[Message]) -> int | None:
+        """Prompt length in tokens, never under-counted; None if it cannot be measured."""
+        return None
+
+    def fit(self, messages: Sequence[Message], params: GenerationParams) -> GenerationParams:
+        """Check that ``messages`` fit the context window; clamp the answer budget.
+
+        Called before a request is admitted, so an oversized prompt is a 400 rather
+        than a failure in the middle of generation (or of an SSE stream). Engines that
+        cannot measure their context (e.g. a remote server) accept everything here.
+        """
+        window = self.context_window()
+        if window is None:
+            return params
+        prompt_tokens = self.count_prompt_tokens(messages)
+        if prompt_tokens is None:
+            return params
+        room = window - prompt_tokens
+        if room < MIN_COMPLETION_TOKENS:
+            raise PromptTooLongError(prompt_tokens, window)
+        if params.max_new_tokens > room:
+            return dataclasses.replace(params, max_new_tokens=room)
+        return params
 
     # -- inference ---------------------------------------------------------
     def stream(

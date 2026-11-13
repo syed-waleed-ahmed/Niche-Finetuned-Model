@@ -79,6 +79,24 @@ class Metrics:
             ["reason"],
             registry=r,
         )
+        self.queue_wait_seconds = Histogram(
+            "assistant_queue_wait_seconds",
+            "Time an admitted request waited for a generation slot",
+            buckets=(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30),
+            registry=r,
+        )
+        self.time_to_first_token_seconds = Histogram(
+            "assistant_time_to_first_token_seconds",
+            "Streaming: time from generation start to the first text delta",
+            ["endpoint"],
+            buckets=_LATENCY_BUCKETS,
+            registry=r,
+        )
+        self.prompt_rejections = Counter(
+            "assistant_prompt_too_long_total",
+            "Requests rejected because the prompt did not fit the context window",
+            registry=r,
+        )
         self.model_loaded = Gauge(
             "assistant_model_loaded", "1 when the model is loaded and serving", registry=r
         )

@@ -17,7 +17,7 @@ import json
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -58,7 +58,7 @@ class FastEmbedEmbedder:
     def __init__(self, model_name: str, cache_dir: Path | None = None) -> None:
         from fastembed import TextEmbedding
 
-        kwargs = {"cache_dir": str(cache_dir)} if cache_dir else {}
+        kwargs: dict[str, Any] = {"cache_dir": str(cache_dir)} if cache_dir else {}
         self._model = TextEmbedding(model_name=model_name, **kwargs)
         self.dim = int(self.embed_query("probe").shape[-1])
 

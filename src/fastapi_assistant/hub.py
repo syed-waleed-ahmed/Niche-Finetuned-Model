@@ -8,8 +8,10 @@ commit). Local paths remain supported for development.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import logging
 import re
+import time
 from pathlib import Path
 
 from .config import Settings
@@ -74,8 +76,39 @@ def resolve_adapter_dir(settings: Settings) -> Path | None:
     return checkpoint
 
 
+def sha256_file(path: Path, chunk_size: int = 8 << 20) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while block := handle.read(chunk_size):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_sha256(path: Path, expected: str | None) -> None:
+    """Fail closed if ``path`` does not hash to ``expected`` (skipped when unset)."""
+    if not expected:
+        return
+    started = time.perf_counter()
+    actual = sha256_file(path)
+    if actual != expected:
+        raise ValueError(
+            f"Checksum mismatch for {path.name}: expected sha256 {expected}, got {actual}"
+        )
+    log.info("Verified sha256 of %s in %.1fs", path.name, time.perf_counter() - started)
+
+
 def resolve_gguf_path(settings: Settings) -> Path:
-    """Locate the GGUF file for the llama.cpp backend (downloading it if needed)."""
+    """Locate the GGUF file for the llama.cpp backend (downloading it if needed).
+
+    With ``GGUF_SHA256`` set, the file is hashed before use and a mismatch fails the
+    load, so a corrupted or substituted download is never served.
+    """
+    path = _locate_gguf(settings)
+    verify_sha256(path, settings.gguf_sha256)
+    return path
+
+
+def _locate_gguf(settings: Settings) -> Path:
     if settings.gguf_path:
         if not settings.gguf_path.is_file():
             raise FileNotFoundError(f"GGUF_PATH does not exist: {settings.gguf_path}")

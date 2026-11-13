@@ -34,17 +34,23 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 def load_raw_dataset(settings: Settings) -> DatasetDict:
-    """Load the train/eval JSONL splits as a :class:`~datasets.DatasetDict`.
+    """Load the training file as ``train`` and ``validation`` splits.
 
-    Rows are projected to the SFT fields so the eval split's benchmark metadata
-    does not leak into tokenization or batching.
+    The validation split is a seeded slice of the *training* file, used only to pick
+    the best checkpoint. The held-out eval file (``settings.eval_path``) is never read
+    here: it scores finished models through the release gate, and selecting
+    checkpoints on it would leak the benchmark into the model.
+
+    With ``validation_fraction=0`` the result has no ``validation`` split.
     """
-
-    def _split(path: Path) -> Dataset:
-        rows = [{k: str(row.get(k) or "") for k in SFT_FIELDS} for row in read_jsonl(path)]
-        return Dataset.from_list(rows)
-
-    return DatasetDict(train=_split(settings.train_path), eval=_split(settings.eval_path))
+    rows = [
+        {k: str(row.get(k) or "") for k in SFT_FIELDS} for row in read_jsonl(settings.train_path)
+    ]
+    full = Dataset.from_list(rows)
+    if settings.validation_fraction <= 0 or len(rows) < 10:
+        return DatasetDict(train=full)
+    split = full.train_test_split(test_size=settings.validation_fraction, seed=settings.seed)
+    return DatasetDict(train=split["train"], validation=split["test"])
 
 
 def build_tokenize_fn(tokenizer: PreTrainedTokenizerBase, settings: Settings):

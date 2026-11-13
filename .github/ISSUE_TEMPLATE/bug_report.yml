@@ -1,0 +1,105 @@
+name: Bug report
+description: Something does not work as documented, or the model gives a wrong answer.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please search existing issues first.
+
+        **Security vulnerabilities must not be reported here.** Use the repository's
+        Security tab ("Report a vulnerability"), as described in SECURITY.md.
+
+        Remove API keys, tokens, `DATABASE_URL` values, and other secrets from
+        everything you paste below.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Where does the problem occur?
+      options:
+        - API service (/generate, /v1, auth, admission, limits)
+        - Model answer quality (wrong or unhelpful answer)
+        - Retrieval (docs index, sources)
+        - llama.cpp engine or model loading
+        - Transformers engine, training, or export
+        - Evaluation harness or release gate
+        - Dataset or data tooling (validate, generate, merge)
+        - Edge Worker (deploy/cloudflare-worker)
+        - Web UI (web/)
+        - Container image or deployment (deploy/, Dockerfile)
+        - CI/CD workflows
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Minimal steps, commands, or a request body that reproduce the problem. For a
+        wrong model answer, include the exact question, the request parameters
+        (temperature, max_new_tokens, use_retrieval), and the answer you received.
+      placeholder: |
+        1. fastapi-assistant serve
+        2. curl -s localhost:8000/generate -H 'Content-Type: application/json' -d '{"question": "..."}'
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect instead? For a wrong answer, link the relevant FastAPI documentation page if you can.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Package version (`pip show fastapi-assistant`), git commit, or image tag.
+      placeholder: "2.0.0, commit abc1234, or ghcr.io/...:sha-..."
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model version
+      description: The `model_version` in the response or in `model-release.json`, if relevant.
+      placeholder: base-tinyllama-q4km
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Python version, Node.js version (for the Worker or web UI), how you installed or deployed it, and the engine backend.
+      placeholder: |
+        OS: Ubuntu 24.04
+        Python: 3.11
+        Install: pip install -e ".[serve]"
+        ENGINE_BACKEND: llamacpp
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output or error messages, with secrets removed. This is rendered as code, so no backticks are needed.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I removed all secrets (API keys, tokens, connection strings) from this report.
+          required: true
+        - label: This is not a security vulnerability (those go through the Security tab).
+          required: true

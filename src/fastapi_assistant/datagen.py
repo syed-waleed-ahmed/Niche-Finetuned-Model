@@ -205,7 +205,7 @@ def generate_dataset(
 
         client = anthropic.Anthropic(max_retries=4)
 
-    existing = set()
+    existing: set[str] = set()
     for path in (settings.train_path, settings.eval_path):
         if path.exists():
             existing.update(row_key(r) for r in read_rows(path))

@@ -39,6 +39,7 @@ ARG BAKE_RAG_INDEX=true
 ARG GGUF_REPO_ID=TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
 ARG GGUF_FILENAME=tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
 ARG GGUF_REVISION=52e7645ba7c309695bec7ac98f4f005b139cf465
+ARG GGUF_SHA256=9fecc3b3cd76bba89d504f29b616eedf7da85b96540e490ca5824d3f7d2776a0
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -56,13 +57,16 @@ ENV PYTHONUNBUFFERED=1 \
     GGUF_REPO_ID=${GGUF_REPO_ID} \
     GGUF_FILENAME=${GGUF_FILENAME} \
     GGUF_REVISION=${GGUF_REVISION} \
+    GGUF_SHA256=${GGUF_SHA256} \
     LLAMACPP_CHAT_FORMAT=zephyr \
     FINETUNED_WEIGHTS=false \
     MODEL_VERSION=base-tinyllama-q4km \
     WARMUP_ON_STARTUP=true
 
-# libgomp1: OpenMP runtime used by llama.cpp's CPU backend.
+# Apply Debian security updates the base image does not have yet (the release gate
+# fails on fixable HIGH CVEs). libgomp1: OpenMP runtime for llama.cpp's CPU backend.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -80,9 +84,14 @@ RUN if [ "$BAKE_RAG_INDEX" = "true" ]; then \
     fi
 # Optional: bake the GGUF weights (about 0.7 GB) for faster cold starts.
 RUN if [ "$BAKE_MODEL" = "true" ]; then \
-        python -c "from huggingface_hub import hf_hub_download as d; \
-d('${GGUF_REPO_ID}', '${GGUF_FILENAME}', revision='${GGUF_REVISION}')"; \
+        python -c "from huggingface_hub import hf_hub_download as d; d('${GGUF_REPO_ID}', '${GGUF_FILENAME}', revision='${GGUF_REVISION}')"; \
     fi
+# License of this project and notices for third-party material baked into the image
+# (llama.cpp, the FastAPI documentation index, the embedding model).
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/fastapi-assistant/
+# Packaging tools are build-time only. Removing them drops their CVEs (pip, and the
+# wheel and jaraco.context copies vendored in setuptools) from the shipped image.
+RUN python -m pip uninstall -y pip setuptools wheel
 RUN chown -R appuser:appuser /models
 USER appuser
 WORKDIR /home/appuser

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { cacheKey, canonicalJson, isJsonContentType, parseCacheableBody } from "../src/cache";
 import { DEFAULTS, loadConfig } from "../src/config";
 import { extractApiKey, keyIdentity, sha256Hex } from "../src/identity";
-import { buildForwardHeaders, rewriteLocation } from "../src/proxy";
-import { evaluateRateLimit, rateLimitCommands } from "../src/ratelimit";
+import { buildForwardHeaders, CircuitBreaker, rewriteLocation } from "../src/proxy";
+import { evaluateRateLimit, LocalRateLimiter, rateLimitCommands } from "../src/ratelimit";
 import { classifyPath, isCacheableEndpoint } from "../src/routes";
 import { ABC_KEY_ID, EPOCH_MINUTE, NOW, RESET_EPOCH_SECONDS } from "./helpers";
 
@@ -176,5 +176,47 @@ describe("trimTrailingSlashes", () => {
     expect(trimTrailingSlashes("https://a.example/path")).toBe("https://a.example/path");
     expect(trimTrailingSlashes("////")).toBe("");
     expect(trimTrailingSlashes("/".repeat(100_000) + "x")).toBe("/".repeat(100_000) + "x");
+  });
+});
+
+describe("LocalRateLimiter", () => {
+  it("counts per identity within a minute and resets in the next", () => {
+    const rl = new LocalRateLimiter();
+    expect(rl.hit("a", NOW)).toBe(1);
+    expect(rl.hit("a", NOW)).toBe(2);
+    expect(rl.hit("b", NOW)).toBe(1);
+    expect(rl.hit("a", NOW + 60_000)).toBe(1);
+  });
+
+  it("stays bounded: evicts stale windows, then starts over", () => {
+    const rl = new LocalRateLimiter(3);
+    rl.hit("a", NOW);
+    rl.hit("b", NOW);
+    rl.hit("c", NOW);
+    rl.hit("d", NOW + 60_000); // full: drops a, b, c (previous minute)
+    expect(rl.size).toBe(1);
+    rl.hit("e", NOW + 60_000);
+    rl.hit("f", NOW + 60_000);
+    rl.hit("g", NOW + 60_000); // full of current-minute entries: cleared
+    expect(rl.size).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("CircuitBreaker", () => {
+  it("opens after the threshold and closes after the cooldown", () => {
+    const b = new CircuitBreaker(2, 1_000);
+    b.failure(0, NOW);
+    expect(b.isOpen(0, NOW)).toBe(false);
+    b.failure(0, NOW);
+    expect(b.isOpen(0, NOW)).toBe(true);
+    expect(b.isOpen(0, NOW + 1_001)).toBe(false);
+  });
+
+  it("a success resets the failure count", () => {
+    const b = new CircuitBreaker(2, 1_000);
+    b.failure(0, NOW);
+    b.success(0);
+    b.failure(0, NOW);
+    expect(b.isOpen(0, NOW)).toBe(false);
   });
 });

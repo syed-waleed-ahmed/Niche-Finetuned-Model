@@ -34,7 +34,9 @@ CONFIG = {
     "lora_r": "16",
     "quant": "Q4_K_M",
     # The fine-tune must beat the base model's composite score by at least this much.
-    "min_improvement": "0.0",
+    # Greedy decoding makes the eval deterministic, so a tie means "no better": the
+    # margin is small but strictly positive.
+    "min_improvement": "0.005",
 }
 # __CONFIG_OVERRIDES__ (train.yml inserts CONFIG.update({...}) here)
 
@@ -61,7 +63,13 @@ def secret(name: str) -> str | None:
 def main() -> int:
     WORK.mkdir(parents=True, exist_ok=True)
     if not SRC.exists():
-        sh("git", "clone", "--depth", "1", "--branch", CONFIG["ref"], CONFIG["repo"], str(SRC))
+        # `git clone --branch` rejects a commit SHA, and the Train workflow pins the
+        # exact commit it was started from. init + fetch accepts a SHA, a branch or a tag.
+        SRC.mkdir(parents=True)
+        sh("git", "-C", str(SRC), "init", "--quiet")
+        sh("git", "-C", str(SRC), "remote", "add", "origin", CONFIG["repo"])
+        sh("git", "-C", str(SRC), "fetch", "--depth", "1", "origin", CONFIG["ref"])
+        sh("git", "-C", str(SRC), "checkout", "--quiet", "FETCH_HEAD")
     os.chdir(SRC)
     sha = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
@@ -116,6 +124,9 @@ def main() -> int:
     sh(*cli, "export", "merge", "--out", str(merged_dir), env=env)
     sh("bash", "scripts/export_gguf.sh", str(merged_dir), str(gguf_dir), CONFIG["quant"])
     gguf_file = f"model-{CONFIG['quant']}.gguf"
+    from fastapi_assistant.hub import sha256_file
+
+    gguf_sha256 = sha256_file(gguf_dir / gguf_file)
 
     report = json.loads(ft_report.read_text(encoding="utf-8"))
     namespace = CONFIG["hf_namespace"]
@@ -141,6 +152,7 @@ def main() -> int:
         adapter_repo=adapter_repo,
         gguf_repo=gguf_repo,
         gguf_filename=gguf_file,
+        gguf_sha256=gguf_sha256,
         eval_report=report,
     )
     manifest["finetuned"] = True

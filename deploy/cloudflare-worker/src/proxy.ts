@@ -62,6 +62,48 @@ export interface ForwardResult {
   attempts: number;
   /** One short reason per failed attempt, for logging. */
   failures: string[];
+  /** True when the last attempt ended because the origin did not answer in time. */
+  timedOut: boolean;
+  /** Origins skipped because their circuit was open. */
+  skipped: number[];
+}
+
+/**
+ * Per-isolate circuit breaker over origin indices.
+ *
+ * After `threshold` consecutive network failures or timeouts, an origin is skipped
+ * for `cooldownMs` while another origin is available, so a dead primary does not
+ * cost every request a full ORIGIN_TIMEOUT_MS before failover. Any HTTP response
+ * (even a 503) proves the origin is reachable and closes its circuit. When every
+ * origin is open they are all tried anyway: with a single origin, a slow cold start
+ * must never turn into self-inflicted errors.
+ */
+export class CircuitBreaker {
+  private readonly state = new Map<number, { failures: number; openUntil: number }>();
+
+  constructor(
+    private readonly threshold: number,
+    private readonly cooldownMs: number,
+  ) {}
+
+  isOpen(index: number, nowMs: number): boolean {
+    const entry = this.state.get(index);
+    return entry !== undefined && entry.openUntil > nowMs;
+  }
+
+  success(index: number): void {
+    this.state.delete(index);
+  }
+
+  failure(index: number, nowMs: number): void {
+    const entry = this.state.get(index) ?? { failures: 0, openUntil: 0 };
+    entry.failures++;
+    if (entry.failures >= this.threshold) {
+      entry.openUntil = nowMs + this.cooldownMs;
+      entry.failures = 0;
+    }
+    this.state.set(index, entry);
+  }
 }
 
 function describeError(err: unknown): string {
@@ -77,25 +119,41 @@ async function bufferResponse(res: Response): Promise<Response> {
 
 export async function forwardWithFailover(
   req: ForwardRequest,
-  options: { origins: readonly string[]; timeoutMs: number; fetch: FetchLike },
+  options: {
+    origins: readonly string[];
+    timeoutMs: number;
+    fetch: FetchLike;
+    breaker?: CircuitBreaker;
+    now?: () => number;
+  },
 ): Promise<ForwardResult> {
-  const { origins, timeoutMs } = options;
+  const { origins, timeoutMs, breaker } = options;
+  const now = options.now ?? (() => Date.now());
   const failures: string[] = [];
   let attempts = 0;
+  let timedOut = false;
   let last: { response: Response; index: number } | null = null;
 
-  for (let i = 0; i < origins.length; i++) {
+  const all = origins.map((_, i) => i);
+  const startedAt = now();
+  const closed = breaker ? all.filter((i) => !breaker.isOpen(i, startedAt)) : all;
+  const order = closed.length > 0 ? closed : all;
+  const skipped = all.filter((i) => !order.includes(i));
+
+  for (let pos = 0; pos < order.length; pos++) {
+    const i = order[pos] as number;
     const base = origins[i] as string;
-    const hasNext = i < origins.length - 1;
+    const hasNext = pos < order.length - 1;
     attempts++;
 
     // The timeout covers the wait for response headers (and buffering of a
     // retryable error body), but never the streaming of a successful body.
     const controller = new AbortController();
-    const timer = setTimeout(
-      () => controller.abort(new Error(`origin timeout after ${timeoutMs} ms`)),
-      timeoutMs,
-    );
+    let expired = false;
+    const timer = setTimeout(() => {
+      expired = true;
+      controller.abort(new Error(`origin timeout after ${timeoutMs} ms`));
+    }, timeoutMs);
 
     let res: Response;
     try {
@@ -108,9 +166,13 @@ export async function forwardWithFailover(
       });
     } catch (err) {
       clearTimeout(timer);
-      failures.push(`origin-${i}: ${describeError(err)}`);
+      timedOut = expired;
+      breaker?.failure(i, now());
+      failures.push(`origin-${i}: ${expired ? `timeout after ${timeoutMs} ms` : describeError(err)}`);
       continue;
     }
+    timedOut = false;
+    breaker?.success(i);
 
     if (RETRYABLE_STATUSES.has(res.status) && hasNext) {
       failures.push(`origin-${i}: HTTP ${res.status}`);
@@ -128,7 +190,15 @@ export async function forwardWithFailover(
     }
 
     clearTimeout(timer);
-    return { response: res, originIndex: i, originBase: base, attempts, failures };
+    return {
+      response: res,
+      originIndex: i,
+      originBase: base,
+      attempts,
+      failures,
+      timedOut: false,
+      skipped,
+    };
   }
 
   return {
@@ -137,6 +207,8 @@ export async function forwardWithFailover(
     originBase: last ? (origins[last.index] as string) : null,
     attempts,
     failures,
+    timedOut,
+    skipped,
   };
 }
 

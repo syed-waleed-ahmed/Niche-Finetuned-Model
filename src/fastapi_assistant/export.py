@@ -91,14 +91,34 @@ def write_model_card(
             *[f"| {k} | {v} |" for k, v in summary.items() if v is not None],
             "",
         ]
+    modification = (
+        "a LoRA adapter trained on top of it"
+        if kind == "adapter"
+        else "the base weights with a LoRA fine-tune merged in, converted to GGUF and quantized"
+    )
     lines += [
         "## Intended use",
         "",
         "Small, fast FastAPI help. Verify generated code; the model can be wrong.",
         "",
+        "## License and attribution",
+        "",
+        f"Derived from `{settings.base_model_name}`, released by its authors under the",
+        "Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). This repository",
+        f"contains modified work: {modification}. It is distributed under the same",
+        "license; see NOTICE.",
+        "",
     ]
     path = folder / "README.md"
     path.write_text("\n".join(lines), encoding="utf-8")
+    (folder / "NOTICE").write_text(
+        f"FastAPI Assistant {kind} {version}\n\n"
+        f"This work is derived from {settings.base_model_name}, licensed under the Apache\n"
+        "License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).\n\n"
+        f"Modifications: {modification}, by the FastAPI Assistant project\n"
+        "(https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model).\n",
+        encoding="utf-8",
+    )
     return path
 
 
@@ -135,6 +155,7 @@ def release_manifest(
     gguf_repo: str | None,
     gguf_filename: str | None,
     eval_report: dict | None,
+    gguf_sha256: str | None = None,
 ) -> dict:
     """The document committed as ``model-release.json`` to deploy a release.
 
@@ -147,7 +168,12 @@ def release_manifest(
         "base_model": base_model,
         "adapter": {"repo_id": adapter_repo, "revision": version} if adapter_repo else None,
         "gguf": (
-            {"repo_id": gguf_repo, "filename": gguf_filename, "revision": version}
+            {
+                "repo_id": gguf_repo,
+                "filename": gguf_filename,
+                "revision": version,
+                **({"sha256": gguf_sha256} if gguf_sha256 else {}),
+            }
             if gguf_repo
             else None
         ),
@@ -168,6 +194,8 @@ def manifest_env(manifest: dict) -> dict[str, str]:
                 "FINETUNED_WEIGHTS": str(manifest.get("finetuned", True)).lower(),
             }
         )
+        if manifest["gguf"].get("sha256"):
+            env["GGUF_SHA256"] = manifest["gguf"]["sha256"]
         if manifest.get("chat_format"):
             env["LLAMACPP_CHAT_FORMAT"] = manifest["chat_format"]
     if manifest.get("adapter"):

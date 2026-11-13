@@ -267,7 +267,7 @@ The names come from `src/fastapi_assistant/metrics.py`.
 | `assistant_build_info` | info: `backend`, `model`, `model_version` | Matches `model-release.json` | Version differs from what was released |
 | `assistant_inflight_generations` | gauge | 0 or 1 (`MAX_CONCURRENCY=1`) | Stuck at 1 with no traffic in the logs. A non-streaming generation keeps its slot until it finishes, even after the client or edge gave up. |
 | `assistant_queue_depth` | gauge | 0 | At 3 (`MAX_QUEUE`), the next request on that instance is rejected with 429 |
-| `assistant_queue_wait_seconds` | histogram | Near 0 when idle; otherwise about queue position times generation time | Mean or high buckets above about 30 s. `QUEUE_TIMEOUT_S=60` turns a 60 s wait into a 503, and the edge gives up on non-streaming calls after 60 s. |
+| `assistant_queue_wait_seconds` | histogram | Near 0 when idle; otherwise about queue position times generation time | A p95 above 20 s for 15 minutes (the `AssistantLongQueueWait` rule). `QUEUE_TIMEOUT_S=60` turns a 60 s wait into a 503; the edge waits 150 s (`ORIGIN_TIMEOUT_MS`), so it does not give up first. |
 | `assistant_time_to_first_token_seconds` | histogram, `endpoint` | Streaming only. Measured once at 0.3 to 1.1 s on a warm instance. Excludes queue wait. | Several seconds or more: CPU contention or long prompts (retrieval adds prompt tokens) |
 | `assistant_generation_duration_seconds` | histogram, `endpoint`, `stream` | Scales with tokens: about 8 to 10 tokens per second for one request | p95 above 60 s (the `AssistantSlowGenerations` rule) |
 | `assistant_generation_tokens_per_second` | histogram | About 8 to 10 measured on Cloud Run | Mean below 4 (the `AssistantThroughputDrop` rule) |

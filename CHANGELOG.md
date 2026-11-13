@@ -18,6 +18,10 @@ The deployed model is versioned separately, by `model_version` in
 - Edge Worker: the request log records `rl_key_id`, the first 12 hex characters of
   the SHA-256 of the presented API key, so requests can be attributed to a key.
   The key itself and the caller's IP are still never logged (#27).
+- Grafana dashboard: panels for queue wait (p50 and p95), time to first token by
+  endpoint, and prompts rejected for length. A new alert rule, `AssistantLongQueueWait`,
+  fires when the p95 wait for a generation slot stays above 20 s. `tests/test_grafana.py`
+  checks every dashboard and alert query against the metrics the service exports (#28).
 
 ### Fixed
 

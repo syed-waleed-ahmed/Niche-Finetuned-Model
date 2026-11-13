@@ -5,8 +5,10 @@
 | Report a bug | [Open a bug report](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/issues/new/choose); the template asks for the version, the steps and the response you got |
 | Suggest a feature | [Open a feature request](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/issues/new/choose) |
 | Report a security vulnerability | Privately, as described in [SECURITY.md](SECURITY.md). Never in a public issue |
-| Ask how something works | Start with the [documentation index](README.md#documentation) and the [runbook](docs/operations/RUNBOOK.md); if the answer is not there, open an issue and say what you tried |
-| Contribute a change | Read [CONTRIBUTING.md](CONTRIBUTING.md), then open a pull request |
+| Ask how something works | Start with the [documentation index](README.md#documentation) and the [runbook](docs/operations/RUNBOOK.md); if the answer is not there, ask in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions) and say what you tried |
+| Share an idea or show what you built | [Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions) |
+| See what is planned | [ROADMAP.md](ROADMAP.md) |
+| Contribute a change | Read [CONTRIBUTING.md](CONTRIBUTING.md), pick an issue labelled [good first issue](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/labels/good%20first%20issue) if you are new, then open a pull request |
 
 ## Before opening an issue
 

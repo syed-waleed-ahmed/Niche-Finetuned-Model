@@ -121,7 +121,11 @@ def create_app(
     admission = AdmissionController(
         settings.max_concurrency, settings.max_queue, settings.queue_timeout_s
     )
-    authenticator = Authenticator(settings.api_key, store, settings.key_cache_ttl_s)
+    authenticator = Authenticator(
+        settings.api_key, store, settings.key_cache_ttl_s, allow_anonymous=settings.public_demo
+    )
+    if settings.public_demo:
+        log.info("Public demo mode: requests without an API key are accepted as anonymous.")
     if not authenticator.enabled:
         log.warning(
             "Authentication is DISABLED: neither API_KEY nor DATABASE_URL is set, so every "
@@ -351,6 +355,7 @@ def create_app(
             backend=engine.backend,
             model_version=settings.model_version,
             load_state=engine.load_state,
+            access="public" if settings.public_demo or not authenticator.enabled else "key",
         )
 
     # -- ops routes ------------------------------------------------------------------

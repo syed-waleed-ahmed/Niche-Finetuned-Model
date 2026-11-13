@@ -6,8 +6,10 @@ name: Train on Kaggle
 # updates model-release.json and eval/baseline.json. Merging that PR deploys it.
 #
 # Needs: secret KAGGLE_API_TOKEN (or KAGGLE_KEY), the Kaggle username as variable (or
-# secret) KAGGLE_USERNAME, variable
-# HF_NAMESPACE, and an HF_TOKEN secret attached to the kernel on Kaggle.
+# secret) KAGGLE_USERNAME, variable HF_NAMESPACE, and secret HF_TOKEN (a Hugging Face
+# write token). The kernel uploads the model itself only if HF_TOKEN is also attached
+# to it on Kaggle; otherwise this workflow downloads the kernel's output and publishes
+# it with the GitHub secret.
 
 on:
   workflow_dispatch:
@@ -25,6 +27,12 @@ on:
         description: >-
           Create or update the kernel on Kaggle without running it. Use once before the
           first training run, then attach the HF_TOKEN secret to the kernel on Kaggle.
+        type: boolean
+        default: false
+      publish_only:
+        description: >-
+          Skip training: publish the output of the kernel's latest finished run (use when
+          a run trained the model but could not upload it), then gate and open the PR.
         type: boolean
         default: false
 
@@ -72,7 +80,7 @@ jobs:
           Path("build/kaggle/kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
           PY
       - name: Push and run
-        if: ${{ !inputs.push_only }}
+        if: ${{ !inputs.push_only && !inputs.publish_only }}
         run: kaggle kernels push -p build/kaggle
       - name: Push without running (first-time setup)
         if: ${{ inputs.push_only }}
@@ -81,7 +89,7 @@ jobs:
           echo "Kernel created: https://www.kaggle.com/code/$KAGGLE_USERNAME/fastapi-assistant-train"
           echo "Attach the HF_TOKEN secret to it on Kaggle, then run this workflow again."
       - name: Wait for the kernel
-        if: ${{ !inputs.push_only }}
+        if: ${{ !inputs.push_only && !inputs.publish_only }}
         run: |
           kernel="$KAGGLE_USERNAME/fastapi-assistant-train"
           for i in $(seq 1 300); do
@@ -97,6 +105,23 @@ jobs:
       - name: Download outputs
         if: ${{ always() && !inputs.push_only }}
         run: kaggle kernels output "$KAGGLE_USERNAME/fastapi-assistant-train" -p out || true
+      - name: Publish to the Hugging Face Hub (when the kernel could not)
+        if: ${{ !inputs.push_only }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_NAMESPACE: ${{ vars.HF_NAMESPACE }}
+        run: |
+          test -f out/model-release.json || { echo "::error::The kernel produced no model-release.json"; exit 1; }
+          if jq -e '.gguf.repo_id' out/model-release.json >/dev/null; then
+            echo "The kernel already published this release."
+            exit 0
+          fi
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_NAMESPACE" ]; then
+            echo "::error::Add the HF_TOKEN secret (a Hugging Face write token) and the HF_NAMESPACE variable."
+            exit 1
+          fi
+          pip install --quiet -e .
+          fastapi-assistant export publish-outputs out --namespace "$HF_NAMESPACE"
       - uses: actions/upload-artifact@v7
         if: ${{ always() && !inputs.push_only }}
         with:

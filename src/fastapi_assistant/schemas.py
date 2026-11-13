@@ -92,6 +92,10 @@ class HealthResponse(_Model):
     backend: str = ""
     model_version: str = ""
     load_state: str = ""
+    access: Literal["public", "key"] = Field(
+        default="key",
+        description='"public": no API key needed (rate-limited per IP); "key": a key is required.',
+    )
 
 
 class FeedbackRequest(_Model):

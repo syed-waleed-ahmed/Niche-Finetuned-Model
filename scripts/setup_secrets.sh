@@ -5,9 +5,17 @@
 #   bash scripts/setup_secrets.sh
 #   bash scripts/setup_secrets.sh --non-interactive   # skip all prompts; save the
 #                                                     # API key to a private file
+#   bash scripts/setup_secrets.sh --storage-only      # add Upstash and/or Neon to an
+#                                                     # existing deployment
 #
-# Everything you can paste is optional: press Enter to skip, and re-run later to
-# add it. With nothing pasted you still get a working, locked-down deployment.
+# Everything you can paste is optional: press Enter to skip. With nothing pasted you
+# still get a working, locked-down deployment.
+#
+# A full run generates new secrets every time: it rotates the origin secret and your
+# API key, and the edge cannot reach the origin until the next Release. To add Upstash
+# or Neon later, use --storage-only: it asks only for those values, sets them as GitHub
+# secrets (Release copies them to the Worker and to Cloud Run), and rotates nothing.
+# It needs only `gh auth login`.
 #
 #   generated:
 #     ORIGIN_SHARED_SECRET     -> Worker secret + GitHub secret (only the edge may call origins)
@@ -24,7 +32,14 @@
 set -euo pipefail
 
 NON_INTERACTIVE=false
-[ "${1:-}" = "--non-interactive" ] && NON_INTERACTIVE=true
+STORAGE_ONLY=false
+for arg in "$@"; do
+  case "$arg" in
+    --non-interactive) NON_INTERACTIVE=true ;;
+    --storage-only) STORAGE_ONLY=true ;;
+    *) echo "Unknown option: $arg (use --non-interactive or --storage-only)"; exit 2 ;;
+  esac
+done
 
 REPO=${REPO:-syed-waleed-ahmed/Niche-Finetuned-Model}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -46,32 +61,44 @@ ask() {  # ask "Prompt" -> value on stdout, input hidden, may be empty
   printf '%s' "$value"
 }
 
-to_worker() { (cd "$WORKER_DIR" && printf '%s' "$2" | "${WRANGLER[@]}" secret put "$1" >/dev/null) && echo "  Worker secret $1 set"; }
+to_worker() {
+  # In --storage-only mode, Release uploads the Worker secrets from the GitHub ones.
+  [ "$STORAGE_ONLY" = true ] && return 0
+  (cd "$WORKER_DIR" && printf '%s' "$2" | "${WRANGLER[@]}" secret put "$1" >/dev/null) && echo "  Worker secret $1 set"
+}
 to_github() { printf '%s' "$2" | gh secret set "$1" -R "$REPO" && echo "  GitHub secret $1 set"; }
 
 echo "== Checking logins"
 gh auth status -h github.com >/dev/null 2>&1 || { echo "Run: gh auth login"; exit 1; }
-(cd "$WORKER_DIR" && "${WRANGLER[@]}" whoami 2>/dev/null | grep -q "logged in") ||
-  { echo "Run: cd deploy/cloudflare-worker && node ./node_modules/wrangler/bin/wrangler.js login"; exit 1; }
+if [ "$STORAGE_ONLY" = false ]; then
+  (cd "$WORKER_DIR" && "${WRANGLER[@]}" whoami 2>/dev/null | grep -q "logged in") ||
+    { echo "Run: cd deploy/cloudflare-worker && node ./node_modules/wrangler/bin/wrangler.js login"; exit 1; }
+fi
 mkdir -p "$PRIVATE_DIR" && chmod 700 "$PRIVATE_DIR" 2>/dev/null || true
 
-echo "== Origin secret (generated)"
-origin_secret=$(generate 32)
-to_worker ORIGIN_SHARED_SECRET "$origin_secret"
-to_github ORIGIN_SHARED_SECRET "$origin_secret"
-unset origin_secret
+# Empty unless this run creates a key: --storage-only keeps the existing API key and
+# smoke-test key unless a database key replaces the latter.
+api_key=""
+smoke_key=""
+if [ "$STORAGE_ONLY" = false ]; then
+  echo "== Origin secret (generated)"
+  origin_secret=$(generate 32)
+  to_worker ORIGIN_SHARED_SECRET "$origin_secret"
+  to_github ORIGIN_SHARED_SECRET "$origin_secret"
+  unset origin_secret
 
-echo "== Metrics token (generated)"
-metrics_token=$(generate 24)
-to_github METRICS_TOKEN "$metrics_token"
-printf '%s' "$metrics_token" > "$PRIVATE_DIR/metrics_token" && chmod 600 "$PRIVATE_DIR/metrics_token" 2>/dev/null || true
-echo "  Saved for the Grafana scrape job in $PRIVATE_DIR/metrics_token"
-unset metrics_token
+  echo "== Metrics token (generated)"
+  metrics_token=$(generate 24)
+  to_github METRICS_TOKEN "$metrics_token"
+  printf '%s' "$metrics_token" > "$PRIVATE_DIR/metrics_token" && chmod 600 "$PRIVATE_DIR/metrics_token" 2>/dev/null || true
+  echo "  Saved for the Grafana scrape job in $PRIVATE_DIR/metrics_token"
+  unset metrics_token
 
-echo "== Your API key (generated)"
-api_key="fa_$(generate 32)"
-to_github API_KEY "$api_key"
-smoke_key="$api_key"
+  echo "== Your API key (generated)"
+  api_key="fa_$(generate 32)"
+  to_github API_KEY "$api_key"
+  smoke_key="$api_key"
+fi
 
 echo "== Upstash Redis, optional (console.upstash.com > fastapi-assistant-edge > REST API)"
 upstash_url=$(ask "UPSTASH_REDIS_REST_URL (https://...upstash.io)")
@@ -104,11 +131,13 @@ else
   echo "  Skipped: the service uses your static API key only (no per-user keys or usage)."
 fi
 unset database_url
-to_github SMOKE_API_KEY "$smoke_key"
+if [ -n "$smoke_key" ]; then to_github SMOKE_API_KEY "$smoke_key"; fi
 unset smoke_key
 
 echo
-if [ "$NON_INTERACTIVE" = true ]; then
+if [ -z "$api_key" ]; then
+  echo "Your API key is unchanged."
+elif [ "$NON_INTERACTIVE" = true ]; then
   printf '%s' "$api_key" > "$PRIVATE_DIR/api_key" && chmod 600 "$PRIVATE_DIR/api_key" 2>/dev/null || true
   echo "Your API key was saved to $PRIVATE_DIR/api_key (not printed)."
 else

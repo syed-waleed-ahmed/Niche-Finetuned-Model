@@ -55,6 +55,9 @@ documentation website, and a redesigned web UI. Merged in #23 to #36.
   give the system prompt and the stop sequences, compare the scores with the base
   model's, and list the limitations. `export push` gains `--base-report`, and the
   Kaggle pipeline passes the base model's report (#36).
+- `scripts/setup_secrets.sh --storage-only` adds Upstash or Neon to a working
+  deployment without rotating the origin secret or the API key, which a full run
+  does (#36).
 
 ### Fixed
 

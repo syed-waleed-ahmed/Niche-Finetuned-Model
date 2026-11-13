@@ -70,7 +70,7 @@ None of them is required for the service to work.
 
 | Item | Why blocked | What to do |
 |---|---|---|
-| Shared rate limits and answer cache (F-03) | Needs an Upstash database | Run `bash scripts/setup_secrets.sh` and paste the REST URL and token |
-| Per-user keys, usage, feedback | Needs a Neon database | Same script, paste `DATABASE_URL` |
+| Shared rate limits and answer cache (F-03) | The Upstash database `fastapi-assistant-edge` exists (free tier); its REST URL and token are not set as secrets yet | Run `bash scripts/setup_secrets.sh --storage-only`, paste the REST URL and token, then run Release |
+| Per-user keys, usage, feedback | The Neon database `fastapi_assistant` exists (free plan); `DATABASE_URL` is not set as a secret yet | Same command, paste `DATABASE_URL`; it also applies the migrations |
 | Error tracking and dashboards | Needs a Sentry project and a Grafana Cloud stack | Set the `SENTRY_DSN` secret; add a Grafana scrape job ([DEPLOYMENT.md](DEPLOYMENT.md) section 7) |
 | Backup origin (F-11) | Needs a Hugging Face Space or a VM | See `deploy/hf-space/` or `deploy/vm/` |

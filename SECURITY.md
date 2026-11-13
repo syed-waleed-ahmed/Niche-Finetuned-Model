@@ -14,16 +14,16 @@ to older versions.
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through GitHub's private vulnerability
-reporting:
+reporting, which is enabled for this repository:
 
-1. Open the repository's **Security** tab.
+1. Open the repository's **Security** tab, or go directly to
+   [the new advisory form](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/security/advisories/new).
 2. Choose **Report a vulnerability**.
 3. Fill in the advisory form.
 
-Do not open a public issue, pull request, or discussion that describes a
-vulnerability. If the **Report a vulnerability** button is not shown, open a public
-issue titled "Security contact request" that contains no technical details, and the
-maintainer will set up a private channel.
+Do not open a public issue, pull request or discussion that describes a vulnerability.
+If you cannot use GitHub's form, open a public issue titled "Security contact request"
+that contains no technical details. The maintainer will then set up a private channel.
 
 A useful report includes:
 

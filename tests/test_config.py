@@ -70,3 +70,23 @@ def test_optional_secret_placeholders_mean_unset():
         assert settings.auth_enabled is True
     real = Settings(_env_file=None, database_url="postgresql://u:p@h/db")
     assert real.database_url == "postgresql://u:p@h/db"
+
+
+def test_env_example_documents_every_setting():
+    """`.env.example` is the reference for operators: every setting must appear there."""
+    import re
+    from pathlib import Path
+
+    env = (Path(__file__).resolve().parent.parent / ".env.example").read_text(encoding="utf-8")
+    documented = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", env, re.M))
+    missing = sorted(
+        name.upper() for name in Settings.model_fields if name.upper() not in documented
+    )
+    assert not missing, f"add these settings to .env.example: {missing}"
+
+
+def test_env_example_values_are_valid():
+    """The uncommented values in `.env.example` load without validation errors."""
+    from pathlib import Path
+
+    Settings(_env_file=Path(__file__).resolve().parent.parent / ".env.example")

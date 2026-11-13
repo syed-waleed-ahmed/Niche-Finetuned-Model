@@ -350,3 +350,19 @@ def test_published_model_card_carries_apache_attribution(tmp_path, make_settings
     notice = (tmp_path / "NOTICE").read_text(encoding="utf-8")
     assert "TinyLlama/TinyLlama-1.1B-Chat-v1.0" in notice
     assert "Modifications:" in notice
+
+
+def test_version_is_consistent_across_package_metadata():
+    import re
+    from pathlib import Path
+
+    import fastapi_assistant
+
+    root = Path(__file__).resolve().parent.parent
+    # tomllib is 3.11+, and CI also runs 3.10, so read the field with a regex.
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    version = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
+    citation = (root / "CITATION.cff").read_text(encoding="utf-8")
+    assert fastapi_assistant.__version__ == version
+    assert re.search(rf"^version: {re.escape(version)}$", citation, re.M)
+    assert f"## [{version}]" in (root / "CHANGELOG.md").read_text(encoding="utf-8")

@@ -1,0 +1,20 @@
+# Categories for GitHub's automatically generated release notes. CHANGELOG.md
+# remains the curated record; this groups the pull request list under it.
+changelog:
+  exclude:
+    labels: [ignore-for-release]
+  categories:
+    - title: Model releases
+      labels: [model-release]
+    - title: Features
+      labels: [enhancement, feature]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Security
+      labels: [security]
+    - title: Documentation
+      labels: [documentation]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Other changes
+      labels: ["*"]

@@ -6,4 +6,4 @@ as an installable, testable, and containerizable inference service.
 
 __all__ = ["__version__"]
 
-__version__ = "1.0.0"
+__version__ = "2.1.0"

@@ -1,35 +1,40 @@
 # FastAPI Niche Assistant
 
-A fine-tuned small language model that answers FastAPI questions, run as a
-production service on free-tier infrastructure: an OpenAI-compatible API,
-streaming, retrieval over the official docs, per-user API keys, back-pressure,
-an edge cache with multi-origin failover, and a model-release pipeline where
+A small language model specialised in FastAPI, run as a production service on
+free-tier infrastructure: an OpenAI-compatible API with streaming, retrieval over the
+official documentation, per-user API keys, back-pressure, an edge layer with
+rate limiting, caching and origin failover, and a model-release pipeline in which
 **no model ships unless it beats the one it replaces**.
 
-![CI](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml/badge.svg)
-![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+[![CI](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml)
+[![Release](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/release.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/release.yml)
+[![Security](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/security.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/security.yml)
+[![CodeQL](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/codeql.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/codeql.yml)
+[![Latest release](https://img.shields.io/github/v/release/syed-waleed-ahmed/Niche-Finetuned-Model)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/releases)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Live:** https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev serves the
-web UI, and the API on the same host (an API key is required).
+**[Live demo](https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev)** ·
+[Examples](examples/) · [Model card](MODEL_CARD.md) ·
+[Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) ·
+[Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
-**Status:**
-- **Model:** the live deployment serves the *base* TinyLlama GGUF
-  (`model-release.json`: `finetuned: false`). The pipeline that trains, gates and
-  releases the fine-tune is in place; its first run needs Kaggle and Hugging Face tokens.
-- **Scope:** everything below describes the system's capabilities. What is configured
-  in the live deployment, and what is not, is tracked in
-  [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+![The web UI: ask a FastAPI question and get a streamed answer with cited documentation sources](docs/assets/web-ui.jpg)
 
-See [Documentation](#documentation) for architecture, operations, security and audit
-reports.
+> **Status.** The live service runs the *base* TinyLlama-1.1B-Chat model, quantized to
+> GGUF (`model-release.json`: `finetuned: false`), and says so in the UI and the API.
+> The fine-tuning pipeline (Kaggle GPU training, evaluation gate, release pull request)
+> is configured and running its first training. A fine-tuned model replaces the base
+> model only if it beats it on the held-out evaluation. What is live and what is
+> optional is tracked in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## What it does
 
-- **Serves a fine-tuned model cheaply.** LoRA fine-tune of TinyLlama-1.1B, merged and
-  quantized to a 0.7 GB GGUF and served with llama.cpp on CPU (about 13 tokens/s on
-  a laptop CPU, 8 to 10 tokens/s per request on a 2-vCPU Cloud Run instance). The same `Engine` contract also runs torch + LoRA, or forwards to
-  vLLM/TGI for GPU throughput.
+- **Serves a small model cheaply.** A LoRA fine-tune of TinyLlama-1.1B, merged and
+  quantized to a 0.7 GB GGUF and served with llama.cpp on CPU. That is about 13
+  tokens/s on a laptop CPU, and 5 to 18 tokens/s per request on a 2-vCPU Cloud Run
+  instance, depending on the host. The same `Engine` contract also runs torch + LoRA,
+  or forwards to vLLM or TGI for GPU throughput.
 - **Speaks two APIs.** A native `POST /generate` and an OpenAI-compatible
   `POST /v1/chat/completions` (streaming included), so the OpenAI SDKs work unchanged.
 - **Grounds answers in the docs, when it helps.** Retrieval over 1,534 chunks of the
@@ -96,7 +101,7 @@ For development and training (torch, peft):
 
 ```bash
 pip install -e ".[dev,train,postgres]"
-pytest                                 # about 120 tests; no model, network, or DB needed
+pytest                                 # 130+ tests; no model, network, or DB needed
 fastapi-assistant data validate        # dataset quality + train/eval leakage
 fastapi-assistant train                # GPU recommended; see kaggle/ for free GPUs
 ```
@@ -219,23 +224,32 @@ flowchart LR
     PR --> Deploy["merge = deploy"]
 ```
 
-The dataset is curated: 351 training and 108 eval pairs; the eval set spans 41 categories, every
-Python block parsed and most executed against FastAPI during authoring. Train/eval
-leakage is checked in CI. `fastapi-assistant data generate` drafts more pairs from
-the official docs with Claude for human review.
+The two gates:
+- **Kaggle:** the fine-tune must beat the base model's composite score by at least 0.005.
+- **CI:** the quantized GGUF, run on llama.cpp as in production, must not fall more than
+  0.02 below the model it replaces.
+
+Training never reads the held-out eval file. Checkpoints are selected on a validation
+slice of the training data.
+
+The dataset is curated: 351 training and 108 eval pairs, with the eval set spanning 41
+categories. Every Python block was parsed, and most were executed against FastAPI
+during authoring. CI checks for train/eval leakage. `fastapi-assistant data generate`
+drafts more pairs from the official docs with Claude, for human review.
 
 ## Free-tier deployment
 
-| Layer | Service |
-| --- | --- |
-| Edge, auth, rate limit, cache | Cloudflare Workers + Upstash Redis |
-| Primary origin | Google Cloud Run (scale to zero, `maxScale` cost cap) |
-| Backup origins | Oracle Cloud Always Free ARM VM (Cloudflare Tunnel), Hugging Face Space |
-| Database | Neon Postgres (+ pgvector) |
-| Training | Kaggle GPU notebooks |
-| Weights | Hugging Face Hub (immutable tags) |
-| Observability | Grafana Cloud (metrics, logs, alerts), Sentry |
-| CI/CD | GitHub Actions + GHCR: tests, Postgres integration, image build, smoke test, Trivy, CodeQL, gitleaks, eval gate, multi-arch release, deploys |
+| Layer | Service | In the live deployment |
+| --- | --- | --- |
+| Edge: auth, rate limit, failover, web UI | Cloudflare Workers | Live, deployed by CI |
+| Shared rate limits and answer cache | Upstash Redis | Optional; per-isolate limits apply without it |
+| Primary origin | Google Cloud Run (scale to zero, `maxScale` cost cap) | Live, deployed by CI |
+| Backup origins | Oracle Cloud Always Free ARM VM (Cloudflare Tunnel), Hugging Face Space | Configuration provided, not deployed |
+| Per-user keys, usage, feedback, pgvector | Neon Postgres | Optional; a static key is used without it |
+| Training | Kaggle GPU notebooks | Configured |
+| Weights | Hugging Face Hub (immutable tags) | Pinned in `model-release.json` |
+| Observability | Grafana Cloud (metrics, logs, alerts), Sentry | Optional; Prometheus metrics and JSON logs are built in |
+| CI/CD | GitHub Actions + GHCR: tests, Postgres integration, image build and smoke test, Trivy, CodeQL, gitleaks, pip-audit, eval gate, multi-arch release, deploys | Live |
 
 ### Capacity
 
@@ -310,7 +324,7 @@ graphify-out/                        generated knowledge graph of the codebase (
 | Operations | [Deployment](docs/DEPLOYMENT.md), [runbook](docs/operations/RUNBOOK.md), [incident response](docs/operations/INCIDENT_RESPONSE.md), [rollback](docs/operations/ROLLBACK.md), [cost management](docs/operations/COST_MANAGEMENT.md), [backup and recovery](docs/operations/BACKUP_AND_RECOVERY.md) |
 | Security | [Security policy](SECURITY.md), [security audit and threat model](docs/security/SECURITY_AUDIT.md), [license audit](docs/legal/LICENSE_AUDIT.md) |
 | Audit | [Initial audit](docs/audit/INITIAL_AUDIT.md), [performance baseline](docs/audit/PERFORMANCE_BASELINE.md), [final verification](docs/audit/FINAL_VERIFICATION.md), [implementation status](docs/IMPLEMENTATION_STATUS.md) |
-| Project | [Model card](MODEL_CARD.md), [contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [changelog](CHANGELOG.md), [citation](CITATION.cff) |
+| Project | [Model card](MODEL_CARD.md), [contributing](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [support](SUPPORT.md), [changelog](CHANGELOG.md), [citation](CITATION.cff), [third-party notices](THIRD_PARTY_NOTICES.md) |
 
 ## Development
 
@@ -322,6 +336,47 @@ make eval               # score the configured model, gated vs eval/baseline.jso
 TEST_DATABASE_URL=postgresql://... pytest -m postgres   # Postgres integration tests
 ```
 
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers:
+- the development setup;
+- the checks a pull request must pass;
+- the rules for the evaluation data (never edit the held-out set or the baselines to
+  improve a score);
+- how to propose a model release.
+
+Everyone taking part agrees to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+Please report vulnerabilities privately through
+[GitHub private vulnerability reporting](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/security/advisories/new),
+not in public issues. See [SECURITY.md](SECURITY.md) for scope and response targets,
+and [the security audit](docs/security/SECURITY_AUDIT.md) for the threat model.
+
+## Citation
+
+If you use this project in your work, cite it with the metadata in
+[CITATION.cff](CITATION.cff). GitHub shows a "Cite this repository" button for it.
+
+## Acknowledgements
+
+This project builds on:
+- [TinyLlama](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0) (Apache-2.0);
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT);
+- the [FastAPI documentation](https://github.com/fastapi/fastapi) (MIT), which grounds
+  retrieval;
+- [bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) (MIT), for
+  embeddings.
+
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[the license audit](docs/legal/LICENSE_AUDIT.md) list every third-party component and
+its license.
+
 ## License
 
-[MIT](LICENSE). Copyright (c) 2026 Syed Waleed Ahmed.
+The code is released under the [MIT License](LICENSE). Copyright (c) 2026 Syed Waleed
+Ahmed.
+
+Model weights derived from TinyLlama are distributed under the Apache License 2.0;
+see [MODEL_CARD.md](MODEL_CARD.md).

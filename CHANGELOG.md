@@ -13,8 +13,12 @@ yet. See [MODEL_CARD.md](MODEL_CARD.md).
 
 ## [Unreleased]
 
-Changes merged to `main` after 2.0.0, plus the `feat/production-hardening` branch
-(not yet merged).
+## [2.1.0] - 2026-11-13
+
+Production hardening, driven by a baseline audit (`docs/audit/INITIAL_AUDIT.md`):
+request limits and token-accurate prompt budgeting, a more resilient edge, model
+integrity checks, stricter supply-chain gates, a working training pipeline, and the
+documentation and community files of an open-source project. Merged in #13 to #16.
 
 ### Added
 
@@ -53,6 +57,23 @@ Changes merged to `main` after 2.0.0, plus the `feat/production-hardening` branc
   published model folders get an Apache-2.0 attribution section and a `NOTICE` file.
 - The uptime workflow also calls the authenticated `/v1/models` through the edge, so
   an origin-secret or key mismatch is detected, not only a dead origin.
+- Continuous delivery of the edge: with `CLOUDFLARE_API_TOKEN` and
+  `CLOUDFLARE_ACCOUNT_ID` configured, the Release workflow deploys the Worker and runs
+  the k6 smoke test after every Cloud Run deploy.
+- Train workflow: a `push_only` input creates the Kaggle kernel without running it, so
+  the `HF_TOKEN` secret can be attached before the first training run. The Kaggle
+  username is read from a repository variable, and release pull requests carry the
+  `model-release` label.
+- `SUPPORT.md`, `.github/CODEOWNERS`, and `.github/release.yml` (categories for
+  generated release notes). The issue chooser links to private vulnerability
+  reporting and to SUPPORT.md.
+- `.env.example` documents every setting, including the 22 that were missing, among
+  them `GGUF_SHA256`, `MAX_REQUEST_BYTES` and `VALIDATION_FRACTION`. A test fails when
+  a new setting is added without an entry, and another loads the file to check that
+  its values are valid.
+- README: CI, release, security and CodeQL badges, quick links, a screenshot of the
+  live UI, a table showing which services the live deployment uses, and sections on
+  contributing, security reporting, citation and acknowledgements.
 - Tests for the hardening changes: Python 93 to 134 passing (plus 2 Postgres-only
   tests and 1 POSIX-only test), Worker 55 to 75.
 
@@ -85,9 +106,12 @@ Changes merged to `main` after 2.0.0, plus the `feat/production-hardening` branc
 - `.dockerignore` keeps `eval/`, tooling and local entry points out of the build
   context; `.gitignore` ignores per-run eval reports; the README lists `main.py`, the
   serving lock, the Docker files and `graphify-out/` in the project structure.
-- Dependency floors raised by Dependabot: `torch>=2.14.1`, `transformers>=5.20.2`,
-  `peft>=0.21.2`, `sentencepiece>=0.2.3`, `datasets>=5.2.0`, `pytest>=9.2.0`,
-  `pytest-cov>=7.1.0`, and the build requirement `setuptools>=84.2.1`.
+- Dependency floors raised by Dependabot: `transformers>=5.20.2`, `peft>=0.21.2`,
+  `sentencepiece>=0.2.3`, `datasets>=5.2.0`, `pytest>=9.2.0`, `pytest-cov>=7.1.0`, and
+  the build requirement `setuptools>=84.2.1`. The `torch` floor was raised to 2.14.1
+  and then restored to 2.2.0 (see Fixed). Dependabot now raises minimum versions only
+  when they stop allowing the latest release (`versioning-strategy:
+  increase-if-necessary`).
 - Dependabot updates: `highlight.js` 11.12.0 (web UI); `wrangler` 4.159.0,
   `vitest` 5.1.0 and `@cloudflare/workers-types` 5.20261110.1 (Worker tooling);
   `grafana/alloy` v1.21.3 (`deploy/vm`).
@@ -113,6 +137,17 @@ Changes merged to `main` after 2.0.0, plus the `feat/production-hardening` branc
   (`VALIDATION_FRACTION`, default 0.1) is used instead. No fine-tune had been trained
   with the old behaviour.
 - The `eval.yml` error for a changed eval set now says how to regenerate the baseline.
+- The package reported `__version__` 1.0.0 (and so did the OpenAPI document) while
+  `pyproject.toml` said 2.0.0; both now read 2.1.0, and a test keeps them equal.
+- The first Kaggle training runs failed before training: a raised `torch` floor made
+  the training install replace the image's CUDA torch (breaking its torchvision), and
+  the image's old `torchao` made peft refuse to apply LoRA. The pipeline now keeps the
+  preinstalled torch, torchvision and torchaudio as pip constraints and removes
+  `torchao`; the Kaggle CLI is installed with its undeclared `six` dependency.
+- The Release workflow's edge deploy failed when the optional Upstash secrets were
+  absent; only configured secrets are uploaded to the Worker now.
+- Streams report a mid-generation context overflow with fixed text, so no exception
+  text reaches a client (CodeQL `py/stack-trace-exposure`).
 
 ### Security
 
@@ -240,6 +275,7 @@ question-answer pairs, an interactive CLI (`main.py`), and the resulting adapter
 committed under `outputs/` (a 2-step training run). A Gradio `app.py` for Hugging Face
 hosting was added and removed the same day.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/684a10d...HEAD
-[2.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v1.0.0...684a10d
+[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/releases/tag/v1.0.0

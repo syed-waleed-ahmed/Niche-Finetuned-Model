@@ -13,6 +13,14 @@ yet. See [MODEL_CARD.md](MODEL_CARD.md).
 
 ## [Unreleased]
 
+### Added
+
+- A dev container (`.devcontainer/`) for GitHub Codespaces and VS Code Dev Containers:
+  Python 3.11 with CPU-only torch, Node.js 22, the test dependencies and the
+  pre-commit hooks. Dependabot keeps its features up to date.
+- `ROADMAP.md`, GitHub Discussions for questions and ideas, starter issues labelled
+  `good first issue`, and a social-preview image (`docs/assets/social-preview.png`).
+
 ## [2.1.0] - 2026-11-13
 
 Production hardening, driven by a baseline audit (`docs/audit/INITIAL_AUDIT.md`):

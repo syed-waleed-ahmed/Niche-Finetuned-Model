@@ -111,6 +111,14 @@ class Settings(BaseSettings):
     )
     max_chat_turns: int = Field(default=6, ge=1, le=50)
     max_input_chars: int = Field(default=6000, ge=100, le=100_000)
+    public_demo: bool = Field(
+        default=False,
+        description=(
+            "Accept requests without an API key as anonymous (a key that is sent is still "
+            "verified). Pair with REQUIRE_API_KEY=false on the edge, which rate-limits "
+            "anonymous callers per IP."
+        ),
+    )
     max_request_bytes: int = Field(
         default=65_536,
         ge=0,

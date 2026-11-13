@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -71,6 +72,12 @@ def build_parser() -> argparse.ArgumentParser:
     push.add_argument("--kind", choices=["adapter", "gguf"], default="adapter")
     push.add_argument("--eval-report", type=Path)
     push.add_argument("--private", action="store_true")
+    publish = ex_sub.add_parser(
+        "publish-outputs",
+        help="Publish a training run's adapter and GGUF and complete its model-release.json.",
+    )
+    publish.add_argument("out_dir", type=Path, help="The downloaded training output folder.")
+    publish.add_argument("--namespace", required=True, help="Hugging Face user or organisation.")
     manifest = ex_sub.add_parser("env", help="Print env vars for a model-release.json.")
     manifest.add_argument("manifest", type=Path)
     manifest.add_argument("--format", choices=["dotenv", "yaml", "gcloud"], default="dotenv")
@@ -199,6 +206,13 @@ def _export(args, settings) -> int:
         )
         sha = export.push_folder(args.folder, args.repo, tag=args.tag, private=args.private)
         print(sha)
+    elif args.export_command == "publish-outputs":
+        published = export.publish_training_outputs(
+            args.out_dir, args.namespace, token=os.environ.get("HF_TOKEN")
+        )
+        target = args.out_dir / "model-release.json"
+        target.write_text(json.dumps(published, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(published, indent=2))
     elif args.export_command == "env":
         env = export.manifest_env(export.load_manifest(args.manifest))
         if args.format == "yaml":

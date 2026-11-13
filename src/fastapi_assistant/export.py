@@ -210,3 +210,61 @@ def manifest_env(manifest: dict) -> dict[str, str]:
 
 def load_manifest(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def publish_training_outputs(
+    out_dir: Path,
+    namespace: str,
+    *,
+    token: str | None = None,
+    push=push_folder,
+) -> dict:
+    """Publish a finished training run's adapter and GGUF; return the completed manifest.
+
+    The Kaggle kernel writes ``model-release.json``, the adapter folder, the GGUF and
+    the eval reports into its output. When the kernel could not upload them itself
+    (no Hugging Face token on Kaggle), CI downloads that output and calls this: both
+    folders get a model card and NOTICE, are pushed under the run's version tag, and
+    the manifest gains the repository names and the GGUF checksum. A manifest that
+    already names a GGUF repository is returned unchanged.
+    """
+    from .hub import ADAPTER_FILES, sha256_file
+
+    manifest = load_manifest(out_dir / "model-release.json")
+    if (manifest.get("gguf") or {}).get("repo_id"):
+        return manifest
+
+    adapter_config = next(iter(sorted(out_dir.rglob("adapter_config.json"))), None)
+    ggufs = sorted(out_dir.rglob("model-*.gguf"))
+    if adapter_config is None or not ggufs:
+        raise FileNotFoundError(
+            f"{out_dir} has no adapter (adapter_config.json) or GGUF (model-*.gguf) to publish"
+        )
+    adapter_dir, gguf = adapter_config.parent, ggufs[0]
+    report_path = out_dir / "eval-finetuned.json"
+    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.is_file() else None
+
+    version = manifest["model_version"]
+    settings = Settings(base_model_name=manifest["base_model"])
+    adapter_repo = f"{namespace}/fastapi-assistant-lora"
+    gguf_repo = f"{namespace}/fastapi-assistant-gguf"
+    card_files = ["README.md", "NOTICE"]
+    for folder, repo, kind, patterns in (
+        (adapter_dir, adapter_repo, "adapter", [*ADAPTER_FILES, *card_files]),
+        (gguf.parent, gguf_repo, "gguf", [gguf.name, *card_files]),
+    ):
+        write_model_card(folder, settings=settings, version=version, kind=kind, eval_report=report)
+        push(folder, repo, tag=version, allow_patterns=patterns, token=token)
+
+    published = release_manifest(
+        version=version,
+        base_model=manifest["base_model"],
+        adapter_repo=adapter_repo,
+        gguf_repo=gguf_repo,
+        gguf_filename=gguf.name,
+        eval_report=report,
+        gguf_sha256=sha256_file(gguf),
+    )
+    published["created_at"] = manifest.get("created_at", published["created_at"])
+    published["finetuned"] = True
+    return published

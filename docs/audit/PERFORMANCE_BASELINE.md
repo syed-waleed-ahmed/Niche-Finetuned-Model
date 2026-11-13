@@ -64,6 +64,25 @@ Two controlled, one-off bursts of short requests (32 new tokens each), one minut
 | Higher `maxScale` | More parallel generations during bursts | Raises the worst-case bill |
 | Bake weights into the image | Shorter cold start (no 0.7 GB download) | Image exceeds Artifact Registry's 0.5 GB free storage |
 
+## After the hardening release (same day)
+
+Measured after PR #13 was deployed (Cloud Run revision built from `b146406`, Worker
+from `main`), with the same 64-token requests as above:
+
+| When | Per-request speed at the origin (`x-process-time-ms`) |
+|---|---|
+| First samples after the deploy | 12.3 to 13.6 s per 64-token answer, about 5 tokens/s |
+| Samples a few minutes later | 2.6 to 3.2 s per answer of up to 48 tokens, about 15 to 18 tokens/s |
+
+The code path did not change speed. The CI eval, which runs the same llama.cpp
+workload on GitHub runners, has a p50 of 5.8 to 7.0 s per 256-token answer both before
+and after the hardening commits. The image's llama.cpp build was a cache hit in both
+releases (same base image digest, identical wheel).
+
+The spread therefore comes from the platform: which host an instance lands on, and
+how long it has been warm. Plan capacity against the low end, about 5 tokens/s per
+request.
+
 ## Capacity statement
 
 From this evidence:

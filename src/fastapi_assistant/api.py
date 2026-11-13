@@ -66,6 +66,10 @@ PUBLIC_MODEL_ID = "fastapi-assistant"
 _OPEN_PATHS = frozenset({"/health", "/ready", "/metrics"})
 # The API returns JSON and SSE only; these stop a browser from sniffing a response
 # into something executable or framing the interactive docs.
+# Streams report an overflow found mid-generation (a rare backstop; `fit` rejects
+# over-long prompts with a precise 400 before admission) with fixed text, so no
+# exception text ever reaches a client.
+_PROMPT_TOO_LONG_IN_STREAM = "The prompt does not fit the model's context window"
 _SECURITY_HEADERS = {
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
@@ -458,7 +462,7 @@ def create_app(
                     if isinstance(exc, ModelNotReadyError):
                         message = "Model not ready"
                     elif isinstance(exc, PromptTooLongError):
-                        message = str(exc)
+                        message = _PROMPT_TOO_LONG_IN_STREAM
                     else:
                         message = "Generation failed"
                     yield _sse({"message": message}, event="error")
@@ -597,11 +601,11 @@ def create_app(
                                     answer="".join(parts),
                                 ),
                             )
-                except PromptTooLongError as exc:
+                except PromptTooLongError:
                     yield _sse(
                         {
                             "error": {
-                                "message": str(exc),
+                                "message": _PROMPT_TOO_LONG_IN_STREAM,
                                 "type": "invalid_request_error",
                                 "code": "context_length_exceeded",
                             }

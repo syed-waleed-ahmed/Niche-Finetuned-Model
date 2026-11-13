@@ -1,7 +1,8 @@
 # Implementation status
 
-Last updated: 2026-11-13. Branch: `feat/production-hardening` (open as a pull request
-against `main`; nothing on it is live until it is merged and released).
+Last updated: 2026-11-13, after the hardening release. PR #13 (`feat/production-hardening`)
+was merged as `b146406` and is live: Cloud Run via the Release workflow, the Worker
+deployed from `main`.
 
 ## Milestones
 
@@ -11,7 +12,7 @@ against `main`; nothing on it is live until it is merged and released).
 | 2 | Architecture decisions | Done | [architecture/DECISIONS.md](architecture/DECISIONS.md): ADRs, including keeping the current layout |
 | 3 | Restructure and developer experience | Done, with a documented deviation | The proposed `apps/ packages/ ml/` layout was not adopted (ADR-001). Added: `examples/`, `.editorconfig`, pre-commit, mypy and `make lint` |
 | 4 | Backend and inference hardening | Done on branch | Token-accurate context budget (400 instead of 500), 64 KiB body cap, typed errors, security headers, GGUF SHA-256 verification, queue-wait and TTFT metrics |
-| 5 | Deploy and end-to-end verification | Done for the current `main` | Cloud Run deployed by Release; Worker connected to the origin; 15 of 15 live checks pass. The branch deploys after merge. |
+| 5 | Deploy and end-to-end verification | Done | Cloud Run deployed by Release from `b146406`; Worker deployed from `main`; the original 15 live checks and 12 hardening checks pass (see the final verification, item 18) |
 | 6 | Upstash, Neon, backups | Optional, not configured | The service degrades gracefully without them (ADR-005). Needs owner credentials; see Blocked |
 | 7 | Security, observability, performance | Done on branch | [security/SECURITY_AUDIT.md](security/SECURITY_AUDIT.md), [audit/PERFORMANCE_BASELINE.md](audit/PERFORMANCE_BASELINE.md); fallback rate limiter, circuit breaker, platform-error normalisation |
 | 8 | CI/CD gates | Done on branch | mypy in CI; `security.yml` (pip-audit, npm audit, dependency review); Trivy gate on HIGH and CRITICAL; image smoke test asserts 400 and 413 against real llama.cpp |
@@ -22,12 +23,12 @@ against `main`; nothing on it is live until it is merged and released).
 
 | Component | State |
 |---|---|
-| Edge Worker and web UI | Live at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev, deployed manually with wrangler |
+| Edge Worker and web UI | Live at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev, deployed from `main` with wrangler (manual until the Cloudflare token exists) |
 | Origin | Cloud Run `fastapi-assistant` in us-central1, deployed by the Release workflow from `main`, `maxScale: 2`, scale to zero |
 | Model | Base TinyLlama-1.1B-Chat Q4_K_M GGUF, pinned revision (`finetuned: false`) |
 | Auth | Static owner API key (Secret Manager), origin locked to the edge with a shared secret |
 | Uptime probe | GitHub Actions every 10 minutes through the edge (`EDGE_URL` is set) |
-| Rate limiting | None live yet. Upstash is not configured, and the in-isolate fallback ships with this branch |
+| Rate limiting | Live, per isolate (20 per minute per key, 10 per IP for anonymous calls). Upstash would make it shared across isolates |
 | Answer cache | Off (needs Upstash) |
 | Per-user keys, usage, feedback storage | Off (needs Neon Postgres) |
 | Error tracking, dashboards | Off (Sentry DSN and Grafana Cloud not connected) |
@@ -47,6 +48,5 @@ take. None of them is required for the service to work.
 | Backup origin (F-11) | Needs a Hugging Face token or a VM | See `deploy/hf-space/` or `deploy/vm/` |
 | CodeQL alerts #1 and #2 (F-15) | Dismissal is an admin action | Dismiss both as "won't fix / intended", with the reasons in the audit |
 | Dependabot alert #1 (`diskcache`, F-09) | Dismissal is an admin action; no fixed version exists | Dismiss as "vulnerable code is not actually used" (`LlamaDiskCache` is never constructed) |
-| Private vulnerability reporting | A repository setting; it is currently off, so SECURITY.md's reporting button does not appear | Settings, Code security, enable "Private vulnerability reporting" |
 | Tag `v2.0.0` | A public release is the owner's decision | Optionally tag `684a10d` (the 2.0.0 merge); CHANGELOG.md already has the section |
-| Deploy the hardened Worker | Production change; done after the pull request merges | See the pull request description |
+| Redeploy the Worker after UI-only merges | Until CI has a Cloudflare token, static assets ship only with a manual `wrangler deploy` | `cd deploy/cloudflare-worker && npm ci && (cd ../../web && npm ci && npm run build) && node ./node_modules/wrangler/bin/wrangler.js deploy --var ORIGINS:<EDGE_ORIGINS> --var MODEL_VERSION:<model_version>` |

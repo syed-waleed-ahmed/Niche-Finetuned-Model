@@ -19,7 +19,6 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Why |
 | --- | --- |
-| Attributable edge logs | Log the truncated key identity the Worker already computes, so abuse can be traced to a client (audit item O-5). **Good first issue.** |
 | Dashboards for the new metrics | Grafana panels for queue wait, time to first token and rejected requests. **Good first issue.** |
 | Narrower deployer permissions | Grant the CI deployer access to individual secrets instead of the whole project (audit item O-4). |
 | A generation check in the uptime probe | The probe covers `/health` and `/v1/models`; a tiny generation would also catch a broken model. |

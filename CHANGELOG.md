@@ -13,6 +13,12 @@ The deployed model is versioned separately, by `model_version` in
 
 ## [Unreleased]
 
+### Added
+
+- Edge Worker: the request log records `rl_key_id`, the first 12 hex characters of
+  the SHA-256 of the presented API key, so requests can be attributed to a key.
+  The key itself and the caller's IP are still never logged (#27).
+
 ### Fixed
 
 - A non-streaming request (`POST /generate`, or `POST /v1/chat/completions` without

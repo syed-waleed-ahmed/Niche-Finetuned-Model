@@ -188,6 +188,7 @@ The Worker writes one JSON line per request (`event: "request"`):
 | `request_id` | The correlation id above. |
 | `method`, `path`, `status`, `duration_ms` | The request and the status the client received. |
 | `rl_identity` | `key` (counted per SHA-256 of the API key) or `ip` (anonymous and public paths). Neither the key nor the IP is logged. |
+| `rl_key_id` | Only with `rl_identity: key`: the first 12 hex characters of the SHA-256 of the key that was presented, valid or not. Use it to tell callers apart and to find the key to revoke. For a key you hold, `printf '%s' "$KEY" \| sha256sum \| cut -c1-12` prints the same value. |
 | `rl_scope` | `redis`: the shared Upstash counter. `local`: the per-isolate fallback counter. `local` is expected while Upstash is not configured. It also appears when Upstash fails; see `redis_error`. |
 | `cache` | `HIT`, `MISS` or `BYPASS`. `null` when the request ended before the cache step (404, 401, 413, edge 429). |
 | `origin_index` | Index in `ORIGINS` of the origin that answered (0 is Cloud Run). `null` when none did. |

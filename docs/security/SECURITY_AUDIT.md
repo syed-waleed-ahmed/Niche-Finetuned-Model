@@ -171,7 +171,7 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
-| R1 | Abuse that cannot be attributed | A request id is shared by Worker and origin logs. Database keys carry a `key_id` in usage events (not enabled). | **Medium.** Worker logs record only the identity type (`key` or `ip`), not the key-identity hash or the IP. Origin logs see only the edge. Workers Logs retention is short. Combined with S1, abuse cannot be traced to a client (O-5). |
+| R1 | Abuse that cannot be attributed | A request id is shared by Worker and origin logs. Database keys carry a `key_id` in usage events (not enabled). | **Medium.** Worker logs now record a 12-character prefix of the key's SHA-256 (`rl_key_id`, O-5, #27), so requests can be grouped by key. With one static key shared by all clients (S1), and no IP logged for anonymous calls, abuse still cannot be traced to a person. Origin logs see only the edge. Workers Logs retention is short. |
 
 ### Information disclosure
 
@@ -271,7 +271,7 @@ These are not in the initial audit. Each one cites the code that shows it.
 | O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. The residual is fixed (#26): a non-streaming generation is cancelled when its caller disconnects, and the slot is released. Through the edge this depends on Cloudflare closing the origin connection when the client leaves, which has not been measured. | `schemas.py` (`le=1024`); `service.complete` watches the connection and passes a cancel event to `engine.generate`; `tests/test_disconnect.py` |
 | O-3 | Low | Placeholder values (`""`, `disabled`, `none`, `null`) for `API_KEY` silently disable origin authentication when no database is configured. Release rejects only an empty value. **Status:** Fixed (merged in #13): a placeholder `API_KEY` is rejected at startup, an empty one means unset, and an origin with no authentication logs a warning. | `config.py` `_unset_placeholders`; `auth.Authenticator.enabled`; `release.yml` "Sync secrets" |
 | O-4 | Medium | The deployer service account holds project-wide `roles/secretmanager.admin` and `roles/run.admin`. Its protection is only as strong as the branch protection on `main`. **Status:** Partly mitigated. The "Protect main" ruleset is active: pull requests and the core CI and security checks are required, and force-pushes and deletion are blocked, with admin bypass only through a pull request. The roles themselves are still project-wide. | `bootstrap.sh` lines 52 to 55 and 78 |
-| O-5 | Low | Worker request logs omit the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse cannot be attributed | `deploy/cloudflare-worker/src/index.ts` `RequestLog` |
+| O-5 | Low | Worker request logs omitted the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse could not be attributed. **Status:** fixed for keys (#27): the log records `rl_key_id`, the first 12 hex characters of the key's SHA-256. The IP is deliberately still not logged, to keep personal data out of the logs. | `deploy/cloudflare-worker/src/index.ts` `RequestLog`; `test/worker.test.ts` ("logging") |
 | O-6 | Low (latent) | With Upstash configured, if the pipeline returns HTTP 200 but the `INCR` reply is an error, the request proceeds with no rate limit. Errors at the HTTP level correctly fall back to the local limiter. **Status:** Fixed (merged in #13): an unusable `INCR` reply now falls back to the in-isolate limiter (test: "rate limit when Redis replies with a command error"). | `index.ts`: `rateLimit` stays null when `toCount` returns null |
 | O-7 | Low | Without a database, feedback comments are logged at INFO, including the user's text **Status:** Fixed (merged in #13): only the rating and the comment length are logged. | `api.py`, `feedback` |
 | O-8 | Low | JSON logs use `level`, not `severity`, so Cloud Logging severity filters and log-based alerts miss application errors **Status:** Fixed (merged in #13): JSON log lines also carry `severity`. | `logging_config.py` |
@@ -376,8 +376,8 @@ numbering does not change.
 9. **Stop publishing infrastructure identifiers in Actions logs** (O-1). Drop the
    `cat` of the rendered spec, or mask the values with `::add-mask::`.
 10. **Enable Neon for per-user keys**, so a leaked key can be revoked without
-    affecting every client. Log the edge key identity hash for attribution (S1, R1,
-    O-5).
+    affecting every client. Done (#27): the edge logs a prefix of the key identity
+    hash for attribution (S1, R1, O-5).
 11. **Hold a copy of the model weights you control.** Use the owner's Hugging Face
     namespace (`HF_NAMESPACE`, now configured) and keep an offline verified copy (D6,
     F-11).

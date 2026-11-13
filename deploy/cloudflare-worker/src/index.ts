@@ -68,6 +68,9 @@ export interface Deps {
   breaker?: CircuitBreaker;
 }
 
+/** Hex characters of the key identity (a truncated SHA-256) written to the request log. */
+const LOG_KEY_ID_LENGTH = 12;
+
 /** State that lives as long as the isolate: one instance per handler. */
 interface IsolateState {
   limiter: LocalRateLimiter;
@@ -81,6 +84,8 @@ interface RequestLog {
   status: number;
   cache: CacheStatus | null;
   rl_identity: Identity["type"] | null;
+  /** The first characters of the presented key's SHA-256; never the key, never an IP. */
+  rl_key_id?: string;
   rl_scope?: "redis" | "local";
   upstream_normalized?: boolean;
   origin_index: number | null;
@@ -199,6 +204,9 @@ async function handle(
   const identity = apiKey ? await keyIdentity(apiKey) : ipIdentity(request.headers);
   const limit = identity.type === "key" ? config.rateLimitPerMinute : config.rateLimitPerMinuteAnon;
   log.rl_identity = identity.type;
+  // Enough to tell callers apart and to find the key to revoke; an IP identity is
+  // left out, so the logs hold no personal data.
+  if (identity.type === "key") log.rl_key_id = identity.id.slice(0, LOG_KEY_ID_LENGTH);
 
   // 3. Buffer the body once (capped) so it can be hashed and replayed across origins.
   const read = await readBodyCapped(request, config.maxRequestBytes);

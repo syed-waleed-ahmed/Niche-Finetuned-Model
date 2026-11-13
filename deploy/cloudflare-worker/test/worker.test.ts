@@ -514,6 +514,26 @@ describe("logging", () => {
     });
     expect(JSON.stringify(h.logs)).not.toContain("super-secret-key-value");
   });
+
+  it("identifies the key by a prefix of its SHA-256, never by the key or the IP", async () => {
+    const h = harness({ fetch: mockFetch({ [ORIGIN_0]: () => json(ANSWER) }).fetch, redis: new FakeRedis() });
+    await h.run(post("/generate", QUESTION, { "x-api-key": "abc" }));
+    expect(h.logs[0]).toMatchObject({ rl_identity: "key", rl_key_id: ABC_KEY_ID.slice(0, 12) });
+    expect(h.logs[0]?.["rl_key_id"]).toHaveLength(12);
+    const line = JSON.stringify(h.logs[0]);
+    expect(line).not.toContain('"abc"');
+    expect(line).not.toContain(ABC_KEY_ID); // only a prefix of the identity is logged
+    expect(line).not.toContain("203.0.113.7"); // the caller's IP in the test requests
+  });
+
+  it("logs no key id and no IP for an anonymous request", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() }, baseEnv({ REQUIRE_API_KEY: "false" }));
+    await h.run(post("/generate", QUESTION));
+    expect(h.logs[0]).toMatchObject({ rl_identity: "ip" });
+    expect(h.logs[0]).not.toHaveProperty("rl_key_id");
+    expect(JSON.stringify(h.logs[0])).not.toContain("203.0.113.7");
+  });
 });
 
 describe("request body cap", () => {

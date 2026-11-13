@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repository root: src/fastapi_assistant/config.py -> parents[2] == project root.
@@ -170,6 +170,18 @@ class Settings(BaseSettings):
     # --- Filesystem paths (override in containers/deployments) ------------
     data_dir: Path = PROJECT_ROOT / "data"
     output_dir: Path = PROJECT_ROOT / "outputs" / "fastapi_tinyllama_lora"
+
+    @field_validator("database_url", "sentry_dsn", "api_key", mode="before")
+    @classmethod
+    def _unset_placeholders(cls, value):
+        """Treat placeholder values as "not configured".
+
+        Cloud Run mounts every secret it references, so an optional secret that
+        the owner has not provided yet holds a placeholder ("disabled").
+        """
+        if isinstance(value, str) and value.strip().lower() in {"", "disabled", "none", "null"}:
+            return None
+        return value
 
     @property
     def train_path(self) -> Path:

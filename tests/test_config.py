@@ -54,3 +54,14 @@ def test_sentry_placeholder_does_not_initialize(monkeypatch):
     assert calls == []
     _init_sentry(Settings(_env_file=None, sentry_dsn="https://key@o1.ingest.sentry.io/1"))
     assert len(calls) == 1
+
+
+def test_optional_secret_placeholders_mean_unset():
+    for value in ("disabled", "", "None", " null "):
+        settings = Settings(_env_file=None, database_url=value, sentry_dsn=value, api_key=value)
+        assert settings.database_url is None
+        assert settings.sentry_dsn is None
+        assert settings.api_key is None
+        assert settings.auth_enabled is False
+    real = Settings(_env_file=None, database_url="postgresql://u:p@h/db")
+    assert real.database_url == "postgresql://u:p@h/db"

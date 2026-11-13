@@ -59,6 +59,9 @@ spec:
             - { name: SENTRY_ENVIRONMENT, value: "cloud-run" }
             - name: ORIGIN_SHARED_SECRET
               valueFrom: { secretKeyRef: { name: origin-shared-secret, key: latest } }
+            # Static owner key; per-user keys come from Postgres when DATABASE_URL is set.
+            - name: API_KEY
+              valueFrom: { secretKeyRef: { name: api-key, key: latest } }
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: database-url, key: latest } }
             - name: METRICS_TOKEN

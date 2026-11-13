@@ -57,12 +57,13 @@ and `wrangler login` (in `deploy/cloudflare-worker`), run from the repository ro
 bash scripts/setup_secrets.sh
 ```
 
-It generates the origin secret and metrics token, asks (hidden input) for the
-Upstash REST URL/token and the Neon `DATABASE_URL`, stores each in the Worker and in
-GitHub's encrypted secrets, applies the database migrations, and issues the CI
-smoke-test key and your personal key (shown once). On every deploy, Release copies
-the GitHub secrets into Google Secret Manager for Cloud Run, adding a version only
-when a value changed.
+It generates the origin secret, the metrics token, and your API key (printed once),
+then optionally asks (hidden input) for the Upstash REST URL/token and the Neon
+`DATABASE_URL`. Press Enter to skip either: the service then runs with your static
+key and no edge cache, and re-running the script later adds them. Values go to the
+Worker and GitHub's encrypted secrets; with a database it also applies migrations
+and issues a smoke-test key. On every deploy, Release copies the GitHub secrets into
+Google Secret Manager for Cloud Run, adding a version only when a value changed.
 
 ## 3. Database (Neon)
 

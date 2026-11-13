@@ -172,6 +172,7 @@ jobs:
         # when the value changed, so the free tier's 6 active versions are not used up.
         env:
           ORIGIN_SHARED_SECRET: ${{ secrets.ORIGIN_SHARED_SECRET }}
+          API_KEY: ${{ secrets.API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           METRICS_TOKEN: ${{ secrets.METRICS_TOKEN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -193,9 +194,11 @@ jobs:
             fi
           }
           sync origin-shared-secret "$ORIGIN_SHARED_SECRET"
-          sync database-url "$DATABASE_URL"
+          sync api-key "$API_KEY"
           sync metrics-token "$METRICS_TOKEN"
-          # Sentry is optional: keep a placeholder so the service spec stays valid.
+          # Optional: a "disabled" placeholder keeps the service spec valid, and the
+          # app treats it as unset (no Postgres / no Sentry).
+          sync database-url "${DATABASE_URL:-disabled}"
           sync sentry-dsn "${SENTRY_DSN:-disabled}"
       - name: Render service.yaml from model-release.json
         run: |

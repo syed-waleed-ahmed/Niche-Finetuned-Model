@@ -112,16 +112,20 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
+          # The baked RAG index is FastAPI documentation text (no packages); its
+          # security tutorial contains an example JWT that the secret scanner flags.
+          skip-dirs: /models/rag_index
       - uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy.sarif
-      - name: Block on fixable critical CVEs
+      - name: Block on fixable high and critical CVEs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ needs.publish.outputs.image }}:${{ needs.publish.outputs.tag }}
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
+          skip-dirs: /models/rag_index
           skip-setup-trivy: true
 
   deploy-cloudrun:
@@ -208,7 +212,8 @@ jobs:
       - name: Fill template
         run: |
           export LLAMACPP_CHAT_FORMAT="${LLAMACPP_CHAT_FORMAT:-}"
-          envsubst '${IMAGE} ${PROJECT_ID} ${REGION} ${MAX_INSTANCES} ${MODEL_VERSION} ${MODEL_VERSION_LABEL} ${BASE_MODEL_NAME} ${GGUF_REPO_ID} ${GGUF_FILENAME} ${GGUF_REVISION} ${FINETUNED_WEIGHTS} ${LLAMACPP_CHAT_FORMAT}' \
+          export GGUF_SHA256="${GGUF_SHA256:-}"
+          envsubst '${IMAGE} ${PROJECT_ID} ${REGION} ${MAX_INSTANCES} ${MODEL_VERSION} ${MODEL_VERSION_LABEL} ${BASE_MODEL_NAME} ${GGUF_REPO_ID} ${GGUF_FILENAME} ${GGUF_REVISION} ${GGUF_SHA256} ${FINETUNED_WEIGHTS} ${LLAMACPP_CHAT_FORMAT}' \
             < deploy/cloudrun/service.yaml > service.rendered.yaml
           cat service.rendered.yaml
       - id: deploy

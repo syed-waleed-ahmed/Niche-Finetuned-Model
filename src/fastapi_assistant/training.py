@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+from typing import Any
 
 import torch
 from peft import LoraConfig, get_peft_model
@@ -49,7 +50,7 @@ def prepare_model_and_tokenizer(settings: Settings):
         tokenizer.pad_token = tokenizer.eos_token
 
     load_dtype, _, _ = _precision()
-    model = AutoModelForCausalLM.from_pretrained(
+    model: Any = AutoModelForCausalLM.from_pretrained(
         settings.base_model_name,
         device_map="auto" if torch.cuda.is_available() else None,
         **dtype_kwargs(load_dtype),

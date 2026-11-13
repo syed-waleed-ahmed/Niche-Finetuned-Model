@@ -392,7 +392,7 @@ describe("forwarding", () => {
 });
 
 describe("Redis failures and absence", () => {
-  it("fails open when the Redis pipeline throws", async () => {
+  it("serves without the cache and limits in-isolate when the Redis pipeline throws", async () => {
     const redis = new FakeRedis();
     redis.fail = new Error("connection reset");
     const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
@@ -400,8 +400,13 @@ describe("Redis failures and absence", () => {
     const res = await h.run(post("/generate", QUESTION, KEY));
     expect(res.status).toBe(200);
     expect(res.headers.get("x-cache")).toBe("BYPASS");
-    expect(res.headers.get("x-ratelimit-limit")).toBeNull();
-    expect(h.logs[0]).toMatchObject({ redis_error: "connection reset", status: 200 });
+    expect(res.headers.get("x-ratelimit-limit")).toBe("20");
+    expect(res.headers.get("x-ratelimit-remaining")).toBe("19");
+    expect(h.logs[0]).toMatchObject({
+      redis_error: "connection reset",
+      rl_scope: "local",
+      status: 200,
+    });
     await h.ctx.flush();
     expect(redis.calls).toHaveLength(1); // no write attempted after a failed read
   });
@@ -450,14 +455,34 @@ describe("Redis failures and absence", () => {
     expect((JSON.parse(redisCalls[1]?.body ?? "") as string[][]).map((c) => c[0])).toEqual(["SET", "SET"]);
   });
 
-  it("works without Upstash configured: no rate limit, no cache", async () => {
+  it("works without Upstash configured: in-isolate rate limit, no cache", async () => {
     const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
     const h = harness({ fetch: origin.fetch });
     const res = await h.run(post("/generate", QUESTION, KEY));
     expect(res.status).toBe(200);
     expect(res.headers.get("x-cache")).toBe("BYPASS");
-    expect(res.headers.get("x-ratelimit-limit")).toBeNull();
+    expect(res.headers.get("x-ratelimit-limit")).toBe("20");
+    expect(h.logs[0]).toMatchObject({ rl_scope: "local" });
     expect(origin.calls).toHaveLength(1);
+  });
+
+  it("enforces the in-isolate limit with 429 and Retry-After", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch }, baseEnv({ RATE_LIMIT_PER_MINUTE: "2" }));
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++) statuses.push((await h.run(post("/generate", QUESTION, KEY))).status);
+    expect(statuses).toEqual([200, 200, 429]);
+    const last = await h.run(post("/generate", QUESTION, KEY));
+    expect(last.headers.get("retry-after")).toBe("10");
+    expect(origin.calls).toHaveLength(2); // rejected requests never reach the origin
+  });
+
+  it("counts identities separately in-isolate", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch }, baseEnv({ RATE_LIMIT_PER_MINUTE: "1" }));
+    expect((await h.run(post("/generate", QUESTION, KEY))).status).toBe(200);
+    expect((await h.run(post("/generate", QUESTION, { "x-api-key": "other" }))).status).toBe(200);
+    expect((await h.run(post("/generate", QUESTION, KEY))).status).toBe(429);
   });
 
   it("serves hits without a marker when REQUIRE_API_KEY=false", async () => {
@@ -488,5 +513,125 @@ describe("logging", () => {
       duration_ms: 0,
     });
     expect(JSON.stringify(h.logs)).not.toContain("super-secret-key-value");
+  });
+});
+
+describe("request body cap", () => {
+  it("rejects a declared oversized body with 413 before Redis or the origin", async () => {
+    const redis = new FakeRedis();
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch, redis }, baseEnv({ MAX_REQUEST_BYTES: "1024" }));
+    const res = await h.run(post("/generate", { question: "hi", pad: "a".repeat(5000) }, KEY));
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({ error: { type: "request_too_large" } });
+    expect(origin.calls).toHaveLength(0);
+    expect(redis.calls).toHaveLength(0);
+  });
+
+  it("rejects a chunked body as soon as it crosses the cap", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch }, baseEnv({ MAX_REQUEST_BYTES: "1024" }));
+    const enc = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 8; i++) controller.enqueue(enc.encode("a".repeat(512)));
+        controller.close();
+      },
+    });
+    const req = new Request("https://edge.test/generate", {
+      method: "POST",
+      headers: { ...KEY, "content-type": "application/json" },
+      body: stream,
+      // @ts-expect-error: Node's fetch needs duplex for a streamed request body
+      duplex: "half",
+    });
+    const res = await h.run(req);
+    expect(res.status).toBe(413);
+    expect(origin.calls).toHaveLength(0);
+  });
+
+  it("forwards bodies under the cap intact", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch }, baseEnv({ MAX_REQUEST_BYTES: "1024" }));
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(200);
+    expect(origin.calls[0]?.body).toBe(JSON.stringify(QUESTION));
+  });
+
+  it("applies the 401 check before reading the body", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch }, baseEnv({ MAX_REQUEST_BYTES: "1024" }));
+    const res = await h.run(post("/generate", { pad: "a".repeat(5000) }));
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("origin timeouts and the circuit breaker", () => {
+  it("returns 504 when the only origin times out", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: hang });
+    const h = harness(
+      { fetch: origin.fetch, redis: new FakeRedis() },
+      baseEnv({ ORIGINS: ORIGIN_0, ORIGIN_TIMEOUT_MS: "20" }),
+    );
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(504);
+    expect(await res.json()).toMatchObject({ error: { type: "upstream_timeout" } });
+  });
+
+  it("skips a primary after repeated network failures, then retries it after the cooldown", async () => {
+    let clock = 1_700_000_030_000;
+    const origin = mockFetch({ [ORIGIN_0]: networkError, [ORIGIN_1]: () => json(ANSWER) });
+    // No Redis: every request reaches an origin (no shared cache).
+    const h = harness({ fetch: origin.fetch, redis: null, now: () => clock });
+    for (let i = 0; i < 3; i++) await h.run(post("/generate", QUESTION, KEY));
+    expect(origin.calls.filter((c) => c.url.startsWith(ORIGIN_0))).toHaveLength(3);
+
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.status).toBe(200);
+    expect(origin.calls.filter((c) => c.url.startsWith(ORIGIN_0))).toHaveLength(3); // skipped
+    expect(h.logs.at(-1)).toMatchObject({ skipped_origins: [0], attempts: 1, origin_index: 1 });
+
+    clock += 31_000;
+    await h.run(post("/generate", QUESTION, KEY));
+    expect(origin.calls.filter((c) => c.url.startsWith(ORIGIN_0))).toHaveLength(4); // half-open
+  });
+
+  it("still tries every origin when all circuits are open", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: networkError });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() }, baseEnv({ ORIGINS: ORIGIN_0 }));
+    for (let i = 0; i < 5; i++) expect((await h.run(post("/generate", QUESTION, KEY))).status).toBe(502);
+    expect(origin.calls).toHaveLength(5);
+  });
+
+  it("an HTTP error response does not count against the circuit", async () => {
+    const origin = mockFetch({ [ORIGIN_0]: () => json({}, 503), [ORIGIN_1]: () => json(ANSWER) });
+    const h = harness({ fetch: origin.fetch, redis: null });
+    for (let i = 0; i < 4; i++) await h.run(post("/generate", QUESTION, KEY));
+    expect(origin.calls.filter((c) => c.url.startsWith(ORIGIN_0))).toHaveLength(4);
+  });
+});
+
+describe("response headers", () => {
+  it("strips origin infrastructure headers and adds nosniff", async () => {
+    const origin = mockFetch({
+      [ORIGIN_0]: () =>
+        json(ANSWER, 200, { "x-cloud-trace-context": "abc;o=1", server: "Google Frontend" }),
+    });
+    const h = harness({ fetch: origin.fetch, redis: new FakeRedis() });
+    const res = await h.run(post("/generate", QUESTION, KEY));
+    expect(res.headers.get("x-cloud-trace-context")).toBeNull();
+    expect(res.headers.get("server")).toBeNull();
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("adds nosniff to edge-generated errors and cache hits", async () => {
+    const redis = new FakeRedis();
+    redis.store.set(await generateKey(), JSON.stringify(ANSWER));
+    redis.store.set(`kv:${ABC_KEY_ID}`, "1");
+    const h = harness({ fetch: mockFetch({ [ORIGIN_0]: () => json({}) }).fetch, redis });
+    const unauth = await h.run(post("/generate", QUESTION));
+    expect(unauth.headers.get("x-content-type-options")).toBe("nosniff");
+    const hit = await h.run(post("/generate", QUESTION, KEY));
+    expect(hit.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });

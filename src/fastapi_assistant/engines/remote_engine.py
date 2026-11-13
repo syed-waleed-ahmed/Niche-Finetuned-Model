@@ -14,10 +14,18 @@ from collections.abc import Iterator, Sequence
 import httpx
 
 from ..config import Settings
-from .base import BaseEngine, Deadline, GenerationParams, GenerationResult, Message, StreamEvent
+from .base import (
+    BaseEngine,
+    Deadline,
+    FinishReason,
+    GenerationParams,
+    GenerationResult,
+    Message,
+    StreamEvent,
+)
 
 
-def _finish(value: str | None) -> str:
+def _finish(value: str | None) -> FinishReason:
     return "length" if value == "length" else "stop"
 
 
@@ -85,7 +93,7 @@ class RemoteEngine(BaseEngine):
     ) -> Iterator[StreamEvent]:
         self.load()
         deadline = Deadline(params.timeout_s, cancel)
-        finish = None
+        finish: FinishReason | None = None
         completion_tokens = 0
         with self._client.stream(
             "POST", "/v1/chat/completions", json=self._payload(messages, params, stream=True)

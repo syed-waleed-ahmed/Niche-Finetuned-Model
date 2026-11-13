@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     gguf_repo_id: str | None = None
     gguf_filename: str = "*Q4_K_M.gguf"
     gguf_revision: str | None = None
+    gguf_sha256: str | None = Field(
+        default=None,
+        description="Expected SHA-256 of the GGUF file; the load fails on a mismatch.",
+    )
     llamacpp_n_ctx: int = Field(default=2048, ge=256, le=32768)
     llamacpp_n_threads: int | None = Field(default=None, ge=1)
     llamacpp_chat_format: str | None = Field(
@@ -107,6 +111,12 @@ class Settings(BaseSettings):
     )
     max_chat_turns: int = Field(default=6, ge=1, le=50)
     max_input_chars: int = Field(default=6000, ge=100, le=100_000)
+    max_request_bytes: int = Field(
+        default=65_536,
+        ge=0,
+        le=10_000_000,
+        description="Largest accepted request body (HTTP 413 above it); 0 disables the cap.",
+    )
 
     # --- Admission control (backpressure) ----------------------------------
     max_concurrency: int = Field(default=1, ge=1, le=256)
@@ -170,6 +180,16 @@ class Settings(BaseSettings):
     # --- Filesystem paths (override in containers/deployments) ------------
     data_dir: Path = PROJECT_ROOT / "data"
     output_dir: Path = PROJECT_ROOT / "outputs" / "fastapi_tinyllama_lora"
+
+    @field_validator("gguf_sha256", mode="before")
+    @classmethod
+    def _check_sha256(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        digest = str(value).strip().lower()
+        if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError("GGUF_SHA256 must be 64 hexadecimal characters")
+        return digest
 
     @field_validator("database_url", "sentry_dsn", "api_key", mode="before")
     @classmethod

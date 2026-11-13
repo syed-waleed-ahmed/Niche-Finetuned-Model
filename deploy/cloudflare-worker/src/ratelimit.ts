@@ -46,6 +46,46 @@ export function evaluateRateLimit(count: number, limit: number, nowMs: number): 
   };
 }
 
+/**
+ * Fallback limiter used when Upstash is not configured or does not answer: the same
+ * fixed one-minute window, counted in this isolate's memory.
+ *
+ * It is weaker than the shared Redis counter. Cloudflare runs many isolates, each
+ * counting on its own, so the effective limit is a multiple of the configured one,
+ * and counts reset when an isolate is recycled. It still bounds a single client
+ * hammering one location, and it never fails open.
+ */
+export class LocalRateLimiter {
+  private readonly windows = new Map<string, { minute: number; count: number }>();
+
+  constructor(private readonly maxIdentities = 10_000) {}
+
+  /** Records one request and returns the count for the current window. */
+  hit(identityId: string, nowMs: number): number {
+    const minute = epochMinute(nowMs);
+    const entry = this.windows.get(identityId);
+    if (entry && entry.minute === minute) {
+      entry.count++;
+      return entry.count;
+    }
+    if (this.windows.size >= this.maxIdentities) this.evict(minute);
+    this.windows.set(identityId, { minute, count: 1 });
+    return 1;
+  }
+
+  get size(): number {
+    return this.windows.size;
+  }
+
+  private evict(currentMinute: number): void {
+    for (const [id, entry] of this.windows) {
+      if (entry.minute !== currentMinute) this.windows.delete(id);
+    }
+    // Still full of identities active this minute: start over rather than grow.
+    if (this.windows.size >= this.maxIdentities) this.windows.clear();
+  }
+}
+
 export function rateLimitHeaders(state: RateLimitState): Record<string, string> {
   return {
     "x-ratelimit-limit": String(state.limit),

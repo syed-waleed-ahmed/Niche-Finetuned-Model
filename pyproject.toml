@@ -58,6 +58,7 @@ dev = [
   "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "ruff>=0.6.0",
+  "mypy>=2.4.0",
 ]
 
 [project.scripts]
@@ -91,6 +92,15 @@ omit = [
   "src/fastapi_assistant/training.py",
   "src/fastapi_assistant/export.py",
 ]
+
+[tool.mypy]
+files = ["src/fastapi_assistant"]
+# Model runtimes (llama.cpp, fastembed, anthropic) are optional extras with partial
+# or no type information; their call sites are typed at the boundary instead.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
 
 [tool.ruff]
 line-length = 100

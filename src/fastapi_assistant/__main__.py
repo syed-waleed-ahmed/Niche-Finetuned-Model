@@ -154,6 +154,7 @@ def _eval(args, settings) -> int:
         from .retrieval import create_retriever
 
         retriever = create_retriever(settings.model_copy(update={"rag_enabled": True}))
+        assert retriever is not None  # rag_enabled=True always builds one
     report = run_eval(
         engine,
         items,
@@ -283,6 +284,7 @@ def _rag(args, settings) -> int:
         from .retrieval import create_retriever
 
         retriever = create_retriever(settings.model_copy(update={"rag_enabled": True}))
+        assert retriever is not None  # rag_enabled=True always builds one
         for p in retriever.retrieve(args.question, settings.rag_top_k):
             print(f"{p.score:.3f}  {p.heading}  {p.url}")
         return 0

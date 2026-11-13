@@ -49,6 +49,7 @@ spec:
             - { name: GGUF_REPO_ID, value: "${GGUF_REPO_ID}" }
             - { name: GGUF_FILENAME, value: "${GGUF_FILENAME}" }
             - { name: GGUF_REVISION, value: "${GGUF_REVISION}" }
+            - { name: GGUF_SHA256, value: "${GGUF_SHA256}" }
             - { name: FINETUNED_WEIGHTS, value: "${FINETUNED_WEIGHTS}" }
             - { name: LLAMACPP_CHAT_FORMAT, value: "${LLAMACPP_CHAT_FORMAT}" }
             - { name: LLAMACPP_N_THREADS, value: "2" }

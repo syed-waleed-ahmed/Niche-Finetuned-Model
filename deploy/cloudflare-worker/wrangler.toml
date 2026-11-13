@@ -4,8 +4,8 @@
 #   npx wrangler secret put ORIGIN_SHARED_SECRET       # same value as the origin's ORIGIN_SHARED_SECRET
 #   npx wrangler secret put UPSTASH_REDIS_REST_URL     # https://<db>.upstash.io
 #   npx wrangler secret put UPSTASH_REDIS_REST_TOKEN   # Upstash REST token (read/write)
-# Without the two Upstash secrets the Worker still proxies, but rate limiting and
-# caching are disabled. For `wrangler dev`, put the same names in a local
+# Without the two Upstash secrets the Worker still proxies: the shared answer cache
+# is off, and rate limiting falls back to per-isolate in-memory counters. For `wrangler dev`, put the same names in a local
 # `.dev.vars` file (git-ignored).
 
 name = "fastapi-assistant-edge"
@@ -26,8 +26,10 @@ enabled = true
 directory = "../../web/dist"
 
 [vars]
-# Comma-separated origin base URLs, primary first (Cloud Run, then backups).
-ORIGINS = "https://assistant-xxxxxxxxxx-uc.a.run.app,https://your-space.hf.space"
+# Comma-separated origin base URLs, primary first (Cloud Run, then backups). Empty
+# here on purpose: deploys pass it (`--var ORIGINS:...`, from the EDGE_ORIGINS
+# repository variable in CI), and an unset value fails closed with 502.
+ORIGINS = ""
 # Requests per minute per API key, and per client IP for anonymous/public calls.
 RATE_LIMIT_PER_MINUTE = "20"
 RATE_LIMIT_PER_MINUTE_ANON = "10"
@@ -41,3 +43,5 @@ MODEL_VERSION = "v1"
 REQUIRE_API_KEY = "true"
 # How long an origin-accepted key may be served shared cache hits.
 KEY_VERIFIED_TTL_SECONDS = "300"
+# Largest accepted request body in bytes (413 above it). Matches the origin cap.
+MAX_REQUEST_BYTES = "65536"

@@ -4,9 +4,12 @@
  * Per request, in order:
  *   1. route check (/metrics and unknown paths -> 404 at the edge)
  *   2. API key presence check on protected paths (401 without Redis/origin)
- *   3. ONE Upstash pipeline: rate-limit counter (+ cache entry + key marker)
- *   4. 429 when over the limit, cached answer when allowed
- *   5. forward with failover; optional single pipeline write in waitUntil
+ *   3. body size cap (413), so oversized bodies never reach Redis or the origin
+ *   4. ONE Upstash pipeline: rate-limit counter (+ cache entry + key marker);
+ *      an in-memory per-isolate counter when Upstash is absent or failing
+ *   5. 429 when over the limit, cached answer when allowed
+ *   6. forward with failover and a circuit breaker; optional single pipeline
+ *      write in waitUntil
  */
 
 import {
@@ -18,12 +21,14 @@ import {
   parseCacheableBody,
   type CacheStatus,
 } from "./cache";
-import { loadConfig, type Config, type Env } from "./config";
-import { jsonError, sanitizeRequestId } from "./http";
+import { readBodyCapped } from "./body";
+import { DEFAULTS, loadConfig, type Config, type Env } from "./config";
+import { jsonError, sanitizeRequestId, sanitizeResponseHeaders, SECURITY_HEADERS } from "./http";
 import { clientIp, extractApiKey, ipIdentity, keyIdentity, type Identity } from "./identity";
-import { buildForwardHeaders, forwardWithFailover, rewriteLocation } from "./proxy";
+import { buildForwardHeaders, CircuitBreaker, forwardWithFailover, rewriteLocation } from "./proxy";
 import {
   evaluateRateLimit,
+  LocalRateLimiter,
   rateLimitCommands,
   rateLimitHeaders,
   type RateLimitState,
@@ -51,6 +56,16 @@ export interface Deps {
   now: () => number;
   log: (entry: Record<string, unknown>) => void;
   randomId: () => string;
+  /** Per-isolate fallback rate limiter (created per handler when not given). */
+  localLimiter?: LocalRateLimiter;
+  /** Per-isolate origin circuit breaker (created per handler when not given). */
+  breaker?: CircuitBreaker;
+}
+
+/** State that lives as long as the isolate: one instance per handler. */
+interface IsolateState {
+  limiter: LocalRateLimiter;
+  breaker: CircuitBreaker;
 }
 
 interface RequestLog {
@@ -60,7 +75,9 @@ interface RequestLog {
   status: number;
   cache: CacheStatus | null;
   rl_identity: Identity["type"] | null;
+  rl_scope?: "redis" | "local";
   origin_index: number | null;
+  skipped_origins?: number[];
   attempts: number;
   duration_ms: number;
   request_id: string;
@@ -101,6 +118,11 @@ function setAll(headers: Headers, values: Record<string, string>): void {
 
 export function createHandler(overrides: Partial<Deps> = {}) {
   const deps: Deps = { ...defaultDeps, ...overrides };
+  const state: IsolateState = {
+    limiter: deps.localLimiter ?? new LocalRateLimiter(),
+    breaker:
+      deps.breaker ?? new CircuitBreaker(DEFAULTS.BREAKER_FAILURES, DEFAULTS.BREAKER_COOLDOWN_MS),
+  };
   return async (request: Request, env: Env, ctx: WaitUntilContext): Promise<Response> => {
     const started = deps.now();
     const url = new URL(request.url);
@@ -124,7 +146,7 @@ export function createHandler(overrides: Partial<Deps> = {}) {
     };
 
     try {
-      return finish(await handle(request, url, env, ctx, deps, log));
+      return finish(await handle(request, url, env, ctx, deps, state, log));
     } catch (err) {
       log.error = errorMessage(err);
       return finish(
@@ -140,6 +162,7 @@ async function handle(
   env: Env,
   ctx: WaitUntilContext,
   deps: Deps,
+  state: IsolateState,
   log: RequestLog,
 ): Promise<Response> {
   const config = loadConfig(env);
@@ -167,13 +190,19 @@ async function handle(
   const limit = identity.type === "key" ? config.rateLimitPerMinute : config.rateLimitPerMinuteAnon;
   log.rl_identity = identity.type;
 
-  // Buffer the body once so it can be hashed and replayed across origins.
-  const body =
-    method === "GET" || method === "HEAD" || request.body === null
-      ? null
-      : await request.arrayBuffer();
+  // 3. Buffer the body once (capped) so it can be hashed and replayed across origins.
+  const read = await readBodyCapped(request, config.maxRequestBytes);
+  if (!read.ok) {
+    return jsonError(
+      413,
+      "Request body is larger than " + config.maxRequestBytes + " bytes",
+      "request_too_large",
+      idHeader,
+    );
+  }
+  const body = read.body;
 
-  // 3. One Redis pipeline: rate limit counter, and for cacheable requests the
+  // 4. One Redis pipeline: rate limit counter, and for cacheable requests the
   //    cache entry and the verified-key marker.
   const redis = redisFor(config, deps);
   let cKey: string | null = null;
@@ -208,13 +237,19 @@ async function handle(
         markerPresent = value !== null && value !== undefined;
       }
     } catch (err) {
-      // Fail open: no rate limiting or caching for this request.
+      // No caching for this request; rate limiting falls back to this isolate.
       log.redis_error = errorMessage(err);
     }
   }
+  if (redisOk) {
+    log.rl_scope = "redis";
+  } else {
+    rateLimit = evaluateRateLimit(state.limiter.hit(identity.id, now), limit, now);
+    log.rl_scope = "local";
+  }
   const rlHeaders = rateLimit ? rateLimitHeaders(rateLimit) : {};
 
-  // 4a. Over the limit.
+  // 5a. Over the limit.
   if (rateLimit?.exceeded) {
     return jsonError(
       429,
@@ -224,7 +259,7 @@ async function handle(
     );
   }
 
-  // 4b. Shared cache: a hit is only served to a key the origin recently accepted.
+  // 5b. Shared cache: a hit is only served to a key the origin recently accepted.
   const cacheActive = cKey !== null && redisOk;
   const cacheStatus: CacheStatus = cacheActive ? "MISS" : "BYPASS";
   log.cache = cacheStatus;
@@ -236,13 +271,14 @@ async function handle(
         "content-type": "application/json",
         "x-cache": "HIT",
         "x-served-by": "edge-cache",
+        ...SECURITY_HEADERS,
         ...idHeader,
         ...rlHeaders,
       },
     });
   }
 
-  // 5. Forward with failover.
+  // 6. Forward with failover.
   const result = await forwardWithFailover(
     {
       method: request.method,
@@ -254,20 +290,27 @@ async function handle(
       }),
       body,
     },
-    { origins: config.origins, timeoutMs: config.originTimeoutMs, fetch: deps.fetch },
+    {
+      origins: config.origins,
+      timeoutMs: config.originTimeoutMs,
+      fetch: deps.fetch,
+      breaker: state.breaker,
+      now: deps.now,
+    },
   );
   log.attempts = result.attempts;
   log.origin_index = result.originIndex;
   if (result.failures.length) log.upstream_failures = result.failures;
+  if (result.skipped.length) log.skipped_origins = result.skipped;
 
   const upstream = result.response;
   if (!upstream) {
+    const errorHeaders = { ...idHeader, ...rlHeaders, "x-cache": cacheStatus };
+    if (result.timedOut) {
+      return jsonError(504, "The origin did not respond in time", "upstream_timeout", errorHeaders);
+    }
     const message = config.origins.length ? "No origin available" : "No origin configured";
-    return jsonError(502, message, "upstream_unavailable", {
-      ...idHeader,
-      ...rlHeaders,
-      "x-cache": cacheStatus,
-    });
+    return jsonError(502, message, "upstream_unavailable", errorHeaders);
   }
 
   // Cache write-back (MISS only): answer on 200 JSON, key marker on any 2xx.
@@ -303,6 +346,7 @@ async function handle(
   }
 
   const headers = new Headers(upstream.headers);
+  sanitizeResponseHeaders(headers);
   if (result.originBase) rewriteLocation(headers, result.originBase, url.origin);
   if (!headers.has("x-request-id")) headers.set("x-request-id", requestId);
   headers.set("x-cache", cacheStatus);

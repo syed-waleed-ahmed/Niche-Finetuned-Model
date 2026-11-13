@@ -36,6 +36,9 @@ jobs:
         run: |
           ruff check src tests
           ruff format --check src tests
+      - name: Type check
+        if: matrix.python-version == '3.11'
+        run: mypy
       - name: Validate dataset (schema, code, duplicates, train/eval leakage)
         run: fastapi-assistant data validate
       - name: Test
@@ -146,13 +149,23 @@ jobs:
             -d '{"question":"How do I declare a path parameter?","max_new_tokens":48,"use_retrieval":true}' | tee answer.json
           python3 -c "import json; b=json.load(open('answer.json')); assert b['answer'] and b['sources'], b"
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8080/generate -d '{}')" = 401
+          # Token-dense text under the character limit overflows the 2048-token context:
+          # the real tokenizer must turn that into a 400, not a 500.
+          python3 -c "import json, secrets; print(json.dumps({'question': ' '.join(secrets.token_hex(3) for _ in range(600))[:3990]}))" > dense.json
+          code=$(curl -s -o dense.out -w '%{http_code}' -X POST localhost:8080/generate -H 'X-API-Key: ci' -H 'Content-Type: application/json' -d @dense.json)
+          cat dense.out; echo
+          test "$code" = 400
+          # Bodies over MAX_REQUEST_BYTES (64 KiB) are refused before parsing or auth.
+          python3 -c "import json; print(json.dumps({'question': 'hi', 'pad': 'a' * 70000}))" > big.json
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8080/generate -H 'Content-Type: application/json' -d @big.json)" = 413
       - name: Container logs
         if: always()
         run: docker logs app 2>&1 | tail -50
-      - name: Vulnerability scan (fail on fixable critical CVEs)
+      - name: Vulnerability scan (fail on fixable high and critical CVEs)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: fastapi-assistant:ci
-          severity: CRITICAL
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
+          skip-dirs: /models/rag_index

@@ -116,6 +116,9 @@ def main() -> int:
     sh(*cli, "export", "merge", "--out", str(merged_dir), env=env)
     sh("bash", "scripts/export_gguf.sh", str(merged_dir), str(gguf_dir), CONFIG["quant"])
     gguf_file = f"model-{CONFIG['quant']}.gguf"
+    from fastapi_assistant.hub import sha256_file
+
+    gguf_sha256 = sha256_file(gguf_dir / gguf_file)
 
     report = json.loads(ft_report.read_text(encoding="utf-8"))
     namespace = CONFIG["hf_namespace"]
@@ -141,6 +144,7 @@ def main() -> int:
         adapter_repo=adapter_repo,
         gguf_repo=gguf_repo,
         gguf_filename=gguf_file,
+        gguf_sha256=gguf_sha256,
         eval_report=report,
     )
     manifest["finetuned"] = True

@@ -20,6 +20,7 @@ export interface Env {
   MODEL_VERSION?: VarValue;
   REQUIRE_API_KEY?: VarValue;
   KEY_VERIFIED_TTL_SECONDS?: VarValue;
+  MAX_REQUEST_BYTES?: VarValue;
 }
 
 export interface Config {
@@ -41,6 +42,8 @@ export interface Config {
   maxCacheableRequestBytes: number;
   /** Timeout for the Upstash REST call; Redis must never stall a request for long. */
   redisTimeoutMs: number;
+  /** Largest request body accepted at the edge (413 above it). */
+  maxRequestBytes: number;
 }
 
 export const DEFAULTS = {
@@ -54,6 +57,11 @@ export const DEFAULTS = {
   MAX_CACHED_BODY_BYTES: 64 * 1024,
   MAX_CACHEABLE_REQUEST_BYTES: 64 * 1024,
   REDIS_TIMEOUT_MS: 2_000,
+  MAX_REQUEST_BYTES: 64 * 1024,
+  /** Consecutive network failures or timeouts that open an origin's circuit. */
+  BREAKER_FAILURES: 3,
+  /** How long an open circuit skips its origin (while another origin is available). */
+  BREAKER_COOLDOWN_MS: 30_000,
 } as const;
 
 function str(value: VarValue): string {
@@ -109,5 +117,6 @@ export function loadConfig(env: Env): Config {
     maxCachedBodyBytes: DEFAULTS.MAX_CACHED_BODY_BYTES,
     maxCacheableRequestBytes: DEFAULTS.MAX_CACHEABLE_REQUEST_BYTES,
     redisTimeoutMs: DEFAULTS.REDIS_TIMEOUT_MS,
+    maxRequestBytes: positiveInt(env.MAX_REQUEST_BYTES, DEFAULTS.MAX_REQUEST_BYTES),
   };
 }

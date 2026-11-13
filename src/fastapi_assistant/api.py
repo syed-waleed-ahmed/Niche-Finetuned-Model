@@ -21,7 +21,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -36,6 +36,8 @@ from .admission import AdmissionController, AdmissionRejected, QueueFullError
 from .auth import Authenticator, AuthError, extract_api_key
 from .config import Settings, get_settings
 from .engines import Engine, ModelNotReadyError, create_engine
+from .engines.base import PromptTooLongError
+from .limits import BodySizeLimitMiddleware
 from .metrics import Metrics
 from .prompts import build_messages, normalize_chat
 from .retrieval import Passage, Retriever, create_retriever
@@ -62,6 +64,13 @@ log = logging.getLogger(__name__)
 PUBLIC_MODEL_ID = "fastapi-assistant"
 # Probes stay reachable without the edge secret so platforms can health-check.
 _OPEN_PATHS = frozenset({"/health", "/ready", "/metrics"})
+# The API returns JSON and SSE only; these stop a browser from sniffing a response
+# into something executable or framing the interactive docs.
+_SECURITY_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+}
 
 
 def _sse(data: Any, event: str | None = None) -> str:
@@ -70,7 +79,7 @@ def _sse(data: Any, event: str | None = None) -> str:
     return f"{prefix}data: {payload}\n\n"
 
 
-def _openai_finish(reason: str) -> str:
+def _openai_finish(reason: str) -> Literal["stop", "length"]:
     return "length" if reason in ("length", "timeout", "cancelled") else "stop"
 
 
@@ -179,6 +188,9 @@ def create_app(
                 "X-RateLimit-Reset",
             ],
         )
+    # Added last, so it wraps every other middleware and the cap applies before any
+    # handler reads the body.
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
 
     # -- middleware ---------------------------------------------------------------
     @app.middleware("http")
@@ -193,7 +205,7 @@ def create_app(
                 return JSONResponse(
                     {"detail": "Direct origin access is not allowed"},
                     status_code=403,
-                    headers={"x-request-id": request_id},
+                    headers={"x-request-id": request_id, **_SECURITY_HEADERS},
                 )
 
         try:
@@ -220,6 +232,8 @@ def create_app(
         metrics.request_seconds.labels(route=route_label).observe(elapsed)
         response.headers["x-request-id"] = request_id
         response.headers["x-process-time-ms"] = f"{duration_ms:.2f}"
+        for name, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
         log.info(
             "request",
             extra={
@@ -233,20 +247,40 @@ def create_app(
         return response
 
     # -- error mapping -------------------------------------------------------------
-    def _error(request: Request, status: int, message: str, err_type: str, headers=None):
+    def _error(
+        request: Request,
+        status: int,
+        message: str,
+        err_type: str,
+        headers=None,
+        code: str | int | None = None,
+    ):
         if request.url.path.startswith("/v1/"):
-            body: dict[str, Any] = {"error": {"message": message, "type": err_type, "code": status}}
+            body: dict[str, Any] = {
+                "error": {"message": message, "type": err_type, "code": code or status}
+            }
         else:
             body = {"detail": message}
         return JSONResponse(body, status_code=status, headers=headers)
 
+    def _error_type(status: int) -> str:
+        if status >= 500:
+            return "server_error"
+        return {
+            401: "authentication_error",
+            403: "permission_error",
+            404: "not_found",
+            429: "rate_limit_error",
+        }.get(status, "invalid_request_error")
+
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException):
-        err_type = {401: "authentication_error", 403: "permission_error", 404: "not_found"}.get(
-            exc.status_code, "invalid_request_error"
-        )
         return _error(
-            request, exc.status_code, str(exc.detail), err_type, getattr(exc, "headers", None)
+            request,
+            exc.status_code,
+            str(exc.detail),
+            _error_type(exc.status_code),
+            getattr(exc, "headers", None),
         )
 
     @app.exception_handler(RequestValidationError)
@@ -272,6 +306,13 @@ def create_app(
     @app.exception_handler(ModelNotReadyError)
     async def not_ready_error(request: Request, exc: ModelNotReadyError):
         return _error(request, 503, "Model not ready", "model_not_ready", {"Retry-After": "30"})
+
+    @app.exception_handler(PromptTooLongError)
+    async def prompt_too_long_error(request: Request, exc: PromptTooLongError):
+        metrics.prompt_rejections.inc()
+        return _error(
+            request, 400, str(exc), "invalid_request_error", code="context_length_exceeded"
+        )
 
     # -- dependencies --------------------------------------------------------------
     async def require_principal(
@@ -360,7 +401,9 @@ def create_app(
         started = time.perf_counter()
         passages = await service.retrieve(payload.question, payload.use_retrieval)
         messages = build_messages(payload.question, service.context(passages))
-        params = service.params(payload.max_new_tokens, payload.temperature, payload.top_p)
+        params = await service.fit(
+            messages, service.params(payload.max_new_tokens, payload.temperature, payload.top_p)
+        )
 
         if payload.stream:
             slot = await service.admit()
@@ -406,11 +449,12 @@ def create_app(
                             )
                 except Exception as exc:
                     log.exception("Streaming generation failed", extra={"request_id": request_id})
-                    message = (
-                        "Model not ready"
-                        if isinstance(exc, ModelNotReadyError)
-                        else "Generation failed"
-                    )
+                    if isinstance(exc, ModelNotReadyError):
+                        message = "Model not ready"
+                    elif isinstance(exc, PromptTooLongError):
+                        message = str(exc)
+                    else:
+                        message = "Generation failed"
                     yield _sse({"message": message}, event="error")
 
             return StreamingResponse(
@@ -422,7 +466,7 @@ def create_app(
 
         try:
             result = await service.complete(messages, params, "/generate")
-        except (AdmissionRejected, ModelNotReadyError):
+        except (AdmissionRejected, ModelNotReadyError, PromptTooLongError):
             raise
         except Exception as exc:
             log.exception("Generation failed", extra={"request_id": request_id})
@@ -494,8 +538,13 @@ def create_app(
             raise HTTPException(
                 status_code=400, detail="The conversation must end with a user message"
             ) from exc
-        params = service.params(
-            payload.max_completion_tokens or payload.max_tokens, payload.temperature, payload.top_p
+        params = await service.fit(
+            messages,
+            service.params(
+                payload.max_completion_tokens or payload.max_tokens,
+                payload.temperature,
+                payload.top_p,
+            ),
         )
         completion_id = f"chatcmpl-{request_id}"
         created = int(time.time())
@@ -542,6 +591,16 @@ def create_app(
                                     answer="".join(parts),
                                 ),
                             )
+                except PromptTooLongError as exc:
+                    yield _sse(
+                        {
+                            "error": {
+                                "message": str(exc),
+                                "type": "invalid_request_error",
+                                "code": "context_length_exceeded",
+                            }
+                        }
+                    )
                 except Exception:
                     log.exception("Streaming generation failed", extra={"request_id": request_id})
                     yield _sse({"error": {"message": "Generation failed", "type": "server_error"}})
@@ -556,7 +615,7 @@ def create_app(
 
         try:
             result = await service.complete(messages, params, "/v1/chat/completions")
-        except (AdmissionRejected, ModelNotReadyError):
+        except (AdmissionRejected, ModelNotReadyError, PromptTooLongError):
             raise
         except Exception as exc:
             log.exception("Generation failed", extra={"request_id": request_id})
@@ -627,6 +686,9 @@ def jsonable_errors(exc: RequestValidationError) -> list[dict[str, Any]]:
     from fastapi.encoders import jsonable_encoder
 
     return jsonable_encoder(exc.errors())
+
+
+app: FastAPI  # ``fastapi_assistant.api:app``, built on first access below
 
 
 def __getattr__(name: str):

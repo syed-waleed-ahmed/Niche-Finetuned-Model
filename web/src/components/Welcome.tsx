@@ -32,8 +32,8 @@ export function Welcome({ health, access, needsKey, apiDocsUrl, onPick, onAddKey
         Ask anything about FastAPI
       </h2>
       <p className="welcome__lead">
-        A small language model specialised in FastAPI that streams its answers and cites the
-        documentation passages they are grounded on.
+        A small language model specialised in FastAPI. It streams its answers and, with
+        documentation retrieval on, cites the passages they are grounded on.
       </p>
       <ServiceStatus state={health} />
 
@@ -68,7 +68,7 @@ export function Welcome({ health, access, needsKey, apiDocsUrl, onPick, onAddKey
         </ExternalLink>
       </nav>
       <p className="welcome__caveat">
-        Small models make mistakes. Check answers against the cited sources.
+        Small models make mistakes. Check answers against the FastAPI documentation.
       </p>
     </section>
   );

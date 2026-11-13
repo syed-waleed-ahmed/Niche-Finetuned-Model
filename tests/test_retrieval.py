@@ -103,6 +103,28 @@ def test_clean_markdown_without_repo_drops_includes():
     assert clean_markdown("a {* ../../docs_src/x.py *} b") == "a  b"
 
 
+def test_clean_markdown_drops_mkdocstrings_directives():
+    # From the reference pages: the directive renders the API docs on the site, and
+    # as retrieved text the model copied it into answers.
+    page = (
+        "You can import it directly from `fastapi`:\n\n"
+        "::: fastapi.BackgroundTasks\n\n"
+        "## `APIRouter` class\n\n"
+        "::: fastapi.APIRouter\n"
+        "    options:\n"
+        "        members:\n"
+        "            - get\n\n"
+        "Text after the block stays, and so does a mid-line ::: marker."
+    )
+    cleaned = clean_markdown(page)
+    assert "fastapi.BackgroundTasks" not in cleaned
+    assert "fastapi.APIRouter" not in cleaned
+    assert "options:" not in cleaned and "- get" not in cleaned
+    assert cleaned.startswith("You can import it directly from `fastapi`:")
+    assert "## `APIRouter` class" in cleaned
+    assert cleaned.endswith("Text after the block stays, and so does a mid-line ::: marker.")
+
+
 def _index(tmp_path: Path) -> Path:
     chunks = [
         DocChunk(

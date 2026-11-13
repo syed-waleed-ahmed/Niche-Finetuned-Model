@@ -18,10 +18,11 @@ new model only if it beats the current one on a held-out evaluation.
 
 !!! note "Status"
 
-    The live service runs the base TinyLlama-1.1B-Chat model, quantized to GGUF. A
-    fine-tuned release is being trained, and it replaces the base model only if it
-    passes the evaluation gate. The [implementation status](IMPLEMENTATION_STATUS.md)
-    page has the details.
+    The live service runs the first fine-tuned release, a LoRA fine-tune of
+    TinyLlama-1.1B-Chat quantized to GGUF. It scores 0.546 on the held-out set against
+    the base model's 0.402. It is a small model and often wrong, so check its answers.
+    The [model card](project/model-card.md) has the evaluation and the
+    [implementation status](IMPLEMENTATION_STATUS.md) page has what is live.
 
 ## Start here
 
@@ -86,7 +87,8 @@ new model only if it beats the current one on a held-out evaluation.
 ## The web UI
 
 <figure class="screenshot" markdown="span">
-  ![The web UI: a FastAPI question box with suggested questions and a settings panel](assets/web-ui.jpg){ loading=lazy }
-  <figcaption>Ask a FastAPI question and get a streamed answer with the documentation
-  passages it was grounded on. The badge in the header shows which model is serving.</figcaption>
+  ![The web UI welcome screen: the fine-tuned model is ready, the public demo needs no key, with example questions and the settings panel](assets/web-ui.jpg){ loading=lazy }
+  <figcaption>Ask a FastAPI question and get a streamed answer; with documentation
+  retrieval on, it cites the passages it was grounded on. The badge in the header shows
+  which model is serving.</figcaption>
 </figure>

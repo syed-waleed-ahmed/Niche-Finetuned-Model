@@ -28,6 +28,10 @@ _INCLUDE_OLD = re.compile(r"\{!\s*(?P<path>[^\s!]+)\s*!\}")
 _ADMONITION = re.compile(r"^///\s*(\w+)?\s*(?:\|\s*(.*))?$", re.MULTILINE)
 _HTML_TAG = re.compile(r"</?(?:abbr|span|div|img|a|br|details|summary)\b[^>]*>", re.IGNORECASE)
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+# mkdocstrings directives on the reference pages ("::: fastapi.Depends", optionally
+# followed by an indented options block) render the API reference on the website. As
+# text they carry no content, and the model copied them into answers.
+_MKDOCSTRINGS = re.compile(r"^:::[ \t]+\S[^\n]*(?:\n[ \t]+[^\n]*)*", re.MULTILINE)
 _HEADING = re.compile(r"^(#{1,4})\s+(.+?)\s*(?:\{[^}]*\})?\s*$", re.MULTILINE)
 
 
@@ -93,6 +97,7 @@ def clean_markdown(markdown: str, repo_root: Path | None = None) -> str:
         return f"```python\n{code}\n```" if code else ""
 
     text = _HTML_COMMENT.sub("", markdown)
+    text = _MKDOCSTRINGS.sub("", text)
     text = _INCLUDE_NEW.sub(_sub, text)
     # Old-style includes sit inside an existing code fence; insert the code only.
     text = _INCLUDE_OLD.sub(

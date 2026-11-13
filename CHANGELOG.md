@@ -7,9 +7,9 @@ the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.
 Version numbers are the `version` field in `pyproject.toml`.
 
 The deployed model is versioned separately, by `model_version` in
-`model-release.json`. The deployed model is still the base TinyLlama
-(`base-tinyllama-q4km`, `finetuned: false`): no fine-tuned release has been published
-yet. See [MODEL_CARD.md](MODEL_CARD.md).
+`model-release.json`. The deployed model is the first fine-tuned release,
+`v2026.11.13-2b04940` (`finetuned: true`), which replaced the base TinyLlama
+(`base-tinyllama-q4km`) in #33. See [MODEL_CARD.md](MODEL_CARD.md).
 
 ## [Unreleased]
 
@@ -35,11 +35,26 @@ yet. See [MODEL_CARD.md](MODEL_CARD.md).
 
 ### Changed
 
+- The served model is the first fine-tuned release, `v2026.11.13-2b04940`: a LoRA
+  fine-tune of TinyLlama-1.1B-Chat, merged and quantized to Q4_K_M, published on the
+  Hugging Face Hub. On the held-out set it scores 0.546 against the base model's
+  0.402 (code validity 0.846 against 0.490), scored with the production backend in
+  the same run. `eval/baseline.json` now holds its scores (#33).
 - The live deployment runs as a public demo, with `CLOUD_RUN_MAX_INSTANCES=1` to
   bound the worst-case cost of keyless traffic.
 - When the Train workflow cannot open the release pull request, it now says which
   repository setting to enable and links to open the pull request from the pushed
   branch.
+
+### Fixed
+
+- Answers no longer run on into an invented next turn. The chat template's role
+  markers (`<|user|>`, `<|system|>`, `<|assistant|>`) are plain text to TinyLlama, so
+  when the model skipped end-of-sequence it wrote a made-up follow-up question. The
+  llama.cpp and remote engines now stop at them (`prompts.STOP_SEQUENCES`).
+- The retrieval index no longer contains the mkdocstrings directives of the FastAPI
+  reference pages (`::: fastapi.BackgroundTasks` and their options blocks), which the
+  model copied into answers. The index has 1,524 chunks instead of 1,534.
 
 ## [2.1.0] - 2026-11-13
 

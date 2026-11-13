@@ -9,13 +9,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from fastapi_assistant.api import create_app
+from fastapi_assistant.config import Settings
 from fastapi_assistant.engines.base import (
     MIN_COMPLETION_TOKENS,
     GenerationParams,
     Message,
     PromptTooLongError,
 )
-from fastapi_assistant.engines.llamacpp_engine import _context_errors
+from fastapi_assistant.engines.llamacpp_engine import LlamaCppEngine, _context_errors
 
 from .conftest import FakeEngine
 
@@ -120,6 +121,32 @@ def test_llamacpp_context_overflow_is_translated():
     with pytest.raises(PromptTooLongError) as info:
         next(gen)
     assert (info.value.prompt_tokens, info.value.context_window) == (2300, 2048)
+
+
+class _FakeLlama:
+    """Stands in for llama_cpp.Llama: records the call, streams two chunks."""
+
+    n_tokens = 12
+
+    def __init__(self):
+        self.kwargs = {}
+
+    def create_chat_completion(self, **kwargs):
+        self.kwargs = kwargs
+        yield {"choices": [{"delta": {"content": "Use status_code=201."}}]}
+        yield {"choices": [{"delta": {}, "finish_reason": "stop"}]}
+
+
+def test_llamacpp_stops_at_the_template_role_markers(monkeypatch):
+    # The fine-tuned model sometimes skips end-of-sequence and writes an invented
+    # "<|user|>" turn; the engine must ask llama.cpp to stop there.
+    engine = LlamaCppEngine(Settings(_env_file=None, engine_backend="llamacpp"))
+    fake = _FakeLlama()
+    monkeypatch.setattr(engine, "_load_impl", lambda: setattr(engine, "_llm", fake))
+    events = list(engine.stream([{"role": "user", "content": "q"}], GenerationParams()))
+    assert "".join(e.delta for e in events) == "Use status_code=201."
+    assert fake.kwargs["stop"] == ["<|user|>", "<|system|>", "<|assistant|>"]
+    assert events[-1].finish_reason == "stop"
 
 
 def test_llamacpp_other_value_errors_pass_through():

@@ -5,25 +5,24 @@ how a model release rolls out and rolls back.
 
 ## 1. Current state
 
-**The deployed model is the base TinyLlama-1.1B-Chat GGUF (Q4_K_M), not a
-fine-tune.** `model-release.json` has `"finetuned": false` and points at
-`TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF` at a pinned commit, with its SHA-256. The
-Kaggle and Hugging Face credentials are now configured (audit finding F-04). The
-first training runs exposed environment problems in the Kaggle image, fixed in #15
-and #16, and a training run is in progress. Every stage below is implemented; none has
-produced a release yet. Until a fine-tune passes both gates and its release PR is
-merged, the deployed model stays the base GGUF.
+**The deployed model is the first fine-tuned release, `v2026.11.13-2b04940`.** This
+pipeline produced it end to end on 2026-11-13: trained on a free Kaggle GPU, gated,
+merged, quantized and published to the Hub (by CI, with `publish_only`), re-scored in
+CI, and deployed by merging release pull request #33. `model-release.json` has
+`"finetuned": true` and points at `syed-waleed-ahmed/fastapi-assistant-gguf` at that
+tag, with its SHA-256. The first training runs exposed environment problems in the
+Kaggle image, fixed in #15 and #16 (audit finding F-04).
 
-The base model's score on the held-out set, with the production backend, is the bar
-the first fine-tune must clear (`eval/baseline.json`):
+Both models scored with the production backend in the same CI run. The fine-tune's
+scores in `eval/baseline.json` are now the bar the next release must clear:
 
-| Metric | Base TinyLlama Q4_K_M |
-| --- | --- |
-| Items | 108 |
-| Composite score | 0.410 |
-| Keyword recall | 0.418 |
-| Code validity | 0.538 |
-| ROUGE-L | 0.283 |
+| Metric | Fine-tuned `v2026.11.13-2b04940` | Base TinyLlama Q4_K_M |
+| --- | --- | --- |
+| Items | 108 | 108 |
+| Composite score | 0.546 | 0.402 |
+| Keyword recall | 0.426 | 0.432 |
+| Code validity | 0.846 | 0.490 |
+| ROUGE-L | 0.387 | 0.289 |
 
 ## 2. Pipeline
 

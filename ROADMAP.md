@@ -12,16 +12,13 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Why |
 | --- | --- |
-| Ship the first fine-tuned release | The fine-tune beats the base model on the held-out set (composite 0.538 against 0.383). Publishing it to the Hub from CI and merging the gated release pull request makes it the served model. |
-| Public demo access | An opt-in mode lets visitors try the live service without a key, behind the edge rate limits. |
-| Documentation website | The guides in `docs/` published as a searchable site on GitHub Pages. |
-| Web UI refresh | A first-run screen, clearer access onboarding, light and dark themes, and a mobile layout. |
+| Larger, more varied training set | Keyword recall did not move with the first fine-tune (0.426 against the base model's 0.432): it still names the wrong API about as often. More questions per topic, especially on dependencies, security and testing, should help. |
+| Measure retrieval with the fine-tuned model | Retrieval was measured on the base model only, where it was a trade-off. The fine-tune trained on context examples, so `fastapi-assistant eval --rag` on it decides whether retrieval should become the default. |
 
 ## Next
 
 | Item | Why |
 | --- | --- |
-| Larger, more varied training set | Keyword recall barely moved with the first fine-tune. More questions per topic, especially on dependencies, security and testing, should help. |
 | Cancel non-streaming generations when the caller disconnects | Today such a generation keeps the only slot busy for up to 60 seconds (audit item O-2). **Good first issue.** |
 | Attributable edge logs | Log the truncated key identity the Worker already computes, so abuse can be traced to a client (audit item O-5). **Good first issue.** |
 | Dashboards for the new metrics | Grafana panels for queue wait, time to first token and rejected requests. **Good first issue.** |
@@ -38,5 +35,12 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 | Evaluation with an LLM judge | ROUGE-L and keyword recall miss answers that are right but worded differently. |
 
 ## Done
+
+| Item | Result |
+| --- | --- |
+| The first fine-tuned release | `v2026.11.13-2b04940` is the served model: 0.546 on the held-out set against the base model's 0.402 (#33). |
+| Public demo access | Visitors can try the live service without a key, behind the edge rate limits (#24). |
+| Documentation website | The guides in `docs/`, published as a searchable site on GitHub Pages (#30). |
+| Web UI refresh | A welcome screen, access onboarding, light and dark themes, and a mobile layout (#32). |
 
 See [CHANGELOG.md](CHANGELOG.md) for everything already released.

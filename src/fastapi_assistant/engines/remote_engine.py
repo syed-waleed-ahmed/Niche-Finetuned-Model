@@ -14,6 +14,7 @@ from collections.abc import Iterator, Sequence
 import httpx
 
 from ..config import Settings
+from ..prompts import STOP_SEQUENCES
 from .base import (
     BaseEngine,
     Deadline,
@@ -64,6 +65,9 @@ class RemoteEngine(BaseEngine):
             "top_p": params.top_p,
             # Not part of the OpenAI spec; accepted by vLLM and llama.cpp server.
             "repetition_penalty": params.repetition_penalty,
+            # The chat template's role markers (see prompts.STOP_SEQUENCES); the
+            # server also stops at the model's end-of-sequence token.
+            "stop": list(STOP_SEQUENCES),
             "stream": stream,
         }
 

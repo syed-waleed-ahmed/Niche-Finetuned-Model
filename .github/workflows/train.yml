@@ -183,4 +183,9 @@ jobs:
             echo
             echo "Merging deploys this release (release.yml reads model-release.json)."
           } > body.md
-          gh pr create --title "Release model $version" --body-file body.md --base main --label model-release
+          # Needs Settings > Actions > General > "Allow GitHub Actions to create and
+          # approve pull requests". Without it the branch is still pushed.
+          if ! gh pr create --title "Release model $version" --body-file body.md --base main --label model-release; then
+            echo "::error::Could not open the release pull request. Enable \"Allow GitHub Actions to create and approve pull requests\" (Settings > Actions > General), or open it from the pushed branch: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...release/$version"
+            exit 1
+          fi

@@ -44,6 +44,7 @@ scaling up is a configuration change (section 9).
 | --- | --- | --- |
 | `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA` | printed by `deploy/gcp/bootstrap.sh` | GitHub variables |
 | `CLOUD_RUN_MAX_INSTANCES` | your choice (default 2; the hard cost cap) | GitHub variable |
+| `PUBLIC_DEMO` | `true` to let visitors use the service without a key (default `false`) | GitHub variable |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard | GitHub variable |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare: API token with "Edit Cloudflare Workers" | GitHub secret |
 | `EDGE_ORIGINS` | Cloud Run URL, then backup URLs, comma-separated | GitHub variable |
@@ -55,7 +56,7 @@ scaling up is a configuration change (section 9).
 | `SENTRY_DSN` | Sentry project settings | Secret Manager `sentry-dsn`, VM `.env` |
 | `SMOKE_API_KEY` | issued by `scripts/setup_secrets.sh` | GitHub secret |
 | `HF_NAMESPACE` | your Hugging Face user or org | GitHub variable |
-| `HF_TOKEN` | Hugging Face token with write access | Kaggle secret attached to the `fastapi-assistant-train` kernel (first run the Train workflow once with `push_only: true` to create the kernel) |
+| `HF_TOKEN` | Hugging Face token with write access | GitHub secret (the Train workflow publishes with it); optionally also a Kaggle secret attached to the `fastapi-assistant-train` kernel, so the kernel publishes itself (run the Train workflow once with `push_only: true` to create the kernel) |
 | `KAGGLE_API_TOKEN` (or the legacy `KAGGLE_KEY`) | Kaggle account settings, API | GitHub secret |
 | `KAGGLE_USERNAME` | your Kaggle username | GitHub variable (a secret of the same name is also accepted) |
 
@@ -126,10 +127,22 @@ The second identical call returns `X-Cache: HIT` in milliseconds.
 
 The same deploy publishes the web UI: Release builds `web/` and Wrangler uploads
 `web/dist` as static assets, so `$EDGE_URL/` opens the playground while every API
-path still reaches the Worker. Visitors need a key: create one with
-`fastapi-assistant keys create demo` and share it, or set `REQUIRE_API_KEY=false` on
-the Worker (and leave `API_KEY`/`DATABASE_URL` unset on the origins) for an anonymous
-demo limited by `RATE_LIMIT_PER_MINUTE_ANON` per IP.
+path still reaches the Worker.
+
+By default visitors need a key: create one with `fastapi-assistant keys create demo`
+and share it. To open the service to anyone, set the repository variable
+`PUBLIC_DEMO=true` and run Release. Release then deploys the Worker with
+`REQUIRE_API_KEY=false` and the origin with `PUBLIC_DEMO=true`:
+
+- requests without a key are served, limited per IP by `RATE_LIMIT_PER_MINUTE_ANON`
+  (10 a minute per isolate, or across isolates with Upstash);
+- the owner key and per-user keys still work, and a wrong key is still rejected;
+- `GET /health` reports `"access": "public"`, and the web UI tells visitors no key is
+  needed.
+
+Keyless traffic is billed like any other. Keep `CLOUD_RUN_MAX_INSTANCES` low (the
+live demo runs with 1) so the worst case stays bounded, and set the budget alert in
+section 1. To close the demo, set `PUBLIC_DEMO=false` and run Release again.
 
 ## 6. Backup origin (Oracle VM)
 
@@ -166,8 +179,14 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
 2. Run the "Train on Kaggle" workflow. It trains on a free GPU, requires the
    fine-tune to beat the base model, exports and publishes the GGUF, re-scores it
    with the production backend, and opens a PR that updates `model-release.json`
-   and `eval/baseline.json`. The first time, run it with `push_only: true`, attach
-   `HF_TOKEN` to the new kernel on Kaggle, then run it again normally.
+   and `eval/baseline.json`. Opening that PR needs the repository setting
+   Settings > Actions > General > "Allow GitHub Actions to create and approve pull
+   requests"; without it the workflow still pushes the `release/<version>` branch and
+   prints a link to open the PR by hand. The kernel publishes to the Hub itself when
+   `HF_TOKEN` is attached to it on Kaggle; otherwise the workflow publishes with the
+   `HF_TOKEN` GitHub secret. If a run trained the model but failed afterwards, run the
+   workflow with `publish_only: true` to reuse that run's output instead of training
+   again.
 3. Review the eval table in the PR and merge. Release redeploys Cloud Run and the
    Worker; the edge job also bumps the Worker's cache namespace (`MODEL_VERSION`).
    The edge job runs only when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are

@@ -14,7 +14,8 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**[Live demo](https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev)** ·
+**[Live demo](https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev)** (no key needed) ·
+**[Documentation](https://syed-waleed-ahmed.github.io/Niche-Finetuned-Model/)** ·
 [Examples](examples/) · [Model card](MODEL_CARD.md) ·
 [Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) ·
 [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) ·
@@ -24,10 +25,11 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
 
 > **Status.** The live service runs the *base* TinyLlama-1.1B-Chat model, quantized to
 > GGUF (`model-release.json`: `finetuned: false`), and says so in the UI and the API.
-> The fine-tuning pipeline (Kaggle GPU training, evaluation gate, release pull request)
-> is configured and running its first training. A fine-tuned model replaces the base
-> model only if it beats it on the held-out evaluation. What is live and what is
-> optional is tracked in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+> The first fine-tuned model has passed both evaluation gates (0.546 against the base
+> model's 0.402 on the held-out set, scored with the production backend) and is
+> published on the Hugging Face Hub; it replaces the base model when its release pull
+> request is merged. What is live and what is optional is tracked in
+> [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## What it does
 
@@ -169,10 +171,12 @@ Worker as static assets on the same hostname as the API (so no CORS, no extra ho
 no cost). It shows what the API does: answers stream token by token, each one with
 its documentation sources, model version, token usage, latency and edge cache
 status; a 429 or 503 is shown with its `Retry-After` countdown and retried; answers
-can be rated (`POST /v1/feedback`). A settings panel holds the API key (browser
-only), switches between the native `/generate` API and the OpenAI-compatible
-multi-turn `/v1/chat/completions`, and toggles streaming and retrieval. A code panel
-turns the current question into copyable curl, Python and JavaScript requests.
+can be rated (`POST /v1/feedback`). A welcome screen shows the model's status and
+example questions. A settings panel holds the API key (browser only), switches
+between the native `/generate` API and the OpenAI-compatible multi-turn
+`/v1/chat/completions`, and toggles streaming and retrieval. A code panel turns the
+current question into copyable curl, Python and JavaScript requests. It has light and
+dark themes, works on phones (the panel becomes a drawer), and meets WCAG AA contrast.
 
 ```bash
 cd web
@@ -183,10 +187,10 @@ npm run typecheck && npm test && npm run build
 
 `npm run build` writes `web/dist`, which `deploy/cloudflare-worker/wrangler.toml`
 serves via Workers Static Assets. The release workflow builds it before deploying
-the Worker. A public demo needs either a dedicated key (`fastapi-assistant keys
-create demo`) that visitors paste into Settings, or `REQUIRE_API_KEY=false` on the
-Worker and no `API_KEY`/`DATABASE_URL` on the origins, in which case per-IP rate
-limits apply.
+the Worker. The live deployment runs as a public demo (`PUBLIC_DEMO=true`): visitors
+ask without a key, limited per IP at the edge, and the UI says so. With the default
+`PUBLIC_DEMO=false`, the UI asks for a key before the first question instead; see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) section 5.
 
 ## Evaluation
 
@@ -321,6 +325,7 @@ graphify-out/                        generated knowledge graph of the codebase (
 
 | Area | Documents |
 | --- | --- |
+| Website | All of the documents below as a searchable site: [syed-waleed-ahmed.github.io/Niche-Finetuned-Model](https://syed-waleed-ahmed.github.io/Niche-Finetuned-Model/) |
 | Architecture | [System](docs/architecture/SYSTEM_ARCHITECTURE.md), [request lifecycle](docs/architecture/REQUEST_LIFECYCLE.md), [deployment](docs/architecture/DEPLOYMENT_ARCHITECTURE.md), [security](docs/architecture/SECURITY_ARCHITECTURE.md), [model pipeline](docs/architecture/MODEL_PIPELINE.md), [decisions](docs/architecture/DECISIONS.md), [overview](docs/ARCHITECTURE.md) |
 | Operations | [Deployment](docs/DEPLOYMENT.md), [runbook](docs/operations/RUNBOOK.md), [incident response](docs/operations/INCIDENT_RESPONSE.md), [rollback](docs/operations/ROLLBACK.md), [cost management](docs/operations/COST_MANAGEMENT.md), [backup and recovery](docs/operations/BACKUP_AND_RECOVERY.md) |
 | Security | [Security policy](SECURITY.md), [security audit and threat model](docs/security/SECURITY_AUDIT.md), [license audit](docs/legal/LICENSE_AUDIT.md) |

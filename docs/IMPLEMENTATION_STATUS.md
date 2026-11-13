@@ -1,12 +1,19 @@
 # Implementation status
 
-Last updated: 2026-11-13, after pull requests #13 to #16 were merged into `main`. The
-hardening work (#13, merge `b146406`) and its follow-ups are live: the Release workflow
-deploys both Cloud Run and the edge Worker from `main`. Version 2.1.0 is being
-prepared (tag `v2.1.0` to follow).
+Last updated: 2026-11-13, after pull requests #13 to #32 were merged into `main`.
+Version 2.1.0 is released (tag `v2.1.0`). Since then the service runs as a public
+demo, the documentation is published as a website, and the web UI was redesigned.
+The first fine-tuned model is published and waiting in release pull request #33.
 
 | PR | Change |
 |---|---|
+| #33 | Release the first fine-tuned model, `v2026.11.13-2b04940` (open) |
+| #32 | Web UI redesign: welcome screen, access onboarding, themes, mobile drawer, WCAG AA contrast |
+| #30 | Documentation website (MkDocs Material on GitHub Pages) |
+| #25 | Dev container, ROADMAP.md, Discussions links, social preview |
+| #24 | Opt-in public demo mode (`PUBLIC_DEMO`), `access` in `/health` |
+| #23 | Publish a finished Kaggle run to the Hub from CI (`publish_only`) |
+| #20 to #22 | Release 2.1.0; Dependabot holds `huggingface-hub` at 1.x for fastembed; the Kaggle pipeline imports the package in its own process |
 | #13 | Production hardening (milestones 3 to 9 below) |
 | #14 | Post-deploy verification, accurate UI copy for the base model, CodeQL alert #3 fix |
 | #15 | Train workflow: Kaggle username from a repository variable, the Kaggle CLI's `six` dependency, a `push_only` input. Release uploads only the Worker secrets that are configured. |
@@ -31,10 +38,11 @@ prepared (tag `v2.1.0` to follow).
 
 | Component | State |
 |---|---|
-| Edge Worker and web UI | Live at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev, deployed by the Release workflow from `main` (`deploy-edge`), followed by a k6 smoke test through the edge (`smoke-edge`) |
-| Origin | Cloud Run `fastapi-assistant` in us-central1, deployed by the Release workflow from `main`, `maxScale: 2`, scale to zero |
-| Model | Base TinyLlama-1.1B-Chat Q4_K_M GGUF, pinned revision (`finetuned: false`). A fine-tune is being trained; see "In progress" |
-| Auth | Static owner API key (Secret Manager), origin locked to the edge with a shared secret |
+| Edge Worker and web UI | Live at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev (the redesigned UI from #32), deployed by the Release workflow from `main` (`deploy-edge`), followed by a k6 smoke test through the edge (`smoke-edge`) |
+| Documentation website | Live at https://syed-waleed-ahmed.github.io/Niche-Finetuned-Model/, deployed by the Docs workflow from `main` |
+| Origin | Cloud Run `fastapi-assistant` in us-central1, deployed by the Release workflow from `main`, `maxScale: 1` (`CLOUD_RUN_MAX_INSTANCES=1`, to bound the cost of keyless traffic), scale to zero |
+| Model | Base TinyLlama-1.1B-Chat Q4_K_M GGUF, pinned revision (`finetuned: false`). The fine-tuned release is in pull request #33; see "In progress" |
+| Access | Public demo (`PUBLIC_DEMO=true`): requests without a key are served, 10 per minute per IP at the edge; `/health` reports `"access": "public"`. A wrong key is still rejected. The static owner API key (Secret Manager) still works, and the origin is locked to the edge with a shared secret |
 | Uptime probe | GitHub Actions every 10 minutes through the edge (`EDGE_URL` is set): `/health`, plus the authenticated `/v1/models` |
 | Branch protection | "Protect main" ruleset: pull requests and the core CI and security checks required, no force-push or deletion |
 | Rate limiting | Live, per isolate (20 per minute per key, 10 per IP for anonymous calls). Upstash would make it shared across isolates |
@@ -48,7 +56,7 @@ prepared (tag `v2.1.0` to follow).
 
 | Item | State | Next step |
 |---|---|---|
-| Fine-tuned model (audit F-04) | Credentials are configured: the `KAGGLE_API_TOKEN` secret, the `KAGGLE_USERNAME` and `HF_NAMESPACE` variables, and `HF_TOKEN` attached as a Kaggle secret to the `fastapi-assistant-train` kernel. The first runs exposed environment problems in the Kaggle image, fixed in #15 and #16. A training run is in progress. | The run must pass both eval gates and open a release PR. Until that PR is merged, the live model stays the base GGUF (`finetuned: false`). |
+| Fine-tuned model (audit F-04) | Trained on Kaggle and published to the Hub by CI (Train run 43489041415, `publish_only`): [GGUF](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-gguf) and [LoRA adapter](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-lora), both tagged `v2026.11.13-2b04940`. It passed both gates: on the Kaggle GPU, 0.538 against the base model's 0.383; in the production eval (GGUF on llama.cpp), 0.546 against 0.402. | Merge release pull request #33. Release then deploys it, and the live model reports `finetuned: true`. |
 
 ## Blocked on the owner
 
@@ -57,7 +65,7 @@ make. None of them is required for the service to work.
 
 | Item | Why blocked | What to do |
 |---|---|---|
-| Release `v2.1.0` | A public release is the owner's decision | Publish `v2.1.0` on the merge commit of the 2.1.0 pull request, with the CHANGELOG.md 2.1.0 section as notes (`v2.0.0` is published) |
+| Release pull requests from the Train workflow | The repository does not allow GitHub Actions to create pull requests, so the Train workflow pushes the release branch but cannot open the pull request (#33 was opened by hand) | Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests" |
 
 ### Optional, owner's choice
 

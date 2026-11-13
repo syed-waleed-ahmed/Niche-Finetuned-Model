@@ -20,6 +20,26 @@ yet. See [MODEL_CARD.md](MODEL_CARD.md).
   pre-commit hooks. Dependabot keeps its features up to date.
 - `ROADMAP.md`, GitHub Discussions for questions and ideas, starter issues labelled
   `good first issue`, and a social-preview image (`docs/assets/social-preview.png`).
+- Public demo mode. With the repository variable `PUBLIC_DEMO=true`, Release deploys
+  the Worker without a key requirement and the origin with `PUBLIC_DEMO=true`: requests
+  without a key are served, rate limited per IP at the edge, while a wrong key is
+  still rejected. `GET /health` reports `access` (`public` or `key`) (#24).
+- A documentation site built with MkDocs Material and published to GitHub Pages
+  from `main`, with a strict build that fails on broken links and anchors (#30).
+- A redesigned web UI: a welcome screen with the model's status and example
+  questions, onboarding driven by `/health` `access`, light and dark themes, a drawer
+  on narrow screens, code blocks with copy buttons, and WCAG AA contrast (#32).
+- `fastapi-assistant export publish-outputs`, and a `publish_only` input on the Train
+  workflow: CI can publish a finished Kaggle run to the Hugging Face Hub when the
+  kernel could not (#23).
+
+### Changed
+
+- The live deployment runs as a public demo, with `CLOUD_RUN_MAX_INSTANCES=1` to
+  bound the worst-case cost of keyless traffic.
+- When the Train workflow cannot open the release pull request, it now says which
+  repository setting to enable and links to open the pull request from the pushed
+  branch.
 
 ## [2.1.0] - 2026-11-13
 

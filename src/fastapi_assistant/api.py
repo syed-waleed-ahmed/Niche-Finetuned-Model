@@ -21,6 +21,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from functools import partial
 from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
@@ -75,6 +76,19 @@ _SECURITY_HEADERS = {
     "x-frame-options": "DENY",
     "referrer-policy": "no-referrer",
 }
+
+
+async def _client_gone(request: Request) -> None:
+    """Return once the client has disconnected.
+
+    Waits on the connection's receive channel, as Starlette's streaming responses do.
+    ``request.is_disconnected()`` is not used: it polls without waiting, and behind the
+    request-context middleware that poll never sees the disconnect message.
+    """
+    while True:
+        message = await request.receive()
+        if message["type"] == "http.disconnect":
+            return
 
 
 def _sse(data: Any, event: str | None = None) -> str:
@@ -480,7 +494,9 @@ def create_app(
             )
 
         try:
-            result = await service.complete(messages, params, "/generate")
+            result = await service.complete(
+                messages, params, "/generate", client_gone=partial(_client_gone, request)
+            )
         except (AdmissionRejected, ModelNotReadyError, PromptTooLongError):
             raise
         except Exception as exc:
@@ -629,7 +645,12 @@ def create_app(
             )
 
         try:
-            result = await service.complete(messages, params, "/v1/chat/completions")
+            result = await service.complete(
+                messages,
+                params,
+                "/v1/chat/completions",
+                client_gone=partial(_client_gone, request),
+            )
         except (AdmissionRejected, ModelNotReadyError, PromptTooLongError):
             raise
         except Exception as exc:

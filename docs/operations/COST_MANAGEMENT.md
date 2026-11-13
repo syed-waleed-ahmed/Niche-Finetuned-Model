@@ -119,8 +119,8 @@ Other inputs:
 **Long generations.** A non-streaming request with a large `max_new_tokens` (up to
 1,024) generates for at most `GENERATION_TIMEOUT_S` (60 s on Cloud Run). The edge waits
 150 s, longer than queue plus generation, so that time always produces an answer
-rather than a 504. A client that disconnects early from a non-streaming request still
-leaves its generation running until it finishes or hits the budget.
+rather than a 504. A client that disconnects early stops its generation, streaming or
+not, so abandoned requests no longer bill up to the full budget (#26).
 
 ## 4. Guardrails in this repository
 

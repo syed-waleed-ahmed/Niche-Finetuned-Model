@@ -108,7 +108,10 @@ class Engine(Protocol):
     def fit(self, messages: Sequence[Message], params: GenerationParams) -> GenerationParams: ...
 
     def generate(
-        self, messages: Sequence[Message], params: GenerationParams
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        cancel: threading.Event | None = None,
     ) -> GenerationResult: ...
 
     def stream(
@@ -259,10 +262,17 @@ class BaseEngine:
     ) -> Iterator[StreamEvent]:  # pragma: no cover - abstract
         raise NotImplementedError
 
-    def generate(self, messages: Sequence[Message], params: GenerationParams) -> GenerationResult:
+    def generate(
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        cancel: threading.Event | None = None,
+    ) -> GenerationResult:
+        """Generate a whole answer. Setting ``cancel`` ends it early with what exists so
+        far and ``finish_reason="cancelled"``, as it does for :meth:`stream`."""
         parts: list[str] = []
         final = StreamEvent(finish_reason="stop")
-        for event in self.stream(messages, params):
+        for event in self.stream(messages, params, cancel):
             if event.delta:
                 parts.append(event.delta)
             if event.is_final:

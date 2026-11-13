@@ -270,7 +270,7 @@ The names come from `src/fastapi_assistant/metrics.py`.
 | `assistant_time_to_first_token_seconds` | histogram, `endpoint` | Streaming only. Measured once at 0.3 to 1.1 s on a warm instance. Excludes queue wait. | Several seconds or more: CPU contention or long prompts (retrieval adds prompt tokens) |
 | `assistant_generation_duration_seconds` | histogram, `endpoint`, `stream` | Scales with tokens: about 8 to 10 tokens per second for one request | p95 above 60 s (the `AssistantSlowGenerations` rule) |
 | `assistant_generation_tokens_per_second` | histogram | About 8 to 10 measured on Cloud Run | Mean below 4 (the `AssistantThroughputDrop` rule) |
-| `assistant_generation_finish_total` | counter, `reason` | Mostly `stop` and `length` | Any `timeout` (hit `GENERATION_TIMEOUT_S`, 60 s on Cloud Run); many `cancelled` (clients disconnecting from streams) |
+| `assistant_generation_finish_total` | counter, `reason` | Mostly `stop` and `length` | Any `timeout` (hit `GENERATION_TIMEOUT_S`, 60 s on Cloud Run); many `cancelled` (clients disconnecting before their answer is complete) |
 | `assistant_generation_errors_total` | counter | 0 | Any increase. Find the matching `Generation failed` log line. |
 | `assistant_admission_rejections_total` | counter, `reason` = `queue_full` or `queue_timeout` | 0 | Any sustained rate (the `AssistantSaturated` rule) |
 | `assistant_prompt_too_long_total` | counter | Rare | A rising count: clients send prompts that do not fit the 2,048-token context. Each gets `400 context_length_exceeded`. A client bug or probing, not a server fault. |

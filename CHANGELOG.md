@@ -13,6 +13,14 @@ The deployed model is versioned separately, by `model_version` in
 
 ## [Unreleased]
 
+### Fixed
+
+- A non-streaming request (`POST /generate`, or `POST /v1/chat/completions` without
+  `stream`) stops generating when its caller disconnects, as streamed requests
+  already did. Until now it kept the only generation slot busy for up to
+  `GENERATION_TIMEOUT_S`. `Engine.generate` takes an optional `cancel` event; the
+  remote engine honours it only before the request is sent (#26).
+
 ## [2.2.0] - 2026-11-13
 
 The first fine-tuned model in production, a public demo that needs no key, a

@@ -190,7 +190,7 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 | ID | Threat | Mitigations | Residual risk |
 |---|---|---|---|
 | D1 | Request floods exhausting compute or budget | Key presence check at the edge (not in public demo mode); per-key and per-IP limits (in-isolate today, F-03); admission control (1 running, 3 queued, then 429; 503 after 60 s); `containerConcurrency 4`; `maxScale` (2 at review time, 1 on the live public demo); budget alert | **Medium.** The in-isolate limiter counts per Cloudflare isolate. Every made-up key gets its own bucket and reaches the origin (cheap 401, but billable requests). One valid key can keep both instances busy. In public demo mode anyone can occupy the single instance without a key, held back only by the per-IP limit of 10 a minute per isolate; the cost stays bounded by `maxScale 1` (D7). The measured burst behaviour is in PERFORMANCE_BASELINE. |
-| D2 | Long generations holding the only slot | `GENERATION_TIMEOUT_S=60` on Cloud Run, inside the edge's 150 s timeout together with the 60 s queue wait, so every generation ends in an answer; streaming generations stop when the client disconnects | **Low.** A non-streaming caller that disconnects early still leaves its generation running for up to 60 s (O-2, residual). |
+| D2 | Long generations holding the only slot | `GENERATION_TIMEOUT_S=60` on Cloud Run, inside the edge's 150 s timeout together with the 60 s queue wait, so every generation ends in an answer; a generation stops when its client disconnects, streaming or not (#26) | **Low.** Through the edge this depends on Cloudflare closing the origin connection when the client leaves, which has not been measured. |
 | D3 | Token-dense prompts | Token count with the loaded tokenizer before admission; 400 `context_length_exceeded` (F-01) | **Low** |
 | D4 | A dead or slow origin stalling every request | Per-isolate circuit breaker; 504 on timeout (F-12, edge) | **Low** (a single origin today, so the breaker mostly affects logging) |
 | D5 | Exhausting the Workers Free plan daily request limit | Cloudflare's platform protections. Edge 404s and 401s are cheap but still count. | **Medium.** Past the limit, the whole edge (API and probes) fails until the daily reset. |
@@ -268,7 +268,7 @@ These are not in the initial audit. Each one cites the code that shows it.
 | ID | Rating | Observation | Evidence |
 |---|---|---|---|
 | O-1 | Low | The GCP project id, the runtime service-account address and the Cloud Run URL appear in Release logs, which anyone with read access to the repository's Actions can see. The origin is protected by the shared secret, so this is not exploitable by itself, but it publishes values the operations docs treat as private. | `release.yml`: `cat service.rendered.yaml` (line 218); the `Smoke test the origin` step expands the URL (lines 230 to 232) |
-| O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. Residual: non-streaming generations are still not cancelled when the caller disconnects early. | `schemas.py` (`le=1024`); `service.complete` uses `engine.generate` with no cancel event (`engines/base.py`, `BaseEngine.generate`); `ORIGIN_TIMEOUT_MS=60000` |
+| O-2 | Low (was Medium) | Mitigated (merged in #13): `GENERATION_TIMEOUT_S=60` and `QUEUE_TIMEOUT_S=60` on Cloud Run fit inside the edge's raised `ORIGIN_TIMEOUT_MS=150000`, so the edge no longer returns 504 while the origin keeps generating. The residual is fixed (#26): a non-streaming generation is cancelled when its caller disconnects, and the slot is released. Through the edge this depends on Cloudflare closing the origin connection when the client leaves, which has not been measured. | `schemas.py` (`le=1024`); `service.complete` watches the connection and passes a cancel event to `engine.generate`; `tests/test_disconnect.py` |
 | O-3 | Low | Placeholder values (`""`, `disabled`, `none`, `null`) for `API_KEY` silently disable origin authentication when no database is configured. Release rejects only an empty value. **Status:** Fixed (merged in #13): a placeholder `API_KEY` is rejected at startup, an empty one means unset, and an origin with no authentication logs a warning. | `config.py` `_unset_placeholders`; `auth.Authenticator.enabled`; `release.yml` "Sync secrets" |
 | O-4 | Medium | The deployer service account holds project-wide `roles/secretmanager.admin` and `roles/run.admin`. Its protection is only as strong as the branch protection on `main`. **Status:** Partly mitigated. The "Protect main" ruleset is active: pull requests and the core CI and security checks are required, and force-pushes and deletion are blocked, with admin bypass only through a pull request. The roles themselves are still project-wide. | `bootstrap.sh` lines 52 to 55 and 78 |
 | O-5 | Low | Worker request logs omit the key identity (a truncated SHA-256 that is already computed) and the client IP, so abuse cannot be attributed | `deploy/cloudflare-worker/src/index.ts` `RequestLog` |
@@ -357,9 +357,9 @@ numbering does not change.
    nothing and is an owner setting.
 3. **Configure Upstash** for a shared rate limit and the answer cache (closes F-03;
    owner credential). The command budget is in `deploy/cloudflare-worker/README.md`.
-4. **Cancel non-streaming generations on client disconnect (O-2 residual).** The
-   timeout budget is now consistent (the origin always answers before the edge gives
-   up); what remains is a caller that leaves early.
+4. **Done (#26): cancel non-streaming generations on client disconnect (O-2
+   residual).** The timeout budget was already consistent (the origin always answers
+   before the edge gives up); a caller that leaves early now stops its generation.
 5. **Done: create the scoped Cloudflare API token** (F-10). Release deploys the Worker
    from `main` and runs the k6 smoke test, so the live edge no longer drifts from the
    repository.

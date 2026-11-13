@@ -71,8 +71,20 @@ class RemoteEngine(BaseEngine):
             "stream": stream,
         }
 
-    def generate(self, messages: Sequence[Message], params: GenerationParams) -> GenerationResult:
+    def generate(
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        cancel: threading.Event | None = None,
+    ) -> GenerationResult:
+        # One blocking request, so the upstream reports exact token usage. It is not
+        # interrupted once sent: ``cancel`` only prevents a request that has not
+        # started. Use ``stream`` to stop the upstream server mid-generation.
         self.load()
+        if cancel is not None and cancel.is_set():
+            return GenerationResult(
+                text="", prompt_tokens=0, completion_tokens=0, finish_reason="cancelled"
+            )
         resp = self._client.post(
             "/v1/chat/completions",
             json=self._payload(messages, params, stream=False),

@@ -146,8 +146,13 @@ class TransformersEngine(BaseEngine):
         return "length" if n_new >= params.max_new_tokens else "stop"
 
     # -- inference ---------------------------------------------------------
-    def generate(self, messages: Sequence[Message], params: GenerationParams) -> GenerationResult:
-        deadline = Deadline(params.timeout_s)
+    def generate(
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        cancel: threading.Event | None = None,
+    ) -> GenerationResult:
+        deadline = Deadline(params.timeout_s, cancel)
         input_ids, kwargs = self._prepare(messages, params, deadline)
         with self._generate_lock, torch.no_grad():
             output = self._model.generate(**kwargs)

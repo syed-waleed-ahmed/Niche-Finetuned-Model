@@ -70,8 +70,9 @@ Statuses:
 
 ## 5. Known residual risks
 
-- **Abandoned non-streaming requests:** a caller that disconnects early does not cancel
-  its generation, which runs for up to 60 s.
+- **Abandoned non-streaming requests:** a caller that disconnects early did not cancel
+  its generation, which ran for up to 60 s. **Update:** fixed in #26; the generation
+  now stops and frees its slot.
 - **Edge key check:** the edge checks only that a key is present. Each made-up key gets
   its own rate-limit bucket, and the origin rejects it only after reading the body.
   That body is now capped at 64 KiB.

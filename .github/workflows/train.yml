@@ -21,6 +21,12 @@ on:
       learning_rate:
         description: Learning rate
         default: "0.0002"
+      push_only:
+        description: >-
+          Create or update the kernel on Kaggle without running it. Use once before the
+          first training run, then attach the HF_TOKEN secret to the kernel on Kaggle.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,7 +45,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - run: pip install "kaggle>=1.7,<3"
+      # kaggle 2.x supports KAGGLE_API_TOKEN; 2.2.5 imports `six` without declaring it.
+      - run: pip install "kaggle>=2.2,<3" six
       - name: Render the kernel
         env:
           OVERRIDES: >-
@@ -65,8 +72,16 @@ jobs:
           Path("build/kaggle/kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
           PY
       - name: Push and run
+        if: ${{ !inputs.push_only }}
         run: kaggle kernels push -p build/kaggle
+      - name: Push without running (first-time setup)
+        if: ${{ inputs.push_only }}
+        run: |
+          kaggle kernels push -p build/kaggle --no-run
+          echo "Kernel created: https://www.kaggle.com/code/$KAGGLE_USERNAME/fastapi-assistant-train"
+          echo "Attach the HF_TOKEN secret to it on Kaggle, then run this workflow again."
       - name: Wait for the kernel
+        if: ${{ !inputs.push_only }}
         run: |
           kernel="$KAGGLE_USERNAME/fastapi-assistant-train"
           for i in $(seq 1 300); do
@@ -80,10 +95,10 @@ jobs:
           done
           exit 1
       - name: Download outputs
-        if: always()
+        if: ${{ always() && !inputs.push_only }}
         run: kaggle kernels output "$KAGGLE_USERNAME/fastapi-assistant-train" -p out || true
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: ${{ always() && !inputs.push_only }}
         with:
           name: release
           path: |
@@ -93,10 +108,12 @@ jobs:
             out/eval-finetuned.md
             out/*.log
           if-no-files-found: warn
-      - run: test -f out/model-release.json && jq -e '.gguf.repo_id' out/model-release.json
+      - if: ${{ !inputs.push_only }}
+        run: test -f out/model-release.json && jq -e '.gguf.repo_id' out/model-release.json
 
   eval:
     needs: kaggle
+    if: ${{ !inputs.push_only }}
     uses: ./.github/workflows/eval.yml
     permissions:
       contents: read

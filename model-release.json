@@ -1,16 +1,26 @@
 {
-  "model_version": "base-tinyllama-q4km",
-  "created_at": "2026-11-12T00:00:00+00:00",
+  "model_version": "v2026.11.13-2b04940",
+  "created_at": "2026-11-13T18:43:49+00:00",
   "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-  "finetuned": false,
-  "chat_format": "zephyr",
-  "adapter": null,
-  "gguf": {
-    "repo_id": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-    "filename": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-    "revision": "52e7645ba7c309695bec7ac98f4f005b139cf465",
-    "sha256": "9fecc3b3cd76bba89d504f29b616eedf7da85b96540e490ca5824d3f7d2776a0"
+  "adapter": {
+    "repo_id": "syed-waleed-ahmed/fastapi-assistant-lora",
+    "revision": "v2026.11.13-2b04940"
   },
-  "eval": null,
-  "notes": "Bootstrap release: the public base model, not yet fine-tuned. The training pipeline (kaggle/pipeline.py) replaces this file with a pinned fine-tuned release."
+  "gguf": {
+    "repo_id": "syed-waleed-ahmed/fastapi-assistant-gguf",
+    "filename": "model-Q4_K_M.gguf",
+    "revision": "v2026.11.13-2b04940",
+    "sha256": "6bc3c2c1a0e6b2d082ec01d14b57f056bc1e474bf9035b93cbe0aef165efe380"
+  },
+  "eval": {
+    "items": 108,
+    "score": 0.538,
+    "keyword_recall": 0.4105,
+    "code_valid": 0.8365,
+    "code_runs": null,
+    "rouge_l": 0.3851,
+    "latency_p50_s": 9.832,
+    "latency_p95_s": 14.198
+  },
+  "finetuned": true
 }

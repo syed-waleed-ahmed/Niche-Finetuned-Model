@@ -1,0 +1,90 @@
+# Final verification
+
+Date: 2026-11-13.
+
+| Item | Identifier |
+|---|---|
+| Branch | `feat/production-hardening` |
+| Pull request | #13 |
+| Commit verified | `05129c5` |
+| Live deployment verified | Cloud Run built from `main` (`155e580`) and edge Worker `8ec9a2fc` |
+
+The branch is verified by CI and local runs. It is not live until the pull request is
+merged; see section 4.
+
+Statuses:
+
+| Status | Meaning |
+|---|---|
+| PASS | Verified with the evidence shown |
+| PASS WITH LIMITATIONS | Verified, with a stated, accepted gap |
+| BLOCKED | Needs something only the repository owner can provide (credentials, account settings, a merge) |
+| FAIL | Verified broken |
+
+**No item is FAIL.**
+
+## 1. Code quality and tests
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 1 | Python tests | PASS | **Local:** 134 passed, 3 skipped (2 need Postgres, 1 needs POSIX bash). **CI:** Python 3.10, 3.11 and 3.12 pass, and the Postgres + pgvector integration job passes. |
+| 2 | Lint, format, types | PASS | `ruff check` and `ruff format --check` are clean on `src`, `tests` and `examples`. `mypy` reports no issues in 33 files (the baseline had 29 errors). Both run in CI. |
+| 3 | Edge Worker | PASS | `tsc --noEmit` is clean and 75 vitest tests pass (55 at baseline). |
+| 4 | Web UI | PASS | Typecheck is clean and 46 tests pass. The build writes `THIRD_PARTY_NOTICES.txt` for 110 production packages. |
+| 5 | Examples | PASS | `tests/test_examples.py` runs each example against a real uvicorn server, and the curl example runs on Linux CI. Run manually against the live edge, all three exited 0. |
+| 6 | Documentation integrity | PASS | All 12 Mermaid diagrams in 8 files parse with the Mermaid 11 parser. 136 relative Markdown links checked; every one resolves once this file exists. A scan of new files found no secrets, no Cloud Run hostname, no project id and no email addresses. |
+
+## 2. Security and supply chain
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 7 | Container build and real-model smoke test | PASS | CI run 43417061327 boots the image, downloads the GGUF and logs "Verified sha256 of tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf in 0.4s". It answers with retrieval and sources, and returns 401 without a key. A token-dense prompt returns 400 `{"detail":"The prompt is 3546 tokens; the model's context window is 2048 tokens, including at least 16 for the answer"}`, and a 70 KB body returns 413. |
+| 8 | Image vulnerability gate | PASS | The CI Trivy gate now fails on fixable HIGH and CRITICAL CVEs, and it passed on the hardened image. Debian updates are applied, and pip, setuptools and wheel are removed. The Release gate uses the same rule and runs after merge. |
+| 9 | Dependency audits | PASS WITH LIMITATIONS | pip-audit on the serving lock passes with one documented exception, PYSEC-2026-2447 (`diskcache`, no fix exists, code path unreachable). npm audit finds 0 vulnerabilities for the Worker and the web UI. Dependency review passes. |
+| 10 | Secret scanning | PASS | gitleaks over the full history passes in CI. No secret values were printed or committed during this work, and the API key was read from a private file without being echoed. |
+| 11 | Static analysis | PASS WITH LIMITATIONS | CodeQL passes for Python, JavaScript/TypeScript and Actions. Two alerts are open, and both are intended behaviour: #1 prints a new key once in the CLI, and #2 hashes 256-bit random API keys with SHA-256. Dismissing them is an owner action. |
+| 12 | Threat model | PASS | `docs/security/SECURITY_AUDIT.md` has a STRIDE analysis with a status for every finding. Five observations raised during documentation were fixed on this branch (O-3, O-6, O-7, O-8, O-9). |
+| 13 | Licenses | PASS WITH LIMITATIONS | `docs/legal/LICENSE_AUDIT.md`. Notices now ship in the image, the web bundle and future model folders. Still unverified: the Debian layer inventory, the native libraries in `psycopg-binary`, and the model-provider terms for drafted dataset rows. The dataset is not cleared for standalone publication. |
+
+## 3. Model quality
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 14 | Eval gate | PASS | The CI eval job ran the 108-item held-out set with llama.cpp in 24 minutes. Composite 0.4023 (keyword recall 0.4321, code validity 0.4904, ROUGE-L 0.2891, latency p50 6.86 s). The allowed regression from the committed 0.410 baseline is 0.02. No eval data or baseline was modified. |
+| 15 | Held-out discipline | PASS | Training no longer reads the eval file; checkpoint selection uses a validation slice of the training file. Covered by tests. No model had been trained with the old behaviour. |
+| 16 | Fine-tuned model in production | BLOCKED | Needs Kaggle and Hugging Face credentials (audit F-04). The live model is the base TinyLlama GGUF, labelled as such everywhere. The clone defect that would have failed the first training run is fixed. |
+
+## 4. Deployment
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 17 | Live stack end to end (current `main`) | PASS | 15 of 15 scripted checks against the public edge. Covered: health, web UI, `/metrics` hidden, 401 without a key, 401 with a bad key, 403 direct to origin, a metrics token required, generate, 422, CORS, native SSE, and the OpenAI SDK list, chat and stream. |
+| 18 | Hardened code live | BLOCKED | Waits on the owner merging #13. Release then deploys Cloud Run automatically. The Worker has to be deployed from `main` with `wrangler deploy --var ORIGINS:<Cloud Run URL> --var MODEL_VERSION:base-tinyllama-q4km` (CI edge deploys are blocked, item 20). Until then, the live edge has no rate limiting and no body cap. |
+| 19 | Capacity | PASS WITH LIMITATIONS | Two controlled probes only (`PERFORMANCE_BASELINE.md`). One generation runs at a time per instance, with a maximum of 2 instances. A burst during scale-out drew plain-text 429s from the platform; the edge normalises them on this branch. No user capacity is claimed. |
+| 20 | CI-driven edge deploys | BLOCKED | Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (F-10). |
+| 21 | Shared rate limits, cache, per-user keys | BLOCKED | Optional. Needs Upstash and Neon credentials. The service degrades gracefully without them (ADR-005). |
+| 22 | Backup origin | BLOCKED | Optional. Needs a Hugging Face token or a VM (F-11). |
+| 23 | Observability backends | BLOCKED | Optional. Sentry DSN and Grafana Cloud are not connected. Metrics, JSON logs (now with `severity`) and the uptime probe work without them. |
+
+## 5. Known residual risks
+
+- **Abandoned non-streaming requests:** a caller that disconnects early does not cancel
+  its generation, which runs for up to 60 s.
+- **Edge key check:** the edge checks only that a key is present. Each made-up key gets
+  its own rate-limit bucket, and the origin rejects it only after reading the body.
+  That body is now capped at 64 KiB.
+- **Fallback rate limiting:** it is per isolate, so the effective limit is a multiple of
+  the configured one.
+- **Deploy identity:** the deploy service account has project-wide Secret Manager and
+  Cloud Run admin roles (O-4). Branch protection on `main` was not reviewed.
+
+## 6. Owner actions
+
+Listed with instructions in [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md):
+
+- merge #13;
+- create the Cloudflare API token;
+- optionally add credentials for training, Upstash and Neon;
+- dismiss CodeQL #1 and #2 and Dependabot #1;
+- enable private vulnerability reporting;
+- optionally tag `v2.0.0`.

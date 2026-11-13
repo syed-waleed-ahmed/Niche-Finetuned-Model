@@ -48,7 +48,7 @@ capacity predictable. Scaling beyond it is a configuration change (section 9).
 | `HF_TOKEN` | Hugging Face token with write access | Kaggle secret attached to the kernel |
 | `KAGGLE_USERNAME` + `KAGGLE_KEY` (or `KAGGLE_API_TOKEN`) | Kaggle account settings, API | GitHub secrets |
 
-## Secrets in one command
+### Secrets in one command
 
 Secret values never go into scripts, workflow logs, or chat. After `gh auth login`
 and `wrangler login` (in `deploy/cloudflare-worker`), run from the repository root:

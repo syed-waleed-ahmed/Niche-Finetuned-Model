@@ -10,7 +10,7 @@ an edge cache with multi-origin failover, and a model-release pipeline where
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the high-level design and
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the high-level design and
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the deployment runbook.
 
 ## What it does
@@ -252,10 +252,11 @@ src/fastapi_assistant/
 data/                                curated train/eval sets
 eval/                                baseline reports the gate compares against
 model-release.json                   the deployed model, pinned to Hub revisions
+docs/                                ARCHITECTURE.md (design), DEPLOYMENT.md (runbook)
 web/                                 browser playground (React + Vite), served by the Worker
 deploy/                              Cloudflare Worker, Cloud Run, VM, HF Space, Grafana
 kaggle/, scripts/                    GPU training pipeline, GGUF export
-loadtest/                            k6 scenarios
+tests/, tests/load/                  pytest suite, k6 load/smoke scenarios
 .github/workflows/                   ci, release, eval, train, uptime, codeql
 ```
 

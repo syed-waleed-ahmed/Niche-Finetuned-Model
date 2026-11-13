@@ -1,56 +1,49 @@
-# Python cache and bytecode
+# ---- Python ------------------------------------------------------------------
 __pycache__/
 *.py[cod]
-
-# Local virtual environments
+*.egg-info/
+build/
+dist/
 .venv/
 venv/
 env/
 
-# Tooling caches
-.mypy_cache/
+# ---- Tooling caches and reports ---------------------------------------------
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
-*.egg-info/
-build/
-dist/
+.cache/
+.ipynb_checkpoints/
 
-# Model build artifacts (adapters, checkpoints). Regenerate with `make train`.
-outputs/
-
-# Hugging Face model cache (if kept in-repo)
-.hf_cache/
-
-# Local environment files
+# ---- Local environment and secrets ------------------------------------------
 .env
 .env.*
 !.env.example
+.claude/settings.local.json
 
-# IDE and editor settings
-.idea/
-.vscode/
-*.swp
-
-# Logs
-*.log
-
-# Operating system noise
-.DS_Store
-Thumbs.db
-
-# Notebook checkpoints
-.ipynb_checkpoints/
-
+# ---- Generated artifacts (regenerable) --------------------------------------
+# Model build artifacts (adapters, checkpoints, local RAG index): `make train`, `make rag-index`.
+outputs/
+# Hugging Face model cache, if kept in-repo.
+.hf_cache/
+# Local training-pipeline output (kaggle/pipeline.py run outside Kaggle) and CI scratch.
+kaggle-out/
+out/
+# Per-run eval logs; the committed baselines live next to them in eval/.
+eval/.*.log
+# Rendered Cloud Run manifest (release.yml renders deploy/cloudrun/service.yaml).
+service.rendered.yaml
+# Wrangler local state (also covered by deploy/cloudflare-worker/.gitignore).
+.wrangler/
 # Knowledge-graph outputs are tracked; only the regenerable cache is ignored.
 graphify-out/cache/
 
-# Local caches and generated artifacts from the CLI and pipelines
-.cache/
-build/
-kaggle-out/
-out/
-eval/.*.log
-service.rendered.yaml
-.wrangler/
+# ---- Logs, editors, OS noise -------------------------------------------------
+*.log
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

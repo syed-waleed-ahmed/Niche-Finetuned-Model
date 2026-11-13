@@ -11,7 +11,7 @@ name: Release
 on:
   push:
     branches: [main]
-    paths-ignore: ["**.md", "docs/**", "graphify-out/**", "eval/**", "loadtest/**"]
+    paths-ignore: ["**.md", "docs/**", "graphify-out/**", "eval/**", "tests/load/**"]
   workflow_dispatch:
 
 permissions:
@@ -275,4 +275,4 @@ jobs:
       - uses: grafana/setup-k6-action@c47136d33d365efbeb9ae7266908b5dcf98cdece # v1.3.0
         with:
           k6-version: "1.8.2"
-      - run: k6 run -e SCENARIO=smoke -e BASE_URL="${{ vars.EDGE_URL }}" -e API_KEY="${{ secrets.SMOKE_API_KEY }}" loadtest/k6.js
+      - run: k6 run -e SCENARIO=smoke -e BASE_URL="${{ vars.EDGE_URL }}" -e API_KEY="${{ secrets.SMOKE_API_KEY }}" tests/load/k6.js

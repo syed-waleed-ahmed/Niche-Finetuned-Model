@@ -1,6 +1,6 @@
 // k6 load test for the edge (Cloudflare Worker) or a single origin.
 //
-//   k6 run -e BASE_URL=https://edge.example.com -e API_KEY=fa_... loadtest/k6.js
+//   k6 run -e BASE_URL=https://edge.example.com -e API_KEY=fa_... tests/load/k6.js
 //   k6 run -e SCENARIO=smoke ...      # 1 user for 1 minute (used after deploys)
 //
 // 429 responses are expected under load: they are admission control working

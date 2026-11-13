@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "FastAPI Niche Assistant"
+abstract: >-
+  A small language model service that answers questions about the FastAPI web
+  framework. It provides a LoRA fine-tuning pipeline for TinyLlama-1.1B-Chat on a
+  curated FastAPI question-answer dataset (351 training and 108 held-out evaluation
+  examples), an evaluation harness that gates every model release on the held-out
+  set, and a production service with a native and an OpenAI-compatible HTTP API,
+  streaming, optional retrieval over the FastAPI documentation, per-user API keys,
+  bounded admission control, and an edge layer with caching and origin failover.
+  The currently deployed model is the base TinyLlama-1.1B-Chat-v1.0 (Q4_K_M GGUF),
+  not yet fine-tuned.
+authors:
+  - family-names: Ahmed
+    given-names: Syed Waleed
+version: 2.0.0
+license: MIT
+repository-code: "https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model"
+url: "https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model"
+keywords:
+  - fastapi
+  - large language models
+  - small language model
+  - fine-tuning
+  - lora
+  - peft
+  - tinyllama
+  - gguf
+  - llama.cpp
+  - retrieval-augmented generation
+  - model evaluation
+  - mlops

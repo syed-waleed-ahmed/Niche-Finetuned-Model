@@ -103,9 +103,14 @@ evaluates but publishes nothing, and `train.yml` stops.
 
 On the GPU, the pipeline scores the base model (`eval --no-adapter`) and the
 fine-tune on the 108-item eval set, then gates the fine-tune against the base
-report with `--max-regression` set to minus `min_improvement` (default 0.0). The
-fine-tune must therefore score at least as well as the base model, or the kernel
+report with `--max-regression` set to minus `min_improvement` (default 0.005). The
+fine-tune must therefore beat the base model by at least that margin; greedy decoding
+makes the eval deterministic, so a tie is not an improvement. Otherwise the kernel
 exits before merging or publishing.
+
+Training never reads the eval file. `data.load_raw_dataset` splits a seeded
+validation slice (`VALIDATION_FRACTION`, default 0.1) off the *training* file, and the
+trainer selects its best checkpoint by loss on that slice.
 
 ## 6. Merge, GGUF export and quantisation
 

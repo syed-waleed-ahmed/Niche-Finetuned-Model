@@ -1,0 +1,36 @@
+# Editor settings shared by every contributor (https://editorconfig.org).
+# Line endings are also enforced by .gitattributes (LF everywhere).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Python: PEP 8 indentation; line length is configured in pyproject.toml (ruff, 100).
+[*.{py,pyi}]
+indent_size = 4
+
+# SQL migrations use four spaces.
+[*.sql]
+indent_size = 4
+
+# Two trailing spaces are a hard line break in Markdown.
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+# Windows-only scripts keep CRLF (matches .gitattributes).
+[*.{bat,ps1}]
+end_of_line = crlf
+
+# Generated files: written by tools, never edited by hand. The eval baselines are
+# produced by `fastapi-assistant eval` (see CONTRIBUTING.md, "Evaluation integrity").
+[{eval/**,graphify-out/**}]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

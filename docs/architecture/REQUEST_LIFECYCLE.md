@@ -133,7 +133,7 @@ Middleware order was confirmed by building the app and reading
 | 8. Normalise | Client system messages are dropped, the last `MAX_CHAT_TURNS` (6) turns kept, retrieved context attached. A conversation that does not end with a user message is a 400. | `prompts.py` `normalize_chat` |
 | 9. Token budget | `service.fit` runs before admission. The llama.cpp tokenizer counts content tokens plus a deliberate over-estimate of template tokens (8 per message, 8 fixed). If fewer than 16 tokens of `LLAMACPP_N_CTX` (2,048) remain: 400 with `code: context_length_exceeded`. Otherwise `max_tokens` is clamped to the remaining room. | `engines/base.py` `fit`, `engines/llamacpp_engine.py` |
 | 10. Admission | Up to `MAX_CONCURRENCY` (1) run; up to `MAX_QUEUE` (3 on Cloud Run) wait, each at most `QUEUE_TIMEOUT_S` (60 s on Cloud Run). Queue full: 429; wait expired: 503. Both use type `overloaded` and a `Retry-After` from a moving average of service time. | `admission.py`, `api.py` `admission_error` |
-| 11. Generation | Runs in a worker thread holding the slot. `GENERATION_TIMEOUT_S` (120 s) is checked per token and ends the answer with `finish_reason` `length` on the OpenAI API (`timeout` internally). | `service.py`, `engines/base.py` `Deadline` |
+| 11. Generation | Runs in a worker thread holding the slot. `GENERATION_TIMEOUT_S` (60 s on Cloud Run, 120 s default) is checked per token and ends the answer with `finish_reason` `length` on the OpenAI API (`timeout` internally). | `service.py`, `engines/base.py` `Deadline` |
 | 12. Response | Non-streaming: JSON `chat.completion`; usage recorded in a background task. Streaming: see section 5. Every response gets `X-Request-ID`, `X-Process-Time-Ms`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`. | `api.py` |
 
 A request that arrives while the model is still loading waits inside step 9:
@@ -204,14 +204,20 @@ edge, clients receive those as the normalised edge errors in the table above.
 | Budget | Value | Covers | Code |
 | --- | --- | --- | --- |
 | Upstash pipeline | 2 s | One Redis round trip | `src/config.ts` `REDIS_TIMEOUT_MS` |
-| `ORIGIN_TIMEOUT_MS` | 60 s per origin | Time until response headers | `wrangler.toml`, `src/proxy.ts` |
+| `ORIGIN_TIMEOUT_MS` | 150 s per origin (`wrangler.toml`; 60 s code default) | Time until response headers | `wrangler.toml`, `src/proxy.ts` |
 | `QUEUE_TIMEOUT_S` | 60 s on Cloud Run (30 s default) | Wait for an admission slot | `deploy/cloudrun/service.yaml` |
-| `GENERATION_TIMEOUT_S` | 120 s | Decode loop | `config.py` |
+| `GENERATION_TIMEOUT_S` | 60 s on Cloud Run (120 s default) | Decode loop | `deploy/cloudrun/service.yaml`, `config.py` |
 | Cloud Run request timeout | 300 s | Whole request, including a stream | `deploy/cloudrun/service.yaml` `timeoutSeconds` |
 
 These budgets interact. For a non-streaming request the origin sends headers only
-after generation finishes, so queue wait plus generation must fit in the edge's 60 s.
-At the measured 8 to 10 tokens/s, a long answer (up to 1,024 tokens) or a long queue
-wait can exceed it. The edge then answers 504, while the origin keeps generating:
-`service.complete` has no cancellation path. Streaming requests are not affected in
-the same way, because headers are sent as soon as the slot is acquired.
+after generation finishes, so queue wait plus generation must fit inside the edge's
+timeout. The deployed values keep that invariant: 60 s of queue plus 60 s of
+generation is 120 s, under the edge's 150 s, so the origin always answers first. A
+long answer is cut at 60 s of generation (about 500 tokens at the measured 8 to 10
+tokens/s) and returned with `finish_reason` `length`, rather than lost behind a 504.
+
+Residual: a client that disconnects from a non-streaming request early does not stop
+its generation (`service.complete` has no cancellation path); it runs to completion
+or to the 60 s budget. Streaming requests stop when the client disconnects. Changing
+any of the three values must preserve
+`QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S < ORIGIN_TIMEOUT_MS`.

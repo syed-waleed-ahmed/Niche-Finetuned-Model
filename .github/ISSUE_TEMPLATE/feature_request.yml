@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest a new capability or an improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please search existing issues first. For larger
+        changes, agreeing on the approach here before writing code saves everyone time
+        (see CONTRIBUTING.md).
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the project would this change?
+      options:
+        - API service
+        - Model, training, or dataset
+        - Evaluation or release gate
+        - Retrieval
+        - Edge Worker
+        - Web UI
+        - Deployment or operations
+        - CI/CD
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve, and for whom? Describe the need, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you would solve it. Include API shapes, configuration, or examples where they help.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you considered, and why you prefer the proposal.
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and trade-offs
+      description: |
+        Effects on latency, cost (the deployment runs on free tiers), security, or
+        model quality. For model or data changes, say how you would measure the effect
+        with the eval gate.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this.

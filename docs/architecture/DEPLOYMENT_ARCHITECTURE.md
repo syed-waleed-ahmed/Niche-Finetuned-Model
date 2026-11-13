@@ -154,7 +154,7 @@ this in its container smoke test). Why weights are downloaded rather than baked:
 
 `deploy/cloudflare-worker/wrangler.toml` defines the Worker, its `[vars]` defaults
 (`RATE_LIMIT_PER_MINUTE` 20, `RATE_LIMIT_PER_MINUTE_ANON` 10, `CACHE_TTL_SECONDS`
-86,400, `ORIGIN_TIMEOUT_MS` 60,000, `REQUIRE_API_KEY` true,
+86,400, `ORIGIN_TIMEOUT_MS` 150,000, `REQUIRE_API_KEY` true,
 `KEY_VERIFIED_TTL_SECONDS` 300, `MAX_REQUEST_BYTES` 65,536) and the static assets
 directory `../../web/dist`. `ORIGINS` is empty in the file on purpose; an unset value
 fails closed with 502. Secrets (`ORIGIN_SHARED_SECRET`, Upstash URL and token) are set

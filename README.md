@@ -219,7 +219,7 @@ flowchart LR
     PR --> Deploy["merge = deploy"]
 ```
 
-The dataset is curated: 351 training and 108 eval pairs across 42 topics, every
+The dataset is curated: 351 training and 108 eval pairs; the eval set spans 41 categories, every
 Python block parsed and most executed against FastAPI during authoring. Train/eval
 leakage is checked in CI. `fastapi-assistant data generate` drafts more pairs from
 the official docs with Claude for human review.

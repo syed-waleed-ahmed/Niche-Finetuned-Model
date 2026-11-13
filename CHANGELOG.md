@@ -94,6 +94,8 @@ Changes merged to `main` after 2.0.0, plus the `feat/production-hardening` branc
 
 ### Fixed
 
+- The web UI no longer describes the model as fine-tuned while the base model is
+  serving; the health badge states which one is live.
 - A prompt under the character limit but over the llama.cpp context window (2,048
   tokens by default) returned HTTP 500 (or, when streaming, an in-band error after a
   200). The prompt is now counted

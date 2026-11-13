@@ -55,8 +55,10 @@ export function MessageList({ turns, onRate, onPick }: Props) {
           <div className="empty">
             <h2>Ask anything about FastAPI</h2>
             <p>
-              Answers come from a small language model fine-tuned on FastAPI, streamed token by
-              token, with the documentation passages it was grounded on.
+              Answers come from a small (1.1B-parameter) language model, streamed token by token,
+              with the documentation passages they were grounded on. The badge above shows
+              whether the fine-tuned or the base model is serving. Check answers against the
+              cited sources.
             </p>
             <div className="chips" aria-label="Example questions">
               {EXAMPLE_QUESTIONS.map((q) => (

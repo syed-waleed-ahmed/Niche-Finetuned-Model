@@ -16,7 +16,7 @@ export function Header({ health, onOpenSettings, docsUrl }: Props) {
         </svg>
         <div>
           <div className="brand__title">FastAPI Assistant</div>
-          <div className="brand__subtitle">A fine-tuned small model that answers FastAPI questions</div>
+          <div className="brand__subtitle">A small language model that answers FastAPI questions</div>
         </div>
       </div>
       <div className="header__spacer" />

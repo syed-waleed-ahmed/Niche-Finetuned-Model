@@ -7,10 +7,9 @@ Date: 2026-11-13.
 | Branch | `feat/production-hardening` |
 | Pull request | #13 |
 | Commit verified | `05129c5` |
-| Live deployment verified | Cloud Run built from `main` (`155e580`) and edge Worker `8ec9a2fc` |
+| Live deployment verified | Before merge: Cloud Run from `155e580` and Worker `8ec9a2fc`. After merge: Cloud Run from `b146406` and the Worker deployed from `main` (item 18) |
 
-The branch is verified by CI and local runs. It is not live until the pull request is
-merged; see section 4.
+PR #13 was merged and deployed the same day; item 18 records the post-deploy checks.
 
 Statuses:
 
@@ -59,7 +58,7 @@ Statuses:
 | # | Check | Status | Evidence |
 |---|---|---|---|
 | 17 | Live stack end to end (current `main`) | PASS | 15 of 15 scripted checks against the public edge. Covered: health, web UI, `/metrics` hidden, 401 without a key, 401 with a bad key, 403 direct to origin, a metrics token required, generate, 422, CORS, native SSE, and the OpenAI SDK list, chat and stream. |
-| 18 | Hardened code live | BLOCKED | Waits on the owner merging #13. Release then deploys Cloud Run automatically. The Worker has to be deployed from `main` with `wrangler deploy --var ORIGINS:<Cloud Run URL> --var MODEL_VERSION:base-tinyllama-q4km` (CI edge deploys are blocked, item 20). Until then, the live edge has no rate limiting and no body cap. |
+| 18 | Hardened code live | PASS | Merged as `b146406`. Release 43435695506 succeeded: build, a scan gated on HIGH, and the Cloud Run deploy. The Worker was deployed from `main`, with `ORIGIN_TIMEOUT_MS` 150000 and `MAX_REQUEST_BYTES` 65536 confirmed in its bindings. Live afterwards: the original 15 end-to-end checks pass again. The new checks pass too: token-dense prompt gives 400 (3,560 tokens counted by the live model); the streaming variant gives 400 before the stream; a 70 KB body gives 413 at the edge; the fallback rate limit shows `x-ratelimit-limit: 20`; responses carry `nosniff`, `DENY` and `no-referrer`; `x-cloud-trace-context` and the origin's `Server` header are removed (Cloudflare adds its own); the UI is served with a CSP and its notices file; a made-up key gets 401. In Chrome, the UI loads under the CSP with no violations and the health badge reads "base model". |
 | 19 | Capacity | PASS WITH LIMITATIONS | Two controlled probes only (`PERFORMANCE_BASELINE.md`). One generation runs at a time per instance, with a maximum of 2 instances. A burst during scale-out drew plain-text 429s from the platform; the edge normalises them on this branch. No user capacity is claimed. |
 | 20 | CI-driven edge deploys | BLOCKED | Needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (F-10). |
 | 21 | Shared rate limits, cache, per-user keys | BLOCKED | Optional. Needs Upstash and Neon credentials. The service degrades gracefully without them (ADR-005). |
@@ -82,9 +81,9 @@ Statuses:
 
 Listed with instructions in [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md):
 
-- merge #13;
+- merge #13: done;
 - create the Cloudflare API token;
 - optionally add credentials for training, Upstash and Neon;
 - dismiss CodeQL #1 and #2 and Dependabot #1;
-- enable private vulnerability reporting;
+- private vulnerability reporting: done (enabled after the merge);
 - optionally tag `v2.0.0`.

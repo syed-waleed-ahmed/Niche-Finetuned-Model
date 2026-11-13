@@ -5,7 +5,8 @@ name: Train on Kaggle
 # runs the production eval gate on the new GGUF, and opens a pull request that
 # updates model-release.json and eval/baseline.json. Merging that PR deploys it.
 #
-# Needs: secrets KAGGLE_USERNAME + KAGGLE_KEY (or KAGGLE_API_TOKEN), variable
+# Needs: secret KAGGLE_API_TOKEN (or KAGGLE_KEY), the Kaggle username as variable (or
+# secret) KAGGLE_USERNAME, variable
 # HF_NAMESPACE, and an HF_TOKEN secret attached to the kernel on Kaggle.
 
 on:
@@ -29,7 +30,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 330
     env:
-      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      # A username is not a secret; the variable form is preferred.
+      KAGGLE_USERNAME: ${{ vars.KAGGLE_USERNAME || secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
     steps:

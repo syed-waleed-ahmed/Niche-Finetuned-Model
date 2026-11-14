@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     )
 
     # --- Model identity ---------------------------------------------------
-    base_model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    base_model_name: str = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
     model_version: str = Field(
         default="dev",
         description="Release label reported in responses, metrics, and usage records.",
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     llamacpp_n_threads: int | None = Field(default=None, ge=1)
     llamacpp_chat_format: str | None = Field(
         default=None,
-        description="Override the chat template embedded in the GGUF (e.g. 'zephyr').",
+        description="Override the chat template embedded in the GGUF (e.g. 'chatml').",
     )
 
     # Remote OpenAI-compatible backend.
@@ -198,13 +198,21 @@ class Settings(BaseSettings):
     lora_alpha: int = Field(default=32, ge=1)
     lora_dropout: float = Field(default=0.05, ge=0.0, lt=1.0)
     lora_target_modules: list[str] = Field(
-        default_factory=lambda: ["q_proj", "k_proj", "v_proj", "o_proj"]
+        default_factory=lambda: [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
     )
     seed: int = 42
 
     # --- Filesystem paths (override in containers/deployments) ------------
     data_dir: Path = PROJECT_ROOT / "data"
-    output_dir: Path = PROJECT_ROOT / "outputs" / "fastapi_tinyllama_lora"
+    output_dir: Path = PROJECT_ROOT / "outputs" / "fastapi_assistant_lora"
 
     @field_validator("gguf_sha256", mode="before")
     @classmethod

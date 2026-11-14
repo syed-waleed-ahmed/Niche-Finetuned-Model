@@ -138,14 +138,21 @@ class _FakeLlama:
 
 
 def test_llamacpp_stops_at_the_template_role_markers(monkeypatch):
-    # The fine-tuned model sometimes skips end-of-sequence and writes an invented
-    # "<|user|>" turn; the engine must ask llama.cpp to stop there.
+    # A fine-tuned model sometimes skips end-of-sequence and writes an invented next
+    # turn; the engine must ask llama.cpp to stop at the role markers of both the
+    # ChatML (Qwen) and Zephyr-style (TinyLlama) templates.
     engine = LlamaCppEngine(Settings(_env_file=None, engine_backend="llamacpp"))
     fake = _FakeLlama()
     monkeypatch.setattr(engine, "_load_impl", lambda: setattr(engine, "_llm", fake))
     events = list(engine.stream([{"role": "user", "content": "q"}], GenerationParams()))
     assert "".join(e.delta for e in events) == "Use status_code=201."
-    assert fake.kwargs["stop"] == ["<|user|>", "<|system|>", "<|assistant|>"]
+    assert fake.kwargs["stop"] == [
+        "<|im_end|>",
+        "<|im_start|>",
+        "<|user|>",
+        "<|system|>",
+        "<|assistant|>",
+    ]
     assert events[-1].finish_reason == "stop"
 
 
@@ -375,7 +382,7 @@ def test_published_model_card_carries_apache_attribution(tmp_path, make_settings
     assert "license: apache-2.0" in text
     assert "Apache License 2.0" in text and "modified work" in text
     notice = (tmp_path / "NOTICE").read_text(encoding="utf-8")
-    assert "TinyLlama/TinyLlama-1.1B-Chat-v1.0" in notice
+    assert "Qwen/Qwen2.5-Coder-1.5B-Instruct" in notice
     assert "Modifications:" in notice
 
 

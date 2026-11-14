@@ -16,7 +16,7 @@ on:
     inputs:
       base_model:
         description: Base model to fine-tune
-        default: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+        default: Qwen/Qwen2.5-Coder-1.5B-Instruct
       num_epochs:
         description: Epochs
         default: "3"

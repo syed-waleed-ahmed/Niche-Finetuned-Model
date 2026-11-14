@@ -36,10 +36,10 @@ RUN pip wheel --no-deps --wheel-dir /wheels .
 FROM python:${PYTHON_VERSION}-slim AS runtime
 ARG BAKE_MODEL=false
 ARG BAKE_RAG_INDEX=true
-ARG GGUF_REPO_ID=TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
-ARG GGUF_FILENAME=tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
-ARG GGUF_REVISION=52e7645ba7c309695bec7ac98f4f005b139cf465
-ARG GGUF_SHA256=9fecc3b3cd76bba89d504f29b616eedf7da85b96540e490ca5824d3f7d2776a0
+ARG GGUF_REPO_ID=Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF
+ARG GGUF_FILENAME=qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
+ARG GGUF_REVISION=f86cb2c1fa58255f8052cc32aeede1b7482d4361
+ARG GGUF_SHA256=cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -59,9 +59,8 @@ ENV PYTHONUNBUFFERED=1 \
     GGUF_FILENAME=${GGUF_FILENAME} \
     GGUF_REVISION=${GGUF_REVISION} \
     GGUF_SHA256=${GGUF_SHA256} \
-    LLAMACPP_CHAT_FORMAT=zephyr \
     FINETUNED_WEIGHTS=false \
-    MODEL_VERSION=base-tinyllama-q4km \
+    MODEL_VERSION=base-qwen2.5-coder-1.5b-q4km \
     WARMUP_ON_STARTUP=true
 
 # Apply Debian security updates the base image does not have yet (the release gate

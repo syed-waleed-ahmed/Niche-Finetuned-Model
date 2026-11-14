@@ -10,10 +10,10 @@ from fastapi_assistant.config import Settings
 
 def test_defaults():
     settings = Settings(_env_file=None)
-    assert settings.base_model_name.startswith("TinyLlama/")
+    assert settings.base_model_name.startswith("Qwen/")
     assert settings.api_port == 8000
     assert settings.model_temperature == pytest.approx(0.4)
-    assert settings.lora_target_modules == ["q_proj", "k_proj", "v_proj", "o_proj"]
+    assert settings.lora_target_modules[:4] == ["q_proj", "k_proj", "v_proj", "o_proj"]
     assert settings.engine_backend == "transformers"
     assert settings.auth_enabled is False
 

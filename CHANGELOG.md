@@ -15,6 +15,13 @@ The deployed model is versioned separately, by `model_version` in
 
 ### Added
 
+- Training: the base model is now Qwen2.5-Coder-1.5B-Instruct (Apache-2.0), in place
+  of TinyLlama-1.1B-Chat. LoRA now also adapts the MLP projections, the Kaggle batch is
+  4 x 4 (same effective size, fits a T4 with the larger vocabulary), and the image's
+  fallback weights are the official Qwen Q4_K_M GGUF. `STOP_SEQUENCES` covers the
+  role markers of both chat templates, so either model serves correctly.
+- Dataset: 151 new training rows (351 to 502) covering the FastAPI tutorial and
+  advanced guide; the eval set is unchanged.
 - Edge Worker: the request log records `rl_key_id`, the first 12 hex characters of
   the SHA-256 of the presented API key, so requests can be attributed to a key.
   The key itself and the caller's IP are still never logged (#27).

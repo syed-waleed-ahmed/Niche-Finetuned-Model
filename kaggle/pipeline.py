@@ -29,11 +29,15 @@ from pathlib import Path
 CONFIG = {
     "repo": "https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model.git",
     "ref": "main",
-    "base_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "base_model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
     "hf_namespace": "",  # your Hugging Face user or org; empty disables publishing
     "num_epochs": "3",
     "learning_rate": "0.0002",
     "lora_r": "16",
+    # 4 x 4 keeps the effective batch at 16 and fits a 16 GB T4 with a 1.5B model
+    # and its 152k-token vocabulary (the logits alone are large).
+    "batch_size": "4",
+    "gradient_accumulation_steps": "4",
     "quant": "Q4_K_M",
     # The fine-tune must beat the base model's composite score by at least this much.
     # Greedy decoding makes the eval deterministic, so a tie means "no better": the
@@ -113,8 +117,8 @@ def main() -> int:
         "LEARNING_RATE": CONFIG["learning_rate"],
         "LORA_R": CONFIG["lora_r"],
         "LORA_ALPHA": str(int(CONFIG["lora_r"]) * 2),
-        "BATCH_SIZE": "8",
-        "GRADIENT_ACCUMULATION_STEPS": "2",
+        "BATCH_SIZE": CONFIG["batch_size"],
+        "GRADIENT_ACCUMULATION_STEPS": CONFIG["gradient_accumulation_steps"],
         "ENGINE_BACKEND": "transformers",
         "MODEL_VERSION": version,
         "LOG_LEVEL": "INFO",
@@ -150,7 +154,7 @@ def main() -> int:
     merged_dir, gguf_dir = WORK / "merged", WORK / "gguf"
     sh(*cli, "export", "merge", "--out", str(merged_dir), env=env)
     sh("bash", "scripts/export_gguf.sh", str(merged_dir), str(gguf_dir), CONFIG["quant"])
-    # The merged fp16 checkpoint (about 2.2 GB) is only an input to the GGUF; dropping it
+    # The merged fp16 checkpoint (about 3 GB) is only an input to the GGUF; dropping it
     # keeps the kernel output, which CI downloads to publish, small.
     shutil.rmtree(merged_dir, ignore_errors=True)
     gguf_file = f"model-{CONFIG['quant']}.gguf"

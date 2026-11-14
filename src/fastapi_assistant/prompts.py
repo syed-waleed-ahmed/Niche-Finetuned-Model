@@ -23,12 +23,18 @@ SYSTEM_PROMPT = (
 
 CONTEXT_HEADER = "Context:"
 
-# The role markers of the base model's chat template (TinyLlama, Zephyr style). They
-# are plain text, not special tokens, so a model that does not emit end-of-sequence
-# after its answer runs on into an invented next turn ("<|user|> Can you also ...").
-# Serving engines stop generating at any of them; none occurs in a real answer. They
-# must match the template of ``base_model`` in model-release.json.
-STOP_SEQUENCES: tuple[str, ...] = ("<|user|>", "<|system|>", "<|assistant|>")
+# The role markers of the chat templates this project has shipped: ChatML (Qwen2.5,
+# the current base) and Zephyr style (TinyLlama, the earlier releases). A model that
+# does not emit end-of-sequence after its answer runs on into an invented next turn
+# ("<|user|> Can you also ..."), so serving engines stop generating at any of them.
+# None occurs in a real answer, so listing both families is safe for either model.
+STOP_SEQUENCES: tuple[str, ...] = (
+    "<|im_end|>",
+    "<|im_start|>",
+    "<|user|>",
+    "<|system|>",
+    "<|assistant|>",
+)
 
 
 def format_user_content(question: str, context: str | None = None) -> str:

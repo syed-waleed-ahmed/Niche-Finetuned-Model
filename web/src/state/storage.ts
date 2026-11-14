@@ -10,3 +10,12 @@ export function safeStorage(): Storage | null {
     return null;
   }
 }
+
+/** sessionStorage (kept for the life of the tab), or null where it is unavailable. */
+export function safeSessionStorage(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.sessionStorage : null;
+  } catch {
+    return null;
+  }
+}

@@ -215,3 +215,30 @@ describe("App", () => {
 });
 
 const EXAMPLE = "How do I return a 201 status code from a POST endpoint?";
+
+describe("App across a page reload (#41)", () => {
+  it("shows the finished conversation again, and never stores the API key with it", async () => {
+    install({
+      "/health": () => json(HEALTH),
+      "/generate": () =>
+        sse(
+          ['event: token\ndata: {"delta": "Use `status_code=201`."}\n\n', doneEvent("req-9")],
+          { "x-request-id": "req-9" },
+        ),
+    });
+    const user = userEvent.setup();
+    const first = render(<App />);
+    await user.type(screen.getByLabelText("Your FastAPI question"), "How do I return a 201?");
+    await user.keyboard("{Enter}");
+    const answer = await screen.findByLabelText("Assistant answer");
+    await waitFor(() => expect(within(answer).getByText(/status_code=201/)).toBeInTheDocument());
+    await waitFor(() => expect(window.sessionStorage.length).toBe(1));
+    first.unmount();
+
+    render(<App />);
+    expect(await screen.findByText("How do I return a 201?")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("Assistant answer")).getByText(/status_code=201/)).toBeInTheDocument();
+    const saved = window.sessionStorage.getItem(window.sessionStorage.key(0) ?? "") ?? "";
+    expect(saved).not.toContain("fa_test");
+  });
+});

@@ -144,6 +144,72 @@ export function conversationReducer(turns: Turn[], action: ConversationAction): 
   }
 }
 
+// -- Persistence across a page reload (sessionStorage, so it lasts for the tab) ------
+
+export const CONVERSATION_STORAGE_KEY = "fastapi-assistant:conversation:v1";
+/** The most question/answer pairs kept; older ones are dropped first. */
+export const MAX_SAVED_PAIRS = 25;
+
+const FINISHED: ReadonlySet<TurnStatus> = new Set(["done", "stopped", "error"]);
+
+/**
+ * The turns worth keeping: each question with its finished answer. A pair whose
+ * answer is still pending or streaming is left out, so a reload never shows a
+ * half-written answer. Turns hold no credentials (the API key lives in settings).
+ */
+export function finishedPairs(turns: Turn[]): Turn[] {
+  const out: Turn[] = [];
+  for (let i = 0; i + 1 < turns.length; i++) {
+    const user = turns[i];
+    const reply = turns[i + 1];
+    if (user?.role === "user" && reply?.role === "assistant" && FINISHED.has(reply.status)) {
+      out.push(user, reply);
+      i++;
+    }
+  }
+  return out.slice(-2 * MAX_SAVED_PAIRS);
+}
+
+export function saveTurns(turns: Turn[], storage: Storage | null): void {
+  if (!storage) return;
+  try {
+    const kept = finishedPairs(turns);
+    if (kept.length) storage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(kept));
+    else storage.removeItem(CONVERSATION_STORAGE_KEY);
+  } catch {
+    // Quota exceeded or storage blocked: the conversation simply is not kept.
+  }
+}
+
+function isTurn(value: unknown): value is Turn {
+  if (typeof value !== "object" || value === null) return false;
+  const t = value as Record<string, unknown>;
+  if (typeof t.id !== "string" || typeof t.content !== "string") return false;
+  if (t.role === "user") return true;
+  return (
+    t.role === "assistant" &&
+    typeof t.status === "string" &&
+    FINISHED.has(t.status as TurnStatus) &&
+    Array.isArray(t.sources) &&
+    typeof t.startedAt === "number" &&
+    (t.mode === "generate" || t.mode === "chat")
+  );
+}
+
+/** The saved conversation, or [] when there is none or it does not look right. */
+export function loadTurns(storage: Storage | null): Turn[] {
+  if (!storage) return [];
+  try {
+    const raw = storage.getItem(CONVERSATION_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.every(isTurn)) return [];
+    return finishedPairs(parsed);
+  } catch {
+    return [];
+  }
+}
+
 /** Prior turns usable as `/v1` history: completed answers and their questions. */
 export function historyFor(turns: Turn[]): { role: "user" | "assistant"; content: string }[] {
   const out: { role: "user" | "assistant"; content: string }[] = [];

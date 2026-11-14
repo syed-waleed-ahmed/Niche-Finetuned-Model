@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CONVERSATION_STORAGE_KEY,
+  MAX_SAVED_PAIRS,
   conversationReducer,
   historyFor,
+  loadTurns,
   newAssistantTurn,
+  newId,
+  saveTurns,
   type Turn,
 } from "../src/state/conversation";
 
@@ -109,5 +114,82 @@ describe("historyFor", () => {
       { role: "user", content: "Q3" },
       { role: "assistant", content: "A3 part" },
     ]);
+  });
+});
+
+describe("conversation persistence (#41)", () => {
+  function answered(question: string, answer: string, status: "done" | "stopped" | "error" = "done"): Turn[] {
+    const assistant = { ...newAssistantTurn("chat", true, 1000), content: answer, status };
+    return [{ id: newId(), role: "user", content: question }, assistant];
+  }
+
+  function memoryStorage(): Storage {
+    const data = new Map<string, string>();
+    return {
+      get length() {
+        return data.size;
+      },
+      clear: () => data.clear(),
+      getItem: (k) => data.get(k) ?? null,
+      key: (i) => [...data.keys()][i] ?? null,
+      removeItem: (k) => void data.delete(k),
+      setItem: (k, v) => void data.set(k, String(v)),
+    };
+  }
+
+  it("saves finished pairs and loads them back", () => {
+    const storage = memoryStorage();
+    const turns = [...answered("q1", "a1"), ...answered("q2", "partial", "stopped")];
+    saveTurns(turns, storage);
+    expect(loadTurns(storage)).toEqual(turns);
+  });
+
+  it("never saves an answer that is still being written", () => {
+    const storage = memoryStorage();
+    const { turns, id } = started();
+    const streaming = conversationReducer(turns, { type: "delta", id, text: "half", at: 1100 });
+    saveTurns([...answered("q1", "a1"), ...streaming], storage);
+    const loaded = loadTurns(storage);
+    expect(loaded.map((t) => t.content)).toEqual(["q1", "a1"]);
+  });
+
+  it("keeps only the most recent pairs", () => {
+    const storage = memoryStorage();
+    const turns = Array.from({ length: MAX_SAVED_PAIRS + 5 }, (_, i) => answered(`q${i}`, `a${i}`)).flat();
+    saveTurns(turns, storage);
+    const loaded = loadTurns(storage);
+    expect(loaded).toHaveLength(2 * MAX_SAVED_PAIRS);
+    expect(loaded[0]?.content).toBe("q5");
+  });
+
+  it("removes the saved conversation when it is cleared", () => {
+    const storage = memoryStorage();
+    saveTurns(answered("q1", "a1"), storage);
+    saveTurns([], storage);
+    expect(storage.getItem(CONVERSATION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("ignores a corrupt or unexpected stored value", () => {
+    const storage = memoryStorage();
+    storage.setItem(CONVERSATION_STORAGE_KEY, "{not json");
+    expect(loadTurns(storage)).toEqual([]);
+    storage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify([{ role: "assistant", content: 1 }]));
+    expect(loadTurns(storage)).toEqual([]);
+    storage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({ turns: [] }));
+    expect(loadTurns(storage)).toEqual([]);
+  });
+
+  it("works without storage, and survives storage that throws", () => {
+    expect(loadTurns(null)).toEqual([]);
+    expect(() => saveTurns(answered("q", "a"), null)).not.toThrow();
+    const broken = memoryStorage();
+    broken.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    broken.getItem = () => {
+      throw new Error("SecurityError");
+    };
+    expect(() => saveTurns(answered("q", "a"), broken)).not.toThrow();
+    expect(loadTurns(broken)).toEqual([]);
   });
 });

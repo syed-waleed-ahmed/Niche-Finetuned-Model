@@ -124,6 +124,7 @@ Values from `deploy/cloudrun/service.yaml` after rendering.
 | Execution environment | `gen2` | |
 | CPU, memory | 2 vCPU, 2 GiB | Fits the 0.7 GB GGUF; `LLAMACPP_N_THREADS=2` |
 | `containerConcurrency` | 4 | Sized to one running generation plus `MAX_QUEUE=3` waiting (comment in the file) |
+| Container port | `h2c` (8080) | Cloud Run talks cleartext HTTP/2 to the container, which is how it reports a client's disconnect. The image serves it with Hypercorn (`HTTP_SERVER=hypercorn`); see [DECISIONS.md](DECISIONS.md), ADR-009 |
 | `timeoutSeconds` | 300 | Whole request, including a stream |
 | `MAX_CONCURRENCY`, `MAX_QUEUE`, `QUEUE_TIMEOUT_S` | 1, 3, 60 | Admission control (`admission.py`) |
 | `RAG_ENABLED` | `false` | Retrieval opt-in per request |

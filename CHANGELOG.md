@@ -34,6 +34,19 @@ The deployed model is versioned separately, by `model_version` in
   already did. Until now it kept the only generation slot busy for up to
   `GENERATION_TIMEOUT_S`. `Engine.generate` takes an optional `cancel` event; the
   remote engine honours it only before the request is sent (#26).
+- Abandoned requests on the live service. Measured after #37, the fix above had no
+  effect there: a request sent behind an abandoned generation still waited about
+  60 s, streamed or not, because Cloud Run does not report a client's disconnect to
+  the container over HTTP/1.1 (#38):
+  - the image serves HTTP/1.1 and cleartext HTTP/2 with Hypercorn
+    (`HTTP_SERVER=hypercorn`; Uvicorn stays the default elsewhere), and Cloud Run
+    talks h2c to it, which is how it reports disconnects;
+  - streamed requests get the same disconnect watch as non-streaming ones. Behind
+    the request middleware the response layer did not end an abandoned stream, and
+    under Hypercorn it stopped consuming it without releasing the slot;
+  - the Edge Worker aborts its origin request when the client disconnects
+    (`enable_request_signal`), logs `client_gone` with status 499, does not count
+    the origin as failed and does not try a backup origin.
 
 ## [2.2.0] - 2026-11-13
 

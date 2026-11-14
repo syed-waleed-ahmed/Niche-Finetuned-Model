@@ -11,7 +11,6 @@ import json
 import socket
 import threading
 import time
-from collections.abc import Iterator, Sequence
 
 import httpx
 import pytest
@@ -19,58 +18,10 @@ import uvicorn
 
 from fastapi_assistant.api import create_app
 from fastapi_assistant.config import Settings
-from fastapi_assistant.engines.base import (
-    Deadline,
-    FinishReason,
-    GenerationParams,
-    Message,
-    StreamEvent,
-)
+from fastapi_assistant.engines.base import GenerationParams
 from fastapi_assistant.engines.remote_engine import RemoteEngine
 from fastapi_assistant.service import _cancel_on_disconnect
-from tests.conftest import FakeEngine
-
-TOKEN_INTERVAL_S = 0.02
-
-
-class SlowEngine(FakeEngine):
-    """Emits one token every 20 ms, up to ``max_new_tokens``, and honours ``cancel``."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.started = threading.Event()
-        self.finished = threading.Event()
-        self.finish: FinishReason | None = None
-        self.emitted = 0
-
-    def stream(
-        self,
-        messages: Sequence[Message],
-        params: GenerationParams,
-        cancel: threading.Event | None = None,
-    ) -> Iterator[StreamEvent]:
-        deadline = Deadline(params.timeout_s, cancel)
-        self.emitted = 0
-        self.finish = None
-        self.finished.clear()
-        self.started.set()
-        finish: FinishReason = "length"
-        for _ in range(params.max_new_tokens):
-            if deadline.expired():
-                finish = deadline.reason or "cancelled"
-                break
-            time.sleep(TOKEN_INTERVAL_S)
-            self.emitted += 1
-            yield StreamEvent(delta="tok ")
-        self.finish = finish
-        self.finished.set()
-        yield StreamEvent(finish_reason=finish, prompt_tokens=5, completion_tokens=self.emitted)
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
+from tests.conftest import TOKEN_INTERVAL_S, SlowEngine, free_port
 
 
 @pytest.fixture
@@ -87,7 +38,7 @@ def slow_server(tmp_path):
         max_queue=0,
     )
     app = create_app(settings=settings, engine=engine)
-    port = _free_port()
+    port = free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -190,3 +141,25 @@ def test_remote_engine_skips_a_request_that_is_already_cancelled():
     result = engine.generate([{"role": "user", "content": "q"}], GenerationParams(), cancel)
     assert result.finish_reason == "cancelled" and result.text == ""
     assert "/v1/chat/completions" not in calls
+
+
+def test_disconnect_cancels_a_streamed_generation(slow_server):
+    _, port, engine, app = slow_server
+    body = json.dumps({"question": "q", "max_new_tokens": 1000, "stream": True}).encode()
+    head = (
+        f"POST /generate HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+        f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+    ).encode()
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall(head + body)
+        received = b""
+        while b"event: token" not in received:
+            received += sock.recv(4096)
+
+    assert engine.finished.wait(5), "the stream kept generating after the caller left"
+    assert engine.finish == "cancelled"
+    assert 0 < engine.emitted < 200
+    deadline = time.monotonic() + 5
+    while app.state.service.admission.inflight and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert app.state.service.admission.inflight == 0

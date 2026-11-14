@@ -20,6 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 EngineBackend = Literal["transformers", "llamacpp", "remote"]
 RagBackend = Literal["local", "pgvector"]
+HttpServer = Literal["uvicorn", "hypercorn"]
 
 
 class Settings(BaseSettings):
@@ -88,6 +89,13 @@ class Settings(BaseSettings):
     remote_timeout_s: float = Field(default=120.0, gt=0)
 
     # --- HTTP service -----------------------------------------------------
+    http_server: HttpServer = Field(
+        default="uvicorn",
+        description=(
+            "ASGI server. 'hypercorn' also speaks cleartext HTTP/2 (h2c), which Cloud Run "
+            "needs in order to pass client disconnects on to the app."
+        ),
+    )
     api_host: str = "0.0.0.0"
     api_port: int = Field(
         default=8000,

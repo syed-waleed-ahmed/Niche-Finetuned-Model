@@ -440,7 +440,9 @@ def create_app(
             async def events():
                 parts: list[str] = []
                 try:
-                    async for event in service.stream(messages, params, slot, "/generate"):
+                    async for event in service.stream(
+                        messages, params, slot, "/generate", partial(_client_gone, request)
+                    ):
                         if event.delta:
                             parts.append(event.delta)
                             yield _sse({"delta": event.delta}, event="token")
@@ -599,7 +601,11 @@ def create_app(
                 yield chunk({"role": "assistant"})
                 try:
                     async for event in service.stream(
-                        messages, params, slot, "/v1/chat/completions"
+                        messages,
+                        params,
+                        slot,
+                        "/v1/chat/completions",
+                        partial(_client_gone, request),
                     ):
                         if event.delta:
                             parts.append(event.delta)

@@ -64,6 +64,12 @@ and the first fine-tuned model replaced the base model (#33). #37 is unreleased.
 | Answers that ran on into an invented turn | Seen live after the fine-tune was deployed: with retrieval on, an answer went on past its end with the template's user role marker and a made-up follow-up question, and it copied a `::: fastapi.BackgroundTasks` directive from a retrieved reference page. The engines now stop at the template's role markers, and the index drops mkdocstrings directives (#35). |
 | Release pull requests from the Train workflow | "Allow GitHub Actions to create and approve pull requests" is now on (Settings > Actions > General; the default token permission stays read-only). Until then the Train workflow pushed the release branch but could not open the pull request, so #33 was opened by hand. |
 
+## In progress
+
+| Item | State | Next step |
+|---|---|---|
+| Abandoned requests keep the generation slot (O-2) | Measured live after #37 with `scripts/check_abandoned_request.sh`: a tiny request sent right behind an abandoned 60 s generation waited 59.8 s (59.7 s before #37), and 58.4 s when the abandoned request was streamed. Cause: Cloud Run does not pass a client's disconnect on to the container over HTTP/1.1 ([Google's troubleshooting guide](https://cloud.google.com/run/docs/troubleshooting)). #38 changes three things: the image serves HTTP/1.1 and cleartext HTTP/2 with Hypercorn and Cloud Run talks h2c to it (ADR-009); streamed requests get the same disconnect watch as non-streaming ones; and the Worker aborts its origin request when the client leaves. Tested against real servers (`tests/test_http2.py`, `tests/test_disconnect.py`), and with real llama.cpp behind Hypercorn: after a reset the next answer came in 0.5 s (non-streaming) and 1.3 s (streamed), against 7.7 s for a full generation. | Run the script again after #38 is deployed and record the result here. If the wait is still about 60 s, revert #38 and document the limit. |
+
 ## Optional, owner's choice
 
 Each item needs an account or a decision that only the repository owner can make.

@@ -6,6 +6,7 @@ stands in for the real backends, so the suite runs fast and deterministically in
 
 from __future__ import annotations
 
+import socket
 import threading
 import time
 from collections.abc import Iterator, Sequence
@@ -16,7 +17,14 @@ from fastapi.testclient import TestClient
 
 from fastapi_assistant.api import create_app
 from fastapi_assistant.config import Settings
-from fastapi_assistant.engines.base import BaseEngine, GenerationParams, Message, StreamEvent
+from fastapi_assistant.engines.base import (
+    BaseEngine,
+    Deadline,
+    FinishReason,
+    GenerationParams,
+    Message,
+    StreamEvent,
+)
 
 
 class FakeEngine(BaseEngine):
@@ -63,6 +71,59 @@ class FakeEngine(BaseEngine):
         for i, word in enumerate(words):
             yield StreamEvent(delta=word if i == 0 else f" {word}")
         yield StreamEvent(finish_reason="stop", prompt_tokens=7, completion_tokens=len(words))
+
+
+TOKEN_INTERVAL_S = 0.02
+
+
+class SlowEngine(FakeEngine):
+    """Emits one token every 20 ms, up to ``max_new_tokens``, and can be stopped.
+
+    A generation ends in one of two ways when its caller goes away: the ``cancel`` event
+    is set (non-streaming requests), or the generator is closed (streamed requests).
+    Both are recorded as ``finish == "cancelled"``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = threading.Event()
+        self.finished = threading.Event()
+        self.finish: FinishReason | None = None
+        self.emitted = 0
+
+    def stream(
+        self,
+        messages: Sequence[Message],
+        params: GenerationParams,
+        cancel: threading.Event | None = None,
+    ) -> Iterator[StreamEvent]:
+        deadline = Deadline(params.timeout_s, cancel)
+        self.emitted = 0
+        self.finish = None
+        self.finished.clear()
+        self.started.set()
+        finish: FinishReason = "length"
+        try:
+            for _ in range(params.max_new_tokens):
+                if deadline.expired():
+                    finish = deadline.reason or "cancelled"
+                    break
+                time.sleep(TOKEN_INTERVAL_S)
+                self.emitted += 1
+                yield StreamEvent(delta="tok ")
+        except GeneratorExit:  # the consumer closed the stream before it ended
+            finish = "cancelled"
+            raise
+        finally:
+            self.finish = finish
+            self.finished.set()
+        yield StreamEvent(finish_reason=finish, prompt_tokens=5, completion_tokens=self.emitted)
+
+
+def free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
 
 
 @pytest.fixture

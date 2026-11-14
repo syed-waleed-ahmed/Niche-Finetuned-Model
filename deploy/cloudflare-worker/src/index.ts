@@ -88,6 +88,8 @@ interface RequestLog {
   rl_key_id?: string;
   rl_scope?: "redis" | "local";
   upstream_normalized?: boolean;
+  /** The client disconnected before an origin answered; the origin request was aborted. */
+  client_gone?: boolean;
   origin_index: number | null;
   skipped_origins?: number[];
   attempts: number;
@@ -316,6 +318,7 @@ async function handle(
       fetch: deps.fetch,
       breaker: state.breaker,
       now: deps.now,
+      clientSignal: request.signal,
     },
   );
   log.attempts = result.attempts;
@@ -326,6 +329,12 @@ async function handle(
   const upstream = result.response;
   if (!upstream) {
     const errorHeaders = { ...idHeader, ...rlHeaders, "x-cache": cacheStatus };
+    if (result.clientGone) {
+      // Nobody reads this response; the status is for the request log (499 is the
+      // conventional "client closed request").
+      log.client_gone = true;
+      return jsonError(499, "Client closed the request", "client_closed_request", errorHeaders);
+    }
     if (result.timedOut) {
       return jsonError(504, "The origin did not respond in time", "upstream_timeout", errorHeaders);
     }

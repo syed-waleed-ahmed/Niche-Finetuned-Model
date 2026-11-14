@@ -119,8 +119,10 @@ Other inputs:
 **Long generations.** A non-streaming request with a large `max_new_tokens` (up to
 1,024) generates for at most `GENERATION_TIMEOUT_S` (60 s on Cloud Run). The edge waits
 150 s, longer than queue plus generation, so that time always produces an answer
-rather than a 504. A client that disconnects early stops its generation, streaming or
-not, so abandoned requests no longer bill up to the full budget (#26).
+rather than a 504. An abandoned generation stops only if the client's disconnect
+reaches the app. On Cloud Run over HTTP/1.1 it did not: measured after #37, an
+abandoned request (streamed or not) ran and billed to the end of its budget. #38
+serves the origin over HTTP/2 so that Cloud Run reports disconnects.
 
 ## 4. Guardrails in this repository
 

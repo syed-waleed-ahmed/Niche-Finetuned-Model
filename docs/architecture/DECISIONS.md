@@ -272,3 +272,39 @@ admission queue, on a project with billing enabled (F-03).
 - Upstash remains the recommended configuration.
 - This supersedes the "Redis unavailable: edge fails open" row in
   [docs/ARCHITECTURE.md](../ARCHITECTURE.md), section 12.
+
+## ADR-009: Serve the origin over HTTP/2 so that client disconnects reach the app
+
+**Context.** A generation is the expensive part of a request, and one instance runs
+one at a time. When a caller gives up (closes the tab, presses Stop, times out), the
+generation should stop. The app could do that (#26), but on the live service it never
+learned that the caller had left: Cloud Run does not pass a client's disconnect on to the container over HTTP/1.1 ([Google's troubleshooting guide](https://cloud.google.com/run/docs/troubleshooting)); Google recommends HTTP/2 or WebSockets.
+Measured after #37, a request sent right behind an abandoned generation waited 59.8 s
+(non-streaming) and 58.4 s (streamed), the full `GENERATION_TIMEOUT_S`.
+
+**Decision.**
+- The image serves with Hypercorn (`HTTP_SERVER=hypercorn`), which speaks HTTP/1.1
+  and cleartext HTTP/2 (h2c) on the same port. Uvicorn remains the default for local
+  use (`src/fastapi_assistant/server.py`).
+- The Cloud Run service names its port `h2c`, so the front end talks HTTP/2 to the
+  container and resets a request's stream when its client goes away.
+- The app does not rely on the response layer to end an abandoned request. Both
+  `service.complete` and `service.stream` watch the connection themselves; for a
+  stream, the watch also closes the engine's generator and releases the slot.
+- The Worker aborts its origin request when the incoming request's `signal` aborts
+  (`enable_request_signal`).
+
+**Consequences.**
+- An abandoned generation stops within a token (streamed requests: within about a
+  second) wherever the disconnect is reported, and frees the slot for the next caller.
+- Two ASGI servers are supported. HTTP/1.1 clients, probes, the image's health check
+  and the other deploy targets (VM, Hugging Face Space) are unaffected, because
+  Hypercorn serves both protocols.
+- Six pure-Python packages join the serving lock: hypercorn, h2, hpack, hyperframe,
+  priority and wsproto (all MIT).
+- The HTTP/2 path is covered by `tests/test_http2.py`, which speaks h2c to a real
+  Hypercorn server and resets streams. The live effect is measured with
+  `scripts/check_abandoned_request.sh`; the result is recorded in
+  [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md).
+- Rollback: revert the change that set the port name and `HTTP_SERVER`; the service
+  then runs as before, without disconnect reporting.

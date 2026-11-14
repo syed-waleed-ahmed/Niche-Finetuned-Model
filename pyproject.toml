@@ -26,6 +26,8 @@ classifiers = [
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.30.0",
+  # HTTP/2 (h2c) for Cloud Run: see src/fastapi_assistant/server.py.
+  "hypercorn>=0.17.0",
   "pydantic>=2.7.0",
   "pydantic-settings>=2.2.0",
   "python-dotenv>=1.0.0",

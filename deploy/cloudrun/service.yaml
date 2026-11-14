@@ -36,7 +36,11 @@ spec:
         - name: app
           image: ${IMAGE}
           ports:
-            - name: http1
+            # h2c: Cloud Run talks cleartext HTTP/2 to the container. Over HTTP/1.1 it
+            # does not report a client's disconnect, so an abandoned generation would
+            # run to its end and keep the slot. The image's server (Hypercorn,
+            # HTTP_SERVER) speaks both, so probes and other hosts are unaffected.
+            - name: h2c
               containerPort: 8080
           resources:
             limits:

@@ -71,9 +71,10 @@ Statuses:
 ## 5. Known residual risks
 
 - **Abandoned non-streaming requests:** a caller that disconnects early did not cancel
-  its generation, which ran for up to 60 s. **Update:** #26 stops the generation and frees
-  its slot when the origin sees the disconnect. Through the edge it did not see it
-  (measured after #37: 59.8 s); #38 makes the Worker pass the disconnect on.
+  its generation, which ran for up to 60 s. **Update:** #26 and #38 stop the
+  generation and free its slot when the app sees the disconnect. On Cloud Run over
+  HTTP/1.1 it never did (measured after #37: 59.8 s; streamed requests too, 58.4 s),
+  so #38 serves the origin over HTTP/2.
 - **Edge key check:** the edge checks only that a key is present. Each made-up key gets
   its own rate-limit bucket, and the origin rejects it only after reading the body.
   That body is now capped at 64 KiB.

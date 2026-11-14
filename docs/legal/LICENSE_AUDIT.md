@@ -91,11 +91,15 @@ file is present in the installed `dist-info`, so it is carried into the image.
 | flatbuffers | 25.12.19 | Apache-2.0 | metadata only; no license file in `dist-info` |
 | fsspec | 2026.9.0 | BSD-3-Clause | files |
 | h11 | 0.16.0 | MIT | files |
+| h2 | 4.4.1 | MIT | files |
 | hf-xet | 1.8.0 | Apache-2.0 | files |
+| hpack | 4.2.0 | MIT | files |
 | httpcore | 1.0.9 | BSD-3-Clause | files |
 | httptools | 0.9.0 | MIT | files, including vendored http-parser (MIT) and llhttp licenses |
 | httpx | 0.28.1 | BSD-3-Clause | files |
 | huggingface-hub | 1.33.0 | Apache-2.0 | files |
+| hypercorn | 0.18.0 | MIT | files |
+| hyperframe | 6.1.0 | MIT | files |
 | idna | 3.20 | BSD-3-Clause | files |
 | jinja2 | 3.1.6 | BSD (classifier) | files |
 | llama-cpp-python | 0.3.36 | MIT | files; see section 5 |
@@ -107,6 +111,7 @@ file is present in the installed `dist-info`, so it is carried into the image.
 | opentelemetry-api | 1.45.2 | Apache-2.0 | files |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | files |
 | pillow | 13.0.0 | MIT-CMU | files |
+| priority | 2.0.0 | MIT | files |
 | prometheus-client | 0.26.0 | Apache-2.0 AND BSD-2-Clause | files, including `NOTICE` |
 | protobuf | 7.36.2 | BSD-3-Clause | files |
 | psycopg | 3.3.9 | LGPL-3.0-only | files; see section 10 |
@@ -132,6 +137,7 @@ file is present in the installed `dist-info`, so it is carried into the image.
 | watchfiles | 1.3.0 | MIT | files |
 | websockets | 17.4 | BSD-3-Clause | files |
 | win32-setctime | 1.2.1 | MIT | files; Windows only, not in the Linux image |
+| wsproto | 1.3.2 | MIT | files |
 
 ## 7. Python dependencies used but not distributed
 

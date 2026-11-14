@@ -130,18 +130,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 # -- command implementations --------------------------------------------------------
 def _serve(settings) -> None:
-    import uvicorn
+    from .server import run
 
-    uvicorn.run(
-        "fastapi_assistant.api:create_app",
-        factory=True,
-        host=settings.api_host,
-        port=settings.api_port,
-        log_config=None,
-        proxy_headers=True,
-        forwarded_allow_ips="*",
-        timeout_graceful_shutdown=30,
-    )
+    run(settings)
 
 
 def _eval(args, settings) -> int:

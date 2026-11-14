@@ -148,8 +148,10 @@ sequenceDiagram
 ```
 
 Streaming responses (`stream: true`) bypass the cache and are passed through
-unbuffered. If the client disconnects mid-stream, a cancellation event stops the
-engine at the next token and the slot is released.
+unbuffered. If the client disconnects, a cancellation event stops the engine at the
+next token and the slot is released, for streamed and non-streaming requests alike.
+On Cloud Run that needs HTTP/2 to the container
+([architecture/DECISIONS.md](architecture/DECISIONS.md), ADR-009).
 
 ## 5. Back-pressure and concurrency
 

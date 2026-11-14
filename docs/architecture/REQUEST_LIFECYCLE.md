@@ -195,9 +195,9 @@ edge, clients receive those as the normalised edge errors in the table above.
   "invalid_request_error", "code": "context_length_exceeded"}}` (the backstop in
   `engines/llamacpp_engine.py` `_context_errors`) or `{"error": {"type":
   "server_error"}}`, followed by `[DONE]`.
-- When the client disconnects, `service.stream` sets the cancel event, the engine
-  stops at the next token (`Deadline`), and the slot is released by the
-  `StreamingResponse` background task.
+- When the client's disconnect reaches the app, `service.stream` sets the cancel
+  event, the engine stops at the next token (`Deadline`), and the slot is released
+  (see "Timeouts" below for what that takes on Cloud Run).
 
 ## 6. Timeouts and budgets
 
@@ -216,14 +216,25 @@ generation is 120 s, under the edge's 150 s, so the origin always answers first.
 long answer is cut at 60 s of generation (about 500 tokens at the measured 8 to 10
 tokens/s) and returned with `finish_reason` `length`, rather than lost behind a 504.
 
-A disconnect that reaches the origin stops the generation, streaming or not: for a
-non-streaming request, `service.complete` watches the connection and sets the same
-cancel event, and the answer is recorded with `finish_reason` `cancelled` (#26). A
-streamed response notices the disconnect because writes to the client fail. For a
-non-streaming request nothing is written until the end, so the edge has to pass the
-disconnect on: the Worker aborts its origin request when the incoming request's
-`signal` aborts, and logs `client_gone` with status 499 (#38). After #37, before that
-change, the disconnect did not arrive: a request sent behind an abandoned one waited
-59.8 s. Changing
+A disconnect that reaches the app stops the generation, streaming or not.
+`service.complete` and `service.stream` both watch the connection
+(`api._client_gone`) and set the engine's cancel event; the answer is recorded with
+`finish_reason` `cancelled` (#26, #38). Three things had to be true for that to work
+on the live path, and after #37 none was:
+
+- **The edge passes the disconnect on.** The Worker aborts its origin request when
+  the incoming request's `signal` aborts, and logs `client_gone` with status 499.
+- **Cloud Run tells the container.** Over HTTP/1.1 it does not
+  ([Google's troubleshooting guide](https://cloud.google.com/run/docs/troubleshooting)). Over HTTP/2 it resets the
+  request's stream, so the image serves h2c with Hypercorn
+  ([DECISIONS.md](DECISIONS.md), ADR-009).
+- **The app acts on it.** The response layer alone does not: behind the
+  request-context middleware it either keeps writing a stream nobody reads, or
+  stops consuming it without closing it. The watch therefore also closes the
+  engine's generator and releases the slot if the stream has not ended one second
+  after the disconnect.
+
+Measured after #37, a request sent behind an abandoned one waited 59.8 s
+(non-streaming) and 58.4 s (streamed). Changing
 any of the three values must preserve
 `QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S < ORIGIN_TIMEOUT_MS`.

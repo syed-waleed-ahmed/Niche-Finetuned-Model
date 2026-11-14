@@ -52,6 +52,7 @@ ENV PYTHONUNBUFFERED=1 \
     RAG_ENABLED=false \
     API_HOST=0.0.0.0 \
     API_PORT=8080 \
+    HTTP_SERVER=hypercorn \
     LOG_JSON=true \
     ENGINE_BACKEND=llamacpp \
     GGUF_REPO_ID=${GGUF_REPO_ID} \

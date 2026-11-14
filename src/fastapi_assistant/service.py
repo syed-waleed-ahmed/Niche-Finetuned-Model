@@ -41,11 +41,27 @@ async def _cancel_on_disconnect(
     cancel.set()
 
 
-def _close_quietly(gen) -> None:
-    try:
-        gen.close()
-    except Exception:  # pragma: no cover - best effort cleanup
-        log.debug("Error while closing generation stream", exc_info=True)
+# After a streaming caller disconnects, how long the consumer of the stream gets to end
+# it by itself before the watch stops the engine and releases the slot.
+DISCONNECT_GRACE_S = 1.0
+
+
+def _close_when_idle(gen) -> None:
+    """Close the engine's generator, waiting while a worker thread is still inside it.
+
+    Closing runs the engine's own clean-up (llama.cpp releases its lock there). A
+    generator cannot be closed while it is executing, which is the case for as long as
+    the thread pool is producing the next token.
+    """
+    while True:
+        try:
+            gen.close()
+            return
+        except ValueError:  # "generator already executing"
+            time.sleep(0.01)
+        except Exception:  # pragma: no cover - best effort cleanup
+            log.debug("Error while closing generation stream", exc_info=True)
+            return
 
 
 class AssistantService:
@@ -64,6 +80,8 @@ class AssistantService:
         self.metrics = metrics
         self.store = store
         self.retriever = retriever
+        # Disconnect watches of streams whose consumer may have abandoned them.
+        self._watchers: set[asyncio.Task[None]] = set()
         metrics.queue_depth.set_function(lambda: admission.waiting)
         metrics.inflight.set_function(lambda: admission.inflight)
         metrics.model_loaded.set_function(lambda: 1.0 if engine.is_loaded else 0.0)
@@ -198,16 +216,60 @@ class AssistantService:
         params: GenerationParams,
         slot: Slot,
         endpoint: str,
+        client_gone: Callable[[], Awaitable[None]] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         """Yield stream events while holding ``slot``; always releases it.
 
-        If the client disconnects, the engine is told to stop via ``cancel`` and the
-        underlying generator is closed off the event loop.
+        ``client_gone`` is awaited while the engine runs and must return only when the
+        caller has disconnected. The response layer cannot be relied on to end the
+        generation then. Depending on the server it either keeps consuming this
+        stream (the engine must be told to stop), or it stops consuming without
+        closing it (nothing would run the clean-up below, and the slot and the
+        engine's lock would stay held). The watch covers both: it sets ``cancel``, and
+        if this generator has still not finished after ``DISCONNECT_GRACE_S``, it
+        closes the engine's generator and releases the slot itself.
         """
         cancel = threading.Event()
         gen = self.engine.stream(messages, params, cancel)
         started = time.perf_counter()
         first_token = True
+        observed = False
+        stopped = False
+
+        def stop() -> None:
+            """Stop the engine and free the slot. Safe to call more than once."""
+            nonlocal stopped
+            if stopped:
+                return
+            stopped = True
+            cancel.set()
+            threading.Thread(target=_close_when_idle, args=(gen,), daemon=True).start()
+            slot.release()
+
+        async def watch() -> None:
+            assert client_gone is not None
+            try:
+                await client_gone()
+            except Exception:
+                log.debug(
+                    "Disconnect watch failed; the stream will not be cancelled", exc_info=True
+                )
+                return
+            cancel.set()
+            # A consumer that is still iterating ends the stream itself within a token.
+            await asyncio.sleep(DISCONNECT_GRACE_S)
+            if not stopped:
+                if not observed:
+                    self.metrics.finish_reasons.labels(reason="cancelled").inc()
+                stop()
+
+        watcher: asyncio.Task[None] | None = None
+        if client_gone is not None:
+            # The task outlives this generator when the consumer abandons it, so the
+            # service keeps the reference that stops it from being garbage collected.
+            watcher = asyncio.create_task(watch())
+            self._watchers.add(watcher)
+            watcher.add_done_callback(self._watchers.discard)
         try:
             async for event in iterate_in_threadpool(gen):
                 if first_token and event.delta:
@@ -216,6 +278,7 @@ class AssistantService:
                         time.perf_counter() - started
                     )
                 if event.is_final:
+                    observed = True
                     self._observe(
                         event.completion_tokens,
                         event.prompt_tokens,
@@ -229,9 +292,9 @@ class AssistantService:
             self.metrics.generation_errors.inc()
             raise
         finally:
-            cancel.set()
-            threading.Thread(target=_close_quietly, args=(gen,), daemon=True).start()
-            slot.release()
+            if watcher is not None:
+                watcher.cancel()
+            stop()
 
     # -- accounting --------------------------------------------------------------
     def record_usage(self, event: UsageEvent) -> None:

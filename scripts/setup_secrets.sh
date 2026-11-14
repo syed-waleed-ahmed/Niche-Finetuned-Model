@@ -53,12 +53,30 @@ PRIVATE_DIR="$HOME/.config/fastapi-assistant"
 
 generate() { "$PY" -c "import secrets, sys; sys.stdout.write(secrets.token_hex($1))"; }
 
+clean() {  # clean "pasted text" -> the bare value
+  # Consoles copy values in several shapes: `NAME="value"` (Upstash's REST block),
+  # `export NAME=value`, `psql 'postgresql://...'` (Neon), or with a trailing CR.
+  # Only the names this script asks for are stripped, so a token that happens to
+  # contain "=" is never cut.
+  local v=${1//$'\r'/}
+  local assignment='^(export[[:space:]]+)?(UPSTASH_REDIS_REST_URL|UPSTASH_REDIS_REST_TOKEN|DATABASE_URL)=(.*)$'
+  v="${v#"${v%%[![:space:]]*}"}"
+  v="${v%"${v##*[![:space:]]}"}"
+  if [[ $v =~ $assignment ]]; then v=${BASH_REMATCH[3]}; fi
+  case "$v" in psql\ *) v=${v#psql } ;; esac
+  case "$v" in
+    \"*\") v=${v#\"}; v=${v%\"} ;;
+    \'*\') v=${v#\'}; v=${v%\'} ;;
+  esac
+  printf '%s' "$v"
+}
+
 ask() {  # ask "Prompt" -> value on stdout, input hidden, may be empty
   local value
   if [ "$NON_INTERACTIVE" = true ]; then return 0; fi
   read -r -s -p "$1 (Enter to skip): " value
   echo >&2
-  printf '%s' "$value"
+  clean "$value"
 }
 
 to_worker() {
@@ -100,7 +118,8 @@ if [ "$STORAGE_ONLY" = false ]; then
   smoke_key="$api_key"
 fi
 
-echo "== Upstash Redis, optional (console.upstash.com > fastapi-assistant-edge > REST API)"
+echo "== Upstash Redis, optional (console.upstash.com > fastapi-assistant-edge > Connect > REST)"
+echo "   Tip: the copy button there copies both lines; paste them at the first question."
 upstash_url=$(ask "UPSTASH_REDIS_REST_URL (https://...upstash.io)")
 if [ -n "$upstash_url" ]; then
   case "$upstash_url" in https://*) ;; *) echo "That URL should start with https://"; exit 1 ;; esac

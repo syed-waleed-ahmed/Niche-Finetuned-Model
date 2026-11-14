@@ -23,8 +23,8 @@ deploys both Cloud Run and the Worker from `main`.
 | Model | The fine-tuned release `v2026.11.13-2b04940`: a LoRA fine-tune of TinyLlama-1.1B-Chat as a Q4_K_M GGUF | `model-release.json` (`"finetuned": true`); F-04 (resolved in #33) |
 | Authentication | Static owner key from Secret Manager; origin locked to the edge | Implementation status |
 | Secret Manager, Artifact Registry, Workload Identity Federation, budget alert | Live | Audit section 5; `deploy/gcp/bootstrap.sh` |
-| Upstash Redis (shared rate limit and cache) | Not configured, so the answer cache is off and rate limiting runs per isolate (the fallback limiter). | F-03; implementation status |
-| Neon Postgres (per-user keys, usage, feedback) | Not configured | Implementation status |
+| Upstash Redis (shared rate limit and cache) | Live since 2026-11-14 (database `fastapi-assistant-edge`, free tier). If it fails, rate limiting falls back to per-isolate counters and the cache is skipped. | F-03; implementation status |
+| Neon Postgres (per-user keys, usage, feedback) | Live since 2026-11-14 (database `fastapi_assistant`, free plan) | Implementation status |
 | Sentry, Grafana Cloud | Not connected | Implementation status |
 | `uptime.yml` | Live: `EDGE_URL` is set | Implementation status |
 | Release jobs `deploy-edge`, `smoke-edge` | Live: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. Both jobs succeeded in Release run 43460008003 (the merge of #15). | F-10 (resolved); `release.yml` |

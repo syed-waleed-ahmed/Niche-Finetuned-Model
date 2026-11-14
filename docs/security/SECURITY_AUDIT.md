@@ -164,7 +164,7 @@ the Worker. Items marked "edge" are enforced by the deployed Worker.
 | T2 | Malicious or vulnerable Python dependency | `pip wheel --require-hashes` from `requirements/serve.txt`; `pip-audit` on PRs and weekly (`security.yml`); Dependabot; Trivy | **Low** |
 | T3 | Compromised GitHub Action | Third-party actions pinned to commit SHAs. Dependabot watches the `github-actions` ecosystem. | **Low.** First-party actions (`actions/*`, `github/codeql-action`, `actions/dependency-review-action`) follow major-version tags (O-10). |
 | T4 | Tampered image between build and deploy | Release copies the scanned amd64 digest into Artifact Registry under the commit tag. Cloud Run pulls from Artifact Registry with the runtime identity. | **Low** |
-| T5 | Edge cache poisoning (once Upstash is enabled) | The cache key is the model version, path and canonical JSON body. Only 200 JSON responses up to 64 KiB are stored. Hits are served only to keys the origin accepted within 300 s. | **Low.** Answers are shared across callers who send byte-identical requests, by design. |
+| T5 | Edge cache poisoning (Upstash is enabled since 2026-11-14) | The cache key is the model version, path and canonical JSON body. Only 200 JSON responses up to 64 KiB are stored. Hits are served only to keys the origin accepted within 300 s. | **Low.** Answers are shared across callers who send byte-identical requests, by design. |
 | T6 | Oversized or malformed bodies | 64 KiB cap at the edge (declared length and a streaming count) and at the origin (ASGI middleware before parsing) (F-02). Pydantic bounds on every field. | **Low** |
 
 ### Repudiation
@@ -223,7 +223,7 @@ deploys the Worker on every run (F-10), so edge fixes no longer need a manual de
 |---|---|---|---|---|
 | F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
 | F-02 | P1 | Unbounded request bodies | Fixed | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
-| F-03 | P1 | No rate limiting live | Partially mitigated | The in-isolate fallback limiter is always on (edge). A shared limit needs Upstash, which is BLOCKED on an owner credential. |
+| F-03 | P1 | No rate limiting live | Fixed (2026-11-14) | Upstash is connected, so the limits are shared across isolates; the in-isolate fallback limiter still covers Upstash failures. |
 | F-04 | P1 | Live model is the base TinyLlama | Fixed (#33) | The first fine-tuned release, `v2026.11.13-2b04940`, passed both eval gates (0.546 against the base model's 0.402 with the production backend) and is deployed. The first training runs exposed Kaggle environment problems, fixed in #15 and #16. |
 | F-20 | P1 | HIGH CVEs with fixes in the image | Fixed | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed). All 14 Trivy code-scanning alerts (#7 to #20) are closed as fixed by the scan of the deployed image. |
 | F-21 | P1 | False-positive secret alert on the RAG index | Fixed | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |

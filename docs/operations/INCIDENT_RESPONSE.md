@@ -10,8 +10,8 @@ This is a single-maintainer project with no on-call rotation:
   GitHub access needed to act.
 - **Paging.** The only automatic alerts are GitHub's notification for a failed Uptime
   run and the GCP budget emails.
-- **Grafana alert rules** exist in `deploy/grafana/alerts.yaml` but are not loaded
-  anywhere.
+- **Grafana alert rules** from `deploy/grafana/alerts.yaml` are loaded in Grafana
+  Cloud, but no contact point is set: check Grafana Alerting by hand.
 
 ## 1. Severity levels
 
@@ -139,11 +139,11 @@ gcloud run services update fastapi-assistant --region us-central1 --max-instance
 
 **Throttle at the edge.** Lower `RATE_LIMIT_PER_MINUTE` or `RATE_LIMIT_PER_MINUTE_ANON`
 in `wrangler.toml` and merge the change; Release redeploys the Worker. If Release
-cannot run, deploy by hand (RUNBOOK 7.7). Without Upstash, the limits are per
-isolate.
+cannot run, deploy by hand (RUNBOOK 7.7). The limits are shared through Upstash;
+if Upstash fails they fall back to per-isolate counters.
 
 **Cut off a leaked key.** Rotate `API_KEY` (RUNBOOK 7.2). Database keys are revoked
-with `keys revoke` once Neon exists.
+with `keys revoke` (RUNBOOK 7.4).
 
 ## 5. Communication
 
@@ -208,4 +208,4 @@ incident issue, or privately for security incidents.
 ```
 
 Feed confirmed lessons back into [RUNBOOK.md](RUNBOOK.md), this document, and the
-alert rules once Grafana scraping exists.
+alert rules (`deploy/grafana/alerts.yaml`, then reload them in Grafana Cloud).

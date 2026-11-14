@@ -64,7 +64,7 @@ Statuses:
 | 18 | Hardened code live | PASS | Merged as `b146406`. Release 43435695506 succeeded: build, a scan gated on HIGH, and the Cloud Run deploy. The Worker was deployed from `main`, with `ORIGIN_TIMEOUT_MS` 150000 and `MAX_REQUEST_BYTES` 65536 confirmed in its bindings. Live afterwards: the original 15 end-to-end checks pass again. The new checks pass too: token-dense prompt gives 400 (3,560 tokens counted by the live model); the streaming variant gives 400 before the stream; a 70 KB body gives 413 at the edge; the fallback rate limit shows `x-ratelimit-limit: 20`; responses carry `nosniff`, `DENY` and `no-referrer`; `x-cloud-trace-context` and the origin's `Server` header are removed (Cloudflare adds its own); the UI is served with a CSP and its notices file; a made-up key gets 401. In Chrome, the UI loads under the CSP with no violations and the health badge reads "base model". |
 | 19 | Capacity | PASS WITH LIMITATIONS | Two controlled probes only (`PERFORMANCE_BASELINE.md`). One generation runs at a time per instance, with a maximum of 2 instances. A burst during scale-out drew plain-text 429s from the platform; the edge normalises them on this branch. No user capacity is claimed. |
 | 20 | CI-driven edge deploys | PASS | Was BLOCKED on `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (F-10). **Update:** both are set. In Release run 43460008003 (the merge of #15), the `deploy-edge` and `smoke-edge` jobs succeeded (section 7). |
-| 21 | Shared rate limits, cache, per-user keys | BLOCKED | Optional. Needs Upstash and Neon credentials. The service degrades gracefully without them (ADR-005). |
+| 21 | Shared rate limits, cache, per-user keys | PASS (2026-11-14) | Upstash and Neon connected and deployed by Release run 43625595256. A repeated request was a cache hit (0.24 s against 3.9 s); the edge smoke test passed with a database-issued key. |
 | 22 | Backup origin | BLOCKED | Optional. Needs a Hugging Face token or a VM (F-11). |
 | 23 | Observability backends | BLOCKED | Optional. Sentry DSN and Grafana Cloud are not connected. Metrics, JSON logs (now with `severity`) and the uptime probe work without them. |
 
@@ -96,7 +96,8 @@ Listed with instructions in [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STAT
 - dismiss CodeQL #1 and #2 and Dependabot #1: done;
 - private vulnerability reporting: done (enabled after the merge);
 - apply the branch-protection ruleset to `main` (O-4): done ("Protect main");
-- optionally add Upstash, Neon, Sentry, Grafana Cloud and a backup origin: open;
+- optionally add Upstash, Neon, Sentry, Grafana Cloud and a backup origin: Upstash,
+  Neon and Grafana Cloud done on 2026-11-14; Sentry and a backup origin open;
 - publish `v2.0.0` at `684a10d`: done; `v2.1.0` and `v2.2.0`: done (both published on
   2026-11-13).
 

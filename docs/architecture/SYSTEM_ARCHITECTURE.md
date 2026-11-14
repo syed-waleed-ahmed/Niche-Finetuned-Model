@@ -51,7 +51,7 @@ flowchart LR
         Worker["Edge Worker<br/>deploy/cloudflare-worker"]
     end
 
-    Redis[("Upstash Redis<br/>optional, not configured")]
+    Redis[("Upstash Redis<br/>optional, configured")]
     Backup["Backup origins<br/>HF Space, Oracle VM<br/>config only, not deployed"]
 
     subgraph GCP["Google Cloud"]
@@ -61,7 +61,7 @@ flowchart LR
         AR[("Artifact Registry")]
     end
 
-    PG[("Neon Postgres + pgvector<br/>optional, not configured")]
+    PG[("Neon Postgres + pgvector<br/>optional, configured")]
     Hub[("Hugging Face Hub<br/>GGUF at a pinned revision")]
     GHA["GitHub Actions<br/>CI, Release, Security, Eval, Train"]
     GHCR[("GHCR<br/>multi-arch image")]

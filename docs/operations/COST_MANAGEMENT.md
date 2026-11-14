@@ -137,7 +137,7 @@ after #38, an abandoned generation now stops within about two seconds.
 | Edge returns 404 for unknown paths and `/metrics` | `deploy/cloudflare-worker/src/routes.ts` | Scanners never wake a scaled-to-zero origin |
 | Edge returns 401 when no key is sent | `deploy/cloudflare-worker/src/index.ts` | Keyless traffic never reaches Cloud Run |
 | 64 KiB body cap at the edge and the origin | `body.ts`, `limits.py` | Large bodies are refused before parsing |
-| Per-key and per-IP rate limits | `ratelimit.ts` | Bounds a single client. Today this is per isolate (Upstash not configured), so weaker than a shared limit. |
+| Per-key and per-IP rate limits | `ratelimit.ts` | Bounds a single client. Shared across isolates through Upstash; per isolate only if Upstash fails. |
 | Prompt token check before admission | `engines/base.py` (`fit`) | Over-long prompts get a 400 without taking a queue slot |
 | Weights not baked into the image (`BAKE_MODEL=false`) | `Dockerfile`, Release does not set it | The 0.7 GB GGUF alone exceeds Artifact Registry's 0.5 GB free storage |
 | Artifact Registry cleanup policy: keep 2 versions, delete older after a day | `deploy/gcp/bootstrap.sh` | Keeps image storage near the free allowance |

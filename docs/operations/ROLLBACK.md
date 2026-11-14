@@ -145,7 +145,7 @@ the Hub. Retraining is never needed.
    behaves badly in production, the gate can fail. If that check is required by
    branch protection, the owner must decide whether to override it. Keep step 1 in
    place meanwhile.
-4. **Worker cache.** Only matters once Upstash is configured. Cached answers are
+4. **Worker cache.** Cached answers are
    namespaced by `MODEL_VERSION`, and the revert's Release run sets it on the Worker
    from the restored `model-release.json` (`deploy-edge`). After a traffic-only
    rollback (step 1), the Worker keeps the newer value until that Release; to change

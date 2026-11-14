@@ -199,7 +199,7 @@ The translation is `export.manifest_env`, exposed as
    becomes ready.
 4. `deploy-edge` sets the Worker's `MODEL_VERSION` to the new version, which moves
    the shared answer cache to a new namespace so answers from the previous model are
-   never served. With Upstash not configured the cache is off anyway.
+   never served.
 
 ## 11. Rollback
 

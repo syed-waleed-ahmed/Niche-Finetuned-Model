@@ -34,7 +34,7 @@ unreleased.
 | 3 | Restructure and developer experience | Done, with a documented deviation | The proposed `apps/ packages/ ml/` layout was not adopted (ADR-001). Added: `examples/`, `.editorconfig`, pre-commit, mypy and `make lint` |
 | 4 | Backend and inference hardening | Done (#13) | Token-accurate context budget (400 instead of 500), 64 KiB body cap, typed errors, security headers, GGUF SHA-256 verification, queue-wait and TTFT metrics |
 | 5 | Deploy and end-to-end verification | Done | Cloud Run deployed by Release from `b146406`; the original 15 live checks and 12 hardening checks pass (see the final verification, item 18). Since #15, Release also deploys the Worker and runs the k6 edge smoke test (Release run 43460008003). |
-| 6 | Upstash, Neon, backups | Optional, not configured | The service degrades gracefully without them (ADR-005). Needs owner credentials; see "Optional, owner's choice" |
+| 6 | Upstash, Neon, backups | Upstash and Neon live (2026-11-14); backups optional | Release run 43625595256 deployed both: a repeated deterministic request is an edge cache hit (`x-cache: HIT`, 0.24 s against 3.9 s for the first one), and the edge smoke test passed with a database-issued key. Backups: see "Optional, owner's choice" |
 | 7 | Security, observability, performance | Done (#13) | [security/SECURITY_AUDIT.md](security/SECURITY_AUDIT.md), [audit/PERFORMANCE_BASELINE.md](audit/PERFORMANCE_BASELINE.md); fallback rate limiter, circuit breaker, platform-error normalisation |
 | 8 | CI/CD gates | Done (#13) | mypy in CI; `security.yml` (pip-audit, npm audit, dependency review); Trivy gate on HIGH and CRITICAL; image smoke test asserts 400 and 413 against real llama.cpp |
 | 9 | Open-source preparation | Done (#13) | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, CITATION, MODEL_CARD, license audit, issue and PR templates; private vulnerability reporting enabled |
@@ -51,10 +51,11 @@ unreleased.
 | Access | Public demo (`PUBLIC_DEMO=true`): requests without a key are served, 10 per minute per IP at the edge; `/health` reports `"access": "public"`. A wrong key is still rejected. The static owner API key (Secret Manager) still works, and the origin is locked to the edge with a shared secret |
 | Uptime probe | GitHub Actions every 10 minutes through the edge (`EDGE_URL` is set): `/health`, plus the authenticated `/v1/models` |
 | Branch protection | "Protect main" ruleset: pull requests and the core CI and security checks required, no force-push or deletion |
-| Rate limiting | Live, per isolate (20 per minute per key, 10 per IP for anonymous calls). Upstash would make it shared across isolates |
-| Answer cache | Off (needs Upstash) |
-| Per-user keys, usage, feedback storage | Off (needs Neon Postgres) |
-| Error tracking, dashboards | Off (Sentry DSN and Grafana Cloud not connected) |
+| Rate limiting | Live and shared across isolates through Upstash Redis (20 per minute per key, 10 per IP for anonymous calls). A per-isolate counter takes over if Upstash fails (`rl_scope: "local"`) |
+| Answer cache | Live (Upstash): an identical deterministic request is answered from the edge, namespaced by `MODEL_VERSION` |
+| Per-user keys, usage, feedback storage | Live (Neon Postgres, database `fastapi_assistant`): migrations applied; the CI smoke-test key is a database key |
+| Dashboards and alert rules | Live: A Grafana Cloud Metrics Endpoint job scrapes the Cloud Run `/metrics` every minute with `METRICS_TOKEN`; the dashboard (`deploy/grafana/dashboard.json`) and the 7 rules in `deploy/grafana/alerts.yaml` are loaded in the stack. No notification contact point was set up for the rules, so they show in Grafana Alerting but do not page anyone |
+| Error tracking | Off (no Sentry DSN) |
 | Backup origins | Not deployed (Hugging Face Space and VM configurations exist) |
 | Code scanning and reporting | CodeQL alerts #1 and #2 dismissed as "won't fix" (intended behaviour, F-15); #3 fixed in #14. The 14 Trivy image alerts (#7 to #20) are closed as fixed by the scan of the deployed image. Dependabot alert #1 (`diskcache`) dismissed. Private vulnerability reporting is enabled. |
 
@@ -74,7 +75,6 @@ None of them is required for the service to work.
 
 | Item | Why blocked | What to do |
 |---|---|---|
-| Shared rate limits and answer cache (F-03) | The Upstash database `fastapi-assistant-edge` exists (free tier); its REST URL and token are not set as secrets yet | Run `bash scripts/setup_secrets.sh --storage-only`, paste the REST URL and token, then run Release |
-| Per-user keys, usage, feedback | The Neon database `fastapi_assistant` exists (free plan); `DATABASE_URL` is not set as a secret yet | Same command, paste `DATABASE_URL`; it also applies the migrations |
-| Error tracking and dashboards | Needs a Sentry project and a Grafana Cloud stack | Set the `SENTRY_DSN` secret; add a Grafana scrape job ([DEPLOYMENT.md](DEPLOYMENT.md) section 7) |
+| Error tracking | Needs a Sentry project | Set the `SENTRY_DSN` secret |
+| Alert notifications | The Grafana rules are loaded but have no contact point | Add a contact point (email or Slack) in Grafana Alerting |
 | Backup origin (F-11) | Needs a Hugging Face Space or a VM | See `deploy/hf-space/` or `deploy/vm/` |

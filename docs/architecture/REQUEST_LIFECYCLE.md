@@ -111,9 +111,10 @@ All in `deploy/cloudflare-worker/src/index.ts` (`handle`), unless noted.
 | 12. Platform errors | If the response that survives failover is a 429, 502, 503 or 504 without a JSON content type, it came from the platform in front of the origin (for example Cloud Run's front end while a new instance starts), not from the app. The Worker discards the body and answers the same status in its JSON shape: type `overloaded` for 429, `upstream_unavailable` otherwise, with the platform's `Retry-After` or 10 s, and logs `upstream_normalized: true`. The app's own 429 and 503 are JSON and pass through unchanged. | `index.ts` (`PLATFORM_RETRY_AFTER_SECONDS`) |
 | 13. Response headers | Strips `x-cloud-trace-context`, `server`, `via`, `alt-svc`; sets `nosniff`, `X-Cache` (`HIT`, `MISS` or `BYPASS`), `X-Served-By` (`edge-cache` or `origin-<n>`), `X-Request-ID`, rate-limit headers; rewrites an origin `Location` to the edge hostname. | `src/http.ts`, `src/proxy.ts` |
 
-With Upstash not configured (audit F-03), every request is `X-Cache: BYPASS` and rate
-limiting runs in the per-isolate fallback, which is what the deployed Worker does
-today; see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md), section 1.
+Upstash is configured on the deployed Worker (since 2026-11-14), so limits are shared
+and deterministic requests can be cache hits. If Upstash fails, a request is
+`X-Cache: BYPASS` and rate limiting runs in the per-isolate fallback; see
+[DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md), section 1.
 
 ## 3. Origin steps
 

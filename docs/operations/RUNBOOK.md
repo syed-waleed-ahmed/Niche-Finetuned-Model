@@ -15,15 +15,17 @@ logs and metrics are, and how to do the routine tasks. For outages use
 | Uptime probe | GitHub Actions every 10 minutes through the edge: `GET /health`, then the authenticated `GET /v1/models` when `SMOKE_API_KEY` is set | `.github/workflows/uptime.yml` |
 | Secrets | GitHub Actions secrets, copied into Google Secret Manager by Release; one Worker secret | `scripts/setup_secrets.sh` |
 
-**Not configured today.** Each of these changes what you can observe:
+**Connected since 2026-11-14:**
 
-- **Upstash Redis:** no edge answer cache (`X-Cache: BYPASS`). Rate limits use a
-  per-isolate in-memory counter (`rl_scope: "local"`).
-- **Neon Postgres:** only the static `API_KEY` works. There are no per-user keys, and
-  usage and feedback are not stored.
-- **Sentry:** no error tracking.
-- **Grafana Cloud scraping:** nothing collects `/metrics`, so the rules in
-  `deploy/grafana/alerts.yaml` are not active.
+- **Upstash Redis:** the edge answer cache (`x-cache: MISS`, then `HIT`) and rate
+  limits shared across isolates (`rl_scope: "redis"`).
+- **Neon Postgres** (database `fastapi_assistant`): per-user keys, usage and feedback.
+  The static `API_KEY` still works.
+- **Grafana Cloud:** a Metrics Endpoint job scrapes `/metrics` every minute; the
+  dashboard and the rules in `deploy/grafana/alerts.yaml` are loaded. The rules have
+  no notification contact point yet.
+
+**Not configured today:** Sentry (no error tracking).
 
 **Edge deploys run in CI.** The Release workflow deploys the Worker and the web UI
 from `main` (job `deploy-edge`, with `ORIGINS` from the `EDGE_ORIGINS` variable and
@@ -140,7 +142,7 @@ curl -sS -o /dev/null -w 'metrics at edge: %{http_code}\n' "$EDGE_URL/metrics"
 | 1 | `200 text/html` |
 | 2 | 200 JSON with `model_loaded: true` and `load_state: "ready"` on a warm instance; `ready: 200` |
 | 3 | `no key: 401` (edge body type `authentication_error`) |
-| 4 | `HTTP 200` with `x-request-id`, `x-served-by: origin-0`, `x-cache: BYPASS` (no Upstash), and `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`. |
+| 4 | `HTTP 200` with `x-request-id`, `x-served-by: origin-0`, `x-cache: MISS` (`HIT` when the same deterministic request is repeated), and `x-ratelimit-limit`, `x-ratelimit-remaining` and `x-ratelimit-reset`. |
 | 5 | `{"detail":"Direct origin access is not allowed"}`, `direct: 403` |
 | 6 | `metrics, no token: 401`, `metrics at edge: 404` |
 
@@ -189,7 +191,7 @@ The Worker writes one JSON line per request (`event: "request"`):
 | `method`, `path`, `status`, `duration_ms` | The request and the status the client received. |
 | `rl_identity` | `key` (counted per SHA-256 of the API key) or `ip` (anonymous and public paths). Neither the key nor the IP is logged. |
 | `rl_key_id` | Only with `rl_identity: key`: the first 12 hex characters of the SHA-256 of the key that was presented, valid or not. Use it to tell callers apart and to find the key to revoke. For a key you hold, `printf '%s' "$KEY" \| sha256sum \| cut -c1-12` prints the same value. |
-| `rl_scope` | `redis`: the shared Upstash counter. `local`: the per-isolate fallback counter. `local` is expected while Upstash is not configured. It also appears when Upstash fails; see `redis_error`. |
+| `rl_scope` | `redis`: the shared Upstash counter. `local`: the per-isolate fallback counter. `local` means Upstash failed for that request; see `redis_error` (for example `upstash pipeline HTTP 401` after a wrong token). |
 | `cache` | `HIT`, `MISS` or `BYPASS`. `null` when the request ended before the cache step (404, 401, 413, edge 429). |
 | `origin_index` | Index in `ORIGINS` of the origin that answered (0 is Cloud Run). `null` when none did. |
 | `attempts` | How many origin fetches were made. |
@@ -359,10 +361,10 @@ Destroying is permanent and removes the option to restore that value
 ([ROLLBACK.md](ROLLBACK.md) section 6). The secrets are `origin-shared-secret`,
 `api-key`, `metrics-token`, `database-url` and `sentry-dsn`.
 
-### 7.4 Issue and revoke database keys (only once Neon is configured)
+### 7.4 Issue and revoke database keys
 
-Today `DATABASE_URL` is a `disabled` placeholder, and the command exits with
-`DATABASE_URL is not set`. Once Neon exists, use the commands below.
+Neon is configured (`DATABASE_URL` in Secret Manager). Locally the CLI needs the
+same URL in `DATABASE_URL`, or it exits with `DATABASE_URL is not set`.
 `"$PY" -m fastapi_assistant` is the same CLI as `fastapi-assistant`; use either.
 
 ```bash
@@ -422,8 +424,7 @@ The static `API_KEY` cannot be revoked. Rotate it instead (7.2).
    and the previous revision keeps serving (see INCIDENT_RESPONSE.md, "Checksum
    mismatch").
 4. The answer cache is namespaced by `MODEL_VERSION`. Release's `deploy-edge` job sets
-   it on the Worker from `model-release.json`, so no manual step is needed (it matters
-   only once Upstash is configured).
+   it on the Worker from `model-release.json`, so no manual step is needed.
 5. Verify. `curl -sS "$EDGE_URL/health"` must show the new `model_version`.
 
 ### 7.7 Deploy the Worker by hand (emergency fallback)
@@ -473,7 +474,8 @@ well.
 
 ## 8. Known gaps
 
-- **No active metric alerts.** `deploy/grafana/alerts.yaml` is not loaded anywhere.
+- **Metric alerts do not notify anyone.** The rules are loaded in Grafana Cloud, but no
+  contact point is set, so a firing alert is visible only in Grafana Alerting.
 - **The uptime probe does not exercise generation** (section 3).
 - **Metrics are per instance and short-lived** (section 6).
 - **A manual Worker deploy drifts from `main` until the next Release.** Use

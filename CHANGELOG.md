@@ -48,6 +48,10 @@ The deployed model is versioned separately, by `model_version` in
     (`enable_request_signal`), logs `client_gone` with status 499, does not count
     the origin as failed and does not try a backup origin.
 
+  Measured live after the deploy, the request behind an abandoned generation was
+  answered in 1.3 s (non-streaming) and 2.2 s (streamed), against 59.8 s and
+  58.4 s before. `scripts/check_abandoned_request.sh` repeats the measurement.
+
 ## [2.2.0] - 2026-11-13
 
 The first fine-tuned model in production, a public demo that needs no key, a

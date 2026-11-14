@@ -235,6 +235,7 @@ on the live path, and after #37 none was:
   after the disconnect.
 
 Measured after #37, a request sent behind an abandoned one waited 59.8 s
-(non-streaming) and 58.4 s (streamed). Changing
+(non-streaming) and 58.4 s (streamed); after #38 it was answered in 1.3 s and
+2.2 s. Changing
 any of the three values must preserve
 `QUEUE_TIMEOUT_S + GENERATION_TIMEOUT_S < ORIGIN_TIMEOUT_MS`.

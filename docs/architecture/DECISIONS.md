@@ -304,7 +304,8 @@ Measured after #37, a request sent right behind an abandoned generation waited 5
   priority and wsproto (all MIT).
 - The HTTP/2 path is covered by `tests/test_http2.py`, which speaks h2c to a real
   Hypercorn server and resets streams. The live effect is measured with
-  `scripts/check_abandoned_request.sh`; the result is recorded in
-  [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md).
+  `scripts/check_abandoned_request.sh`. After #38 the request behind an abandoned
+  generation was answered in 1.3 s (non-streaming) and 2.2 s (streamed), against
+  59.8 s and 58.4 s before.
 - Rollback: revert the change that set the port name and `HTTP_SERVER`; the service
   then runs as before, without disconnect reporting.

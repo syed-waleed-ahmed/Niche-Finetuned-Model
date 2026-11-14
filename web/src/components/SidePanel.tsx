@@ -32,6 +32,8 @@ interface Props {
   draft: string;
   turnCount: number;
   onClear: () => void;
+  /** Null while there is no finished answer to export. */
+  onDownload: (() => void) | null;
   authError: string | null;
   onDismissAuthError: () => void;
   displayBaseUrl: string;
@@ -398,7 +400,7 @@ function accessLabel(access: AccessMode | null): string {
   return "-";
 }
 
-function StatusPanel({ health, access, lastMeta, turnCount, onClear, displayBaseUrl }: Props) {
+function StatusPanel({ health, access, lastMeta, turnCount, onClear, onDownload, displayBaseUrl }: Props) {
   const h = health.health;
   return (
     <>
@@ -445,7 +447,16 @@ function StatusPanel({ health, access, lastMeta, turnCount, onClear, displayBase
             ? "Empty."
             : `${turnCount} turns. Nothing is stored on the server unless transcripts are enabled.`}
         </p>
-        <div>
+        <div className="section__actions">
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={onDownload ?? undefined}
+            disabled={!onDownload}
+            title="Save the questions and answers as a Markdown file"
+          >
+            Download as Markdown
+          </button>
           <button
             type="button"
             className="btn btn--sm btn--danger"

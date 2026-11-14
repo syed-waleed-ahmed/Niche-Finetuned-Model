@@ -1565,6 +1565,12 @@ button:disabled {
   border-top: 1px solid var(--border);
 }
 
+.section__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .field {
   display: flex;
   flex-direction: column;

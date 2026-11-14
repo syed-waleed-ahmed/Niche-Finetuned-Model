@@ -122,7 +122,8 @@ Other inputs:
 rather than a 504. An abandoned generation stops only if the client's disconnect
 reaches the app. On Cloud Run over HTTP/1.1 it did not: measured after #37, an
 abandoned request (streamed or not) ran and billed to the end of its budget. #38
-serves the origin over HTTP/2 so that Cloud Run reports disconnects.
+serves the origin over HTTP/2 so that Cloud Run reports disconnects; measured
+after #38, an abandoned generation now stops within about two seconds.
 
 ## 4. Guardrails in this repository
 

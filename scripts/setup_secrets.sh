@@ -57,8 +57,13 @@ clean() {  # clean "pasted text" -> the bare value
   # Consoles copy values in several shapes: `NAME="value"` (Upstash's REST block),
   # `export NAME=value`, `psql 'postgresql://...'` (Neon), or with a trailing CR.
   # Only the names this script asks for are stripped, so a token that happens to
-  # contain "=" is never cut.
-  local v=${1//$'\r'/}
+  # contain "=" is never cut. Terminals in bracketed-paste mode (PowerShell's, which
+  # stays on when it starts bash) wrap pasted text in ESC[200~ ... ESC[201~; those
+  # markers and any other control characters are dropped too.
+  local v=$1
+  v=${v//$'\e[200~'/}
+  v=${v//$'\e[201~'/}
+  v=${v//[[:cntrl:]]/}
   local assignment='^(export[[:space:]]+)?(UPSTASH_REDIS_REST_URL|UPSTASH_REDIS_REST_TOKEN|DATABASE_URL)=(.*)$'
   v="${v#"${v%%[![:space:]]*}"}"
   v="${v%"${v##*[![:space:]]}"}"
@@ -71,8 +76,17 @@ clean() {  # clean "pasted text" -> the bare value
   printf '%s' "$v"
 }
 
-ask() {  # ask "Prompt" -> value on stdout, input hidden, may be empty
+ask() {  # ask "Prompt" [ENV_NAME] -> value on stdout, input hidden, may be empty
+  # A value already in the environment variable ENV_NAME is used without asking, for
+  # terminals where pasting into a hidden prompt does not work:
+  #   $env:DATABASE_URL = '<paste>'            (PowerShell)
+  #   & "C:\Program Files\Git\bin\bash.exe" scripts/setup_secrets.sh --storage-only
   local value
+  if [ -n "${2:-}" ] && [ -n "${!2:-}" ]; then
+    echo "$1: taken from the $2 environment variable" >&2
+    clean "${!2}"
+    return 0
+  fi
   if [ "$NON_INTERACTIVE" = true ]; then return 0; fi
   read -r -s -p "$1 (Enter to skip): " value
   echo >&2
@@ -120,10 +134,10 @@ fi
 
 echo "== Upstash Redis, optional (console.upstash.com > fastapi-assistant-edge > Connect > REST)"
 echo "   Tip: the copy button there copies both lines; paste them at the first question."
-upstash_url=$(ask "UPSTASH_REDIS_REST_URL (https://...upstash.io)")
+upstash_url=$(ask "UPSTASH_REDIS_REST_URL (https://...upstash.io)" UPSTASH_REDIS_REST_URL)
 if [ -n "$upstash_url" ]; then
-  case "$upstash_url" in https://*) ;; *) echo "That URL should start with https://"; exit 1 ;; esac
-  upstash_token=$(ask "UPSTASH_REDIS_REST_TOKEN")
+  case "$upstash_url" in https://*) ;; *) echo "That URL should start with https:// (it starts with $(printf %q "${upstash_url:0:8}"))"; exit 1 ;; esac
+  upstash_token=$(ask "UPSTASH_REDIS_REST_TOKEN" UPSTASH_REDIS_REST_TOKEN)
   [ -n "$upstash_token" ] || { echo "The token is required with the URL"; exit 1; }
   to_worker UPSTASH_REDIS_REST_URL "$upstash_url"
   to_worker UPSTASH_REDIS_REST_TOKEN "$upstash_token"
@@ -136,9 +150,9 @@ fi
 unset upstash_url
 
 echo "== Neon Postgres, optional (console.neon.tech > neon-pink-tree > Connect > database fastapi_assistant)"
-database_url=$(ask "DATABASE_URL (postgresql://...sslmode=require)")
+database_url=$(ask "DATABASE_URL (postgresql://...sslmode=require)" DATABASE_URL)
 if [ -n "$database_url" ]; then
-  case "$database_url" in postgres://*|postgresql://*) ;; *) echo "That should start with postgresql://"; exit 1 ;; esac
+  case "$database_url" in postgres://*|postgresql://*) ;; *) echo "That should start with postgresql:// (it starts with $(printf %q "${database_url:0:11}"))"; exit 1 ;; esac
   to_github DATABASE_URL "$database_url"
   export DATABASE_URL="$database_url"
   echo "  Applying migrations"

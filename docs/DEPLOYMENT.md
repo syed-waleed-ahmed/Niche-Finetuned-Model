@@ -175,8 +175,11 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
 - Grafana Cloud: for Cloud Run, add a "Metrics Endpoint" scrape job for
   `https://<cloud-run-url>/metrics` with bearer token `METRICS_TOKEN`. The VM ships
   its own metrics and logs through Alloy. Import `deploy/grafana/dashboard.json`
-  and load `deploy/grafana/alerts.yaml`
-  (`mimirtool rules load deploy/grafana/alerts.yaml`).
+  and load `deploy/grafana/alerts.yaml`, either as data-source-managed rules
+  (`mimirtool rules load deploy/grafana/alerts.yaml`) or, as the live stack does, as
+  Grafana-managed rules (each expression as query A, plus a threshold that fires
+  whenever A returns a series), so they use Grafana's contact points. Add an email
+  contact point as the default notification policy.
 - Cloud Run's own request, latency, and instance metrics are free in Cloud
   Monitoring and can be added to Grafana as a Google Cloud Monitoring data source.
 - Sentry receives unhandled errors once `SENTRY_DSN` is set.

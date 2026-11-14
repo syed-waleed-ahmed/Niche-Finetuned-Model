@@ -22,8 +22,8 @@ logs and metrics are, and how to do the routine tasks. For outages use
 - **Neon Postgres** (database `fastapi_assistant`): per-user keys, usage and feedback.
   The static `API_KEY` still works.
 - **Grafana Cloud:** a Metrics Endpoint job scrapes `/metrics` every minute; the
-  dashboard and the rules in `deploy/grafana/alerts.yaml` are loaded. The rules have
-  no notification contact point yet.
+  dashboard and the rules in `deploy/grafana/alerts.yaml` are loaded as Grafana-managed
+  rules (folder "FastAPI Assistant") that email the owner when they fire.
 
 **Not configured today:** Sentry (no error tracking).
 
@@ -474,8 +474,8 @@ well.
 
 ## 8. Known gaps
 
-- **Metric alerts do not notify anyone.** The rules are loaded in Grafana Cloud, but no
-  contact point is set, so a firing alert is visible only in Grafana Alerting.
+- **Metric alerts only send email.** There is no phone or chat paging, and the rules
+  in Grafana are a copy of `deploy/grafana/alerts.yaml`: reload them after changing it.
 - **The uptime probe does not exercise generation** (section 3).
 - **Metrics are per instance and short-lived** (section 6).
 - **A manual Worker deploy drifts from `main` until the next Release.** Use

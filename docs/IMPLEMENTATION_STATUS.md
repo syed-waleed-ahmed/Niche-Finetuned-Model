@@ -54,7 +54,7 @@ unreleased.
 | Rate limiting | Live and shared across isolates through Upstash Redis (20 per minute per key, 10 per IP for anonymous calls). A per-isolate counter takes over if Upstash fails (`rl_scope: "local"`) |
 | Answer cache | Live (Upstash): an identical deterministic request is answered from the edge, namespaced by `MODEL_VERSION` |
 | Per-user keys, usage, feedback storage | Live (Neon Postgres, database `fastapi_assistant`): migrations applied; the CI smoke-test key is a database key |
-| Dashboards and alert rules | Live: A Grafana Cloud Metrics Endpoint job scrapes the Cloud Run `/metrics` every minute with `METRICS_TOKEN`; the dashboard (`deploy/grafana/dashboard.json`) and the 7 rules in `deploy/grafana/alerts.yaml` are loaded in the stack. No notification contact point was set up for the rules, so they show in Grafana Alerting but do not page anyone |
+| Dashboards and alert rules | Live: A Grafana Cloud Metrics Endpoint job scrapes the Cloud Run `/metrics` every minute with `METRICS_TOKEN`; the dashboard (`deploy/grafana/dashboard.json`) and the 7 rules in `deploy/grafana/alerts.yaml` are loaded in the stack as Grafana-managed rules, routed to an email contact point (a test notification was delivered) |
 | Error tracking | Off (no Sentry DSN) |
 | Backup origins | Not deployed (Hugging Face Space and VM configurations exist) |
 | Code scanning and reporting | CodeQL alerts #1 and #2 dismissed as "won't fix" (intended behaviour, F-15); #3 fixed in #14. The 14 Trivy image alerts (#7 to #20) are closed as fixed by the scan of the deployed image. Dependabot alert #1 (`diskcache`) dismissed. Private vulnerability reporting is enabled. |
@@ -76,5 +76,4 @@ None of them is required for the service to work.
 | Item | Why blocked | What to do |
 |---|---|---|
 | Error tracking | Needs a Sentry project | Set the `SENTRY_DSN` secret |
-| Alert notifications | The Grafana rules are loaded but have no contact point | Add a contact point (email or Slack) in Grafana Alerting |
 | Backup origin (F-11) | Needs a Hugging Face Space or a VM | See `deploy/hf-space/` or `deploy/vm/` |

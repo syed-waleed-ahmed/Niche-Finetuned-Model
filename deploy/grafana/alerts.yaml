@@ -1,6 +1,7 @@
 # Prometheus alerting rules for the service (load into Grafana Cloud with
-# `mimirtool rules load deploy/grafana/alerts.yaml`, or import into Grafana
-# Alerting). Thresholds assume one CPU replica serving 1B-parameter models.
+# `mimirtool rules load deploy/grafana/alerts.yaml`, or recreate them as Grafana-managed
+# rules; see docs/DEPLOYMENT.md section 7). Thresholds assume one CPU replica serving
+# a 1B to 2B-parameter model.
 namespace: fastapi-assistant
 groups:
   - name: fastapi-assistant

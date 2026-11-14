@@ -8,10 +8,10 @@ This is a single-maintainer project with no on-call rotation:
 
 - **Incident lead.** The repository owner, or whoever holds the GCP, Cloudflare and
   GitHub access needed to act.
-- **Paging.** The only automatic alerts are GitHub's notification for a failed Uptime
-  run and the GCP budget emails.
-- **Grafana alert rules** from `deploy/grafana/alerts.yaml` are loaded in Grafana
-  Cloud, but no contact point is set: check Grafana Alerting by hand.
+- **Paging.** Automatic alerts are GitHub's notification for a failed Uptime run, the
+  GCP budget emails, and email from Grafana Cloud when one of the rules from
+  `deploy/grafana/alerts.yaml` fires (contact point `fastapi-assistant-email`, the
+  owner's Grafana account address). There is no phone or chat paging.
 
 ## 1. Severity levels
 

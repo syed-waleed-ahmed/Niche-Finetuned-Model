@@ -108,6 +108,13 @@ jobs:
             echo
             cat eval-report.md
           } > comment.md
-          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          # A pull request from a fork gets a read-only token, which cannot comment; the
+          # report is in the job summary instead, and the Gate step still decides.
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+          else
+            echo "Pull request from a fork: the eval report is in the job summary."
+          fi
       - name: Gate
         run: exit ${{ steps.score.outputs.code }}

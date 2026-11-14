@@ -36,10 +36,10 @@ jobs:
     env:
       MAX_REGRESSION: "0.02"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
           cache: pip
@@ -59,13 +59,13 @@ jobs:
             exit 1
           fi
       - if: inputs.release-artifact != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ inputs.release-artifact }}
           path: /tmp/candidate
       - if: inputs.release-artifact != ''
         run: cp /tmp/candidate/model-release.json model-release.json
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/huggingface
           key: hf-${{ hashFiles('model-release.json') }}
@@ -89,7 +89,7 @@ jobs:
           set -e
           tail -5 eval.log
           echo "code=$code" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: eval-report

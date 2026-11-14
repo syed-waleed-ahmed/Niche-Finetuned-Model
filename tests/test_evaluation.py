@@ -33,6 +33,32 @@ def test_extract_code_blocks():
     assert extract_code_blocks("```py\nx = 1\n```\n```\ny = 2\n```") == ["x = 1\n", "y = 2\n"]
 
 
+def test_extract_code_blocks_skips_other_languages():
+    answer = (
+        "Install the dependency:\n\n```bash\npip install python-multipart\n```\n\n"
+        "Then the endpoint:\n\n```python\nx = 1\n```\n"
+    )
+    assert extract_code_blocks(answer) == ["x = 1\n"]
+
+
+def test_extract_code_blocks_non_python_block_alone():
+    assert extract_code_blocks("```toml\n[project]\nname = 'x'\n```") == []
+
+
+def test_extract_code_blocks_keeps_untagged_block():
+    assert extract_code_blocks("```\ny = 2\n```") == ["y = 2\n"]
+
+
+def test_extract_code_blocks_ignores_fence_inside_string():
+    answer = "```python\ns = '``` not a fence'\nx = 1\n```"
+    assert extract_code_blocks(answer) == ["s = '``` not a fence'\nx = 1\n"]
+
+
+def test_code_validity_ignores_shell_blocks():
+    answer = "```bash\npip install python-multipart\n```\n\n```python\nx = 1\n```\n"
+    assert code_validity(answer) == 1.0
+
+
 def test_keyword_recall_is_case_insensitive():
     recall, missing = keyword_recall(
         "use httpexception with STATUS_CODE=404", ["HTTPException", "status_code=404", "Depends"]

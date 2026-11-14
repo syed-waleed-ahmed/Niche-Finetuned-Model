@@ -33,7 +33,8 @@ from .engines.base import Engine, GenerationParams
 from .prompts import build_messages
 from .retrieval import Retriever, format_context
 
-_CODE_BLOCK = re.compile(r"```(?:python|py)?[ \t]*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+_FENCE = re.compile(r"^[ \t]*(`{3,})[ \t]*([^\n]*)$", re.MULTILINE)
+_PYTHON_TAGS = {"", "python", "py"}
 _TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+|[^\sA-Za-z0-9_]")
 
 
@@ -83,7 +84,31 @@ def load_eval_items(path: Path, limit: int | None = None) -> list[EvalItem]:
 
 # -- metrics -----------------------------------------------------------------------
 def extract_code_blocks(text: str) -> list[str]:
-    return [block for block in _CODE_BLOCK.findall(text) if block.strip()]
+    blocks: list[str] = []
+    fence_len = 0
+    keep = False
+    pending: list[str] = []
+    for line in text.splitlines(keepends=True):
+        fence = _FENCE.match(line)
+        if fence_len == 0:
+            if fence:
+                fence_len = len(fence.group(1))
+                info = fence.group(2).strip()
+                language = info.split()[0].lower() if info else ""
+                keep = language in _PYTHON_TAGS
+                pending = []
+            continue
+        if fence and len(fence.group(1)) >= fence_len and not fence.group(2).strip():
+            if keep:
+                block = "".join(pending)
+                if block.strip():
+                    blocks.append(block)
+            fence_len = 0
+            keep = False
+            pending = []
+            continue
+        pending.append(line)
+    return blocks
 
 
 def keyword_recall(answer: str, keywords: Sequence[str]) -> tuple[float | None, list[str]]:

@@ -14,6 +14,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { accessMode } from "./state/access";
 import type { Turn } from "./state/conversation";
+import { canExport, downloadConversation } from "./state/export";
 
 type FocusRequest = "api-key" | "close" | null;
 
@@ -211,6 +212,7 @@ export function App() {
           draft={draft}
           turnCount={conversation.turns.length}
           onClear={conversation.clear}
+          onDownload={canExport(conversation.turns) ? () => downloadConversation(conversation.turns) : null}
           authError={conversation.authError}
           onDismissAuthError={conversation.dismissAuthError}
           displayBaseUrl={displayBaseUrl}

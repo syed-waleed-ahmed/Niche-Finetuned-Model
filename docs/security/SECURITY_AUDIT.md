@@ -276,7 +276,7 @@ These are not in the initial audit. Each one cites the code that shows it.
 | O-7 | Low | Without a database, feedback comments are logged at INFO, including the user's text **Status:** Fixed (merged in #13): only the rating and the comment length are logged. | `api.py`, `feedback` |
 | O-8 | Low | JSON logs use `level`, not `severity`, so Cloud Logging severity filters and log-based alerts miss application errors **Status:** Fixed (merged in #13): JSON log lines also carry `severity`. | `logging_config.py` |
 | O-9 | Low | The uptime probe checks only `/health`, which is exempt from the origin secret. An origin-secret mismatch or broken authentication does not fail it. **Status:** Fixed (merged in #13): the uptime workflow also calls the authenticated `/v1/models` through the edge with `SMOKE_API_KEY`. Generation failures are still not probed. | `uptime.yml`; `api.py` `_OPEN_PATHS` |
-| O-10 | Low | First-party actions are pinned to major-version tags, not SHAs. This is consistent with the initial audit, which claims SHA pinning for third-party actions only. | `.github/workflows/*.yml` |
+| O-10 | Low | First-party actions are pinned to major-version tags, not SHAs. This is consistent with the initial audit, which claims SHA pinning for third-party actions only. **Status:** Fixed (#40): every action, first- and third-party, is pinned to a full commit SHA with its version in a comment, and Dependabot's `github-actions` updates keep the pins current. | `.github/workflows/*.yml` |
 
 ## 7. Accepted advisory: `diskcache` PYSEC-2026-2447
 

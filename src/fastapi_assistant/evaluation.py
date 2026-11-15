@@ -337,7 +337,22 @@ def render_markdown(report: dict, baseline: dict | None = None) -> str:
         "latency_p95_s",
     ):
         lines.append(f"| {key} | {s.get(key)} | {b.get(key, '-')} |")
-    lines += ["", "| category | items | score |", "| --- | --- | --- |"]
-    for name, cat in report["by_category"].items():
-        lines.append(f"| {name} | {cat['items']} | {cat['score']} |")
+    # Per-category scores next to the baseline's, so a release that wins overall but
+    # loses a topic is visible. "-" when there is no baseline or no such category.
+    base_categories = (baseline or {}).get("by_category", {})
+    lines += [
+        "",
+        "| category | items | score | baseline | change |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for name, cat in sorted(report["by_category"].items()):
+        score = cat["score"]
+        base = base_categories.get(name, {}).get("score")
+        change = (
+            f"{score - base:+.3f}"
+            if isinstance(score, (int, float)) and isinstance(base, (int, float))
+            else "-"
+        )
+        base_text = "-" if base is None else base
+        lines.append(f"| {name} | {cat['items']} | {score} | {base_text} | {change} |")
     return "\n".join(lines)

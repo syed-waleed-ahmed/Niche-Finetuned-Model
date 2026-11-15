@@ -13,11 +13,14 @@ import {
 import {
   conversationReducer,
   historyFor,
+  loadTurns,
   newAssistantTurn,
   newId,
+  saveTurns,
   type Turn,
 } from "../state/conversation";
 import type { Settings } from "../state/settings";
+import { safeSessionStorage } from "../state/storage";
 
 export const MAX_ATTEMPTS = 3;
 const DEFAULT_RETRY_S = 5;
@@ -63,7 +66,10 @@ function wait(ms: number, signal: AbortSignal): Promise<boolean> {
 }
 
 export function useConversation(settings: Settings): Conversation {
-  const [turns, dispatch] = useReducer(conversationReducer, []);
+  // The finished part of the conversation survives a reload of this tab (#41).
+  const [turns, dispatch] = useReducer(conversationReducer, null, () =>
+    loadTurns(safeSessionStorage()),
+  );
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState<RetryState | null>(null);
   const [lastMeta, setLastMeta] = useState<ResponseMeta | null>(null);
@@ -75,6 +81,9 @@ export function useConversation(settings: Settings): Conversation {
   settingsRef.current = settings;
 
   useEffect(() => () => controller.current?.abort(), []);
+
+  // Only finished question/answer pairs are written; clearing writes nothing back.
+  useEffect(() => saveTurns(turns, safeSessionStorage()), [turns]);
 
   const send = useCallback(async (question: string) => {
     const text = question.trim();

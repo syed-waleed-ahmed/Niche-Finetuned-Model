@@ -122,6 +122,29 @@ def test_load_and_run_eval(tmp_path):
     assert "| score |" in render_markdown(report)
 
 
+def test_markdown_compares_each_category_with_the_baseline():
+    report = {
+        "summary": {"score": 0.6},
+        "by_category": {
+            "security": {"items": 2, "score": 0.5},
+            "routing": {"items": 1, "score": 0.8},
+        },
+    }
+    baseline = {
+        "summary": {"score": 0.55},
+        "by_category": {"security": {"items": 2, "score": 0.6}, "gone": {"items": 1, "score": 1}},
+    }
+    lines = render_markdown(report, baseline).splitlines()
+    assert "| category | items | score | baseline | change |" in lines
+    # Sorted by name; a topic that got worse shows a negative change.
+    rows = [line for line in lines if line.startswith(("| routing", "| security"))]
+    assert rows == ["| routing | 1 | 0.8 | - | - |", "| security | 2 | 0.5 | 0.6 | -0.100 |"]
+    # Categories only in the baseline are not listed.
+    assert not any(line.startswith("| gone") for line in lines)
+    # Without a baseline every comparison is "-".
+    assert "| security | 2 | 0.5 | - | - |" in render_markdown(report).splitlines()
+
+
 def test_eval_uses_greedy_decoding(tmp_path):
     engine = FakeEngine()
     run_eval(engine, [EvalItem(id="a", instruction="q", output="r")])

@@ -154,7 +154,7 @@ flowchart LR
 | Static UI | Cloudflare Workers Static Assets | None | Cloudflare |
 | Edge Worker | Cloudflare isolates | Per isolate: `LocalRateLimiter` counters and `CircuitBreaker` state. Lost when the isolate is recycled. | Cloudflare |
 | Shared edge state | Upstash Redis (optional) | Rate counters `rl:*`, cached answers `c:*`, verified-key markers `kv:*` | Not configured today |
-| Origin | Cloud Run instance, 2 vCPU, 2 GiB | Read-only model weights, auth TTL cache, admission counters, metrics registry | Instances: `minScale 0`, `maxScale` from `CLOUD_RUN_MAX_INSTANCES` (default 2) |
+| Origin | Cloud Run instance, 2 vCPU, 4 GiB | Read-only model weights, auth TTL cache, admission counters, metrics registry | Instances: `minScale 0`, `maxScale` from `CLOUD_RUN_MAX_INSTANCES` (default 2) |
 | Persistence | Neon Postgres (optional) | `api_keys`, `usage_events`, `feedback`, `doc_chunks` | Not required |
 | Weights | Hugging Face Hub | GGUF at a pinned revision | Downloaded on cold start |
 

@@ -35,5 +35,5 @@ that breaks an example fails the build.
 | Queue wait timed out, or model still loading | `503` with `Retry-After` |
 | Origin did not answer in time | `504` |
 
-The served model is small (1.1B parameters). Treat its answers as drafts and check them
+The served model is small (1.5B parameters). Treat its answers as drafts and check them
 against the cited documentation sources.

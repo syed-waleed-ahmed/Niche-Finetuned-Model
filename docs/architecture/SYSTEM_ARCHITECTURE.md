@@ -27,19 +27,19 @@ Release workflow deploys both Cloud Run and the edge Worker from `main`.
 
 A FastAPI-specialised small language model served as an HTTP service with a native
 API (`POST /generate`) and an OpenAI-compatible API (`/v1/chat/completions`,
-`/v1/models`, `/v1/feedback`). The model is TinyLlama-1.1B-Chat with a
+`/v1/models`, `/v1/feedback`). The model is Qwen2.5-Coder-1.5B-Instruct with a
 LoRA fine-tune merged in, served as a quantized GGUF by llama.cpp on CPU.
 
-The deployed model is the first fine-tuned release, `v2026.11.13-2b04940`
-(`"finetuned": true` in `model-release.json`; audit finding F-04, resolved in #33). See
-[MODEL_PIPELINE.md](MODEL_PIPELINE.md).
+The deployed model is `v2026.11.14-72d6b37` (`"finetuned": true` in
+`model-release.json`), live since 2026-11-15 (#53). It replaced the first fine-tuned
+release, `v2026.11.13-2b04940`, a TinyLlama-1.1B-Chat fine-tune that resolved audit
+finding F-04 in #33. See [MODEL_PIPELINE.md](MODEL_PIPELINE.md).
 
 ## 2. Context diagram
 
-Dashed nodes are optional or not deployed, and dashed links have not been used in
-production yet (no fine-tune has been published). Solid nodes and links are live or
-in use, according to the audit's live deployment baseline and the implementation
-status.
+Dashed nodes and links are optional and not deployed. Solid nodes and links are live
+or in use, according to the implementation status (Upstash and Neon since
+2026-11-14; fine-tuned releases published to the Hub since #33).
 
 ```mermaid
 flowchart LR
@@ -51,7 +51,7 @@ flowchart LR
         Worker["Edge Worker<br/>deploy/cloudflare-worker"]
     end
 
-    Redis[("Upstash Redis<br/>optional, configured")]
+    Redis[("Upstash Redis<br/>optional, live")]
     Backup["Backup origins<br/>HF Space, Oracle VM<br/>config only, not deployed"]
 
     subgraph GCP["Google Cloud"]
@@ -61,7 +61,7 @@ flowchart LR
         AR[("Artifact Registry")]
     end
 
-    PG[("Neon Postgres + pgvector<br/>optional, configured")]
+    PG[("Neon Postgres + pgvector<br/>optional, live")]
     Hub[("Hugging Face Hub<br/>GGUF at a pinned revision")]
     GHA["GitHub Actions<br/>CI, Release, Security, Eval, Train"]
     GHCR[("GHCR<br/>multi-arch image")]
@@ -70,11 +70,11 @@ flowchart LR
     Browser -->|"GET /, /assets"| Assets
     Browser -->|"same-origin API calls"| Worker
     Client -->|HTTPS| Worker
-    Worker -.->|"REST pipeline"| Redis
+    Worker -->|"REST pipeline"| Redis
     Worker -->|"X-Origin-Secret"| Run
     Worker -.->|"failover"| Backup
     Run --> Engine
-    Run -.->|"keys, usage, feedback"| PG
+    Run -->|"keys, usage, feedback"| PG
     Run -->|"download GGUF, verify SHA-256"| Hub
     SM -->|"secrets as env vars"| Run
     AR -->|"amd64 image"| Run
@@ -82,10 +82,10 @@ flowchart LR
     GHA -->|"copy image, sync secrets, deploy"| GCP
     GHA -->|"wrangler deploy, k6 smoke"| Worker
     GHA -->|"train.yml"| Kaggle
-    Kaggle -.->|"publish tagged GGUF"| Hub
+    Kaggle -->|"publish tagged GGUF"| Hub
 
     classDef optional stroke-dasharray: 5 5
-    class Redis,Backup,PG optional
+    class Backup optional
 ```
 
 ## 3. Components and responsibilities

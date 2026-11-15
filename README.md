@@ -21,24 +21,26 @@ rate limiting, caching and origin failover, and a model-release pipeline in whic
 [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) ·
 [Discussions](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/discussions)
 
-![The web UI welcome screen: the fine-tuned model v2026.11.13-2b04940 is ready, the public demo needs no key, with example questions and the settings panel](docs/assets/web-ui.jpg)
+![The web UI welcome screen: the fine-tuned model v2026.11.14-72d6b37 is ready, the public demo needs no key, with example questions and the settings panel](docs/assets/web-ui.jpg)
 
-> **Status.** The live service runs the first fine-tuned release, `v2026.11.13-2b04940`
-> (`model-release.json`: `finetuned: true`). It scores 0.546 on the held-out set against
-> the base model's 0.402, both scored with the production backend in the same run.
-> Its weights are on the Hugging Face Hub as a
+> **Status.** Since 2026-11-15 the live service runs `v2026.11.14-72d6b37`
+> (`model-release.json`: `finetuned: true`), a LoRA fine-tune of
+> Qwen2.5-Coder-1.5B-Instruct. It scores 0.666 on the held-out set against 0.546 for
+> the previous release, a fine-tune of TinyLlama-1.1B-Chat, both scored with the
+> production backend in the same run. Its weights are on the Hugging Face Hub as a
 > [GGUF](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-gguf) and a
 > [LoRA adapter](https://huggingface.co/syed-waleed-ahmed/fastapi-assistant-lora).
-> At 1.1B parameters it is still often wrong, so check its answers. What is live and
+> At 1.5B parameters it is still often wrong, so check its answers. What is live and
 > what is optional is tracked in [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
 
 ## What it does
 
-- **Serves a small model cheaply.** A LoRA fine-tune of TinyLlama-1.1B, merged and
-  quantized to a 0.7 GB GGUF and served with llama.cpp on CPU. That is about 13
-  tokens/s on a laptop CPU, and 5 to 18 tokens/s per request on a 2-vCPU Cloud Run
-  instance, depending on the host. The same `Engine` contract also runs torch + LoRA,
-  or forwards to vLLM or TGI for GPU throughput.
+- **Serves a small model cheaply.** A LoRA fine-tune of Qwen2.5-Coder-1.5B-Instruct,
+  merged and quantized to a 1 GB GGUF and served with llama.cpp on CPU. On the 2-vCPU
+  Cloud Run instance it generates about 7.6 tokens/s (Grafana, mean over an hour);
+  two live answers took 14.2 s (104 tokens) and 26.3 s (192 tokens). The same
+  `Engine` contract also runs torch + LoRA, or forwards to vLLM or TGI for GPU
+  throughput.
 - **Speaks two APIs.** A native `POST /generate` and an OpenAI-compatible
   `POST /v1/chat/completions` (streaming included), so the OpenAI SDKs work unchanged.
 - **Grounds answers in the docs, when it helps.** Retrieval over 1,524 chunks of the
@@ -86,7 +88,7 @@ cd Niche-Finetuned-Model
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[serve]"
 
-# Serve the currently released model (downloads the pinned 0.7 GB GGUF once).
+# Serve the currently released model (downloads the pinned 1 GB GGUF once).
 fastapi-assistant export env model-release.json > .env
 fastapi-assistant rag build            # optional: docs index for grounded answers
 fastapi-assistant serve             # add "use_retrieval": true per request
@@ -129,7 +131,7 @@ curl -s localhost:8000/generate -H 'X-API-Key: <key>' -H 'Content-Type: applicat
 ```json
 {
   "answer": "Set status_code on the decorator ...",
-  "model_version": "v2026.11.13-2b04940",
+  "model_version": "v2026.11.14-72d6b37",
   "finish_reason": "stop",
   "usage": {"prompt_tokens": 560, "completion_tokens": 141, "total_tokens": 701},
   "sources": [{"url": "https://fastapi.tiangolo.com/tutorial/response-status-code/", "heading": "Response Status Code", "score": 0.81}],
@@ -202,30 +204,32 @@ parses), and ROUGE-L against a reference. The composite score gates releases.
 Measured on the 108-item held-out set with the production backend (Q4_K_M GGUF on
 llama.cpp, greedy decoding, 256 new tokens). Both models were scored in the same run
 of the CI eval gate, on the same GitHub-hosted runner, when the release pull request
-was opened. `eval/baseline.json` holds the deployed model's per-item answers, and it
-is the bar the next release must clear.
+(#53) was opened. `eval/baseline.json` holds the deployed model's per-item answers,
+and it is the bar the next release must clear.
 
-| Metric | Fine-tuned `v2026.11.13-2b04940` (deployed) | Base TinyLlama |
+| Metric | Qwen fine-tune `v2026.11.14-72d6b37` (deployed) | Previous release `v2026.11.13-2b04940` (TinyLlama fine-tune) |
 | --- | --- | --- |
-| Composite score | **0.546** | 0.402 |
-| Keyword recall | 0.426 | 0.432 |
-| Code validity | **0.846** | 0.490 |
-| ROUGE-L | **0.387** | 0.289 |
-| Latency p50 (s) | 4.9 | 6.7 |
-| Latency p95 (s) | 7.6 | 7.8 |
+| Composite score | **0.666** | 0.546 |
+| Keyword recall | **0.685** | 0.426 |
+| Code validity | **0.885** | 0.846 |
+| ROUGE-L | **0.449** | 0.387 |
+| Latency p50 (s) | 5.7 | 4.4 |
+| Latency p95 (s) | 8.9 | 6.8 |
 
-Most of the gain is in the shape of the answer. The fine-tune includes a code block in
-105 of 108 answers (the base model: 90), those blocks parse far more often, and its
-answers are about a third shorter (571 characters on average against 831), so they
-finish sooner. Keyword recall did not move: it still names the wrong API about as
-often as the base model does, and code that parses can still be wrong (the
-[model card](MODEL_CARD.md#limitations-and-risks) has examples). More training data
-per topic is the next step ([ROADMAP.md](ROADMAP.md)).
+Most of the gain is in keyword recall: the new model names the API a question needs
+far more often than the TinyLlama fine-tune did, which had not improved on its own
+base model there. It is a larger model, so each answer takes longer. Its answers are
+still often wrong: live, it has described a header as a query parameter and
+over-complicated a 201 response, and code that parses can still be wrong (the
+[model card](MODEL_CARD.md#limitations-and-risks) has more). On the Kaggle GPU
+(`transformers`, fp16) the fine-tune scored 0.672 against 0.558 for the base
+Qwen2.5-Coder-1.5B-Instruct. The previous release scored 0.546 against 0.402 for the
+base TinyLlama (#33).
 
-Retrieval was measured on the base model only, on a laptop CPU
+Retrieval was measured on the base TinyLlama only, on a laptop CPU
 (`eval/baseline-rag.json`): keyword recall rose (+0.080) because the docs name the
-right APIs, but code validity fell (-0.137) because a 1.1B model copies code
-fragments it cannot adapt, so the composite was flat (-0.010) and latency grew by
+right APIs, but code validity fell (-0.137) because that 1.1B model copied code
+fragments it could not adapt, so the composite was flat (-0.010) and latency grew by
 about 60%. Production therefore keeps retrieval opt-in (`use_retrieval: true`). The
 fine-tune trains on context examples in the same layout; whether retrieval helps it
 has not been measured yet.
@@ -234,7 +238,7 @@ has not been measured yet.
 
 ```mermaid
 flowchart LR
-    Data["data/*.jsonl<br/>351 train / 108 eval"] --> Train["Kaggle GPU<br/>LoRA fine-tune"]
+    Data["data/*.jsonl<br/>502 train / 108 eval"] --> Train["Kaggle GPU<br/>LoRA fine-tune"]
     Train --> G1{"beats base?"}
     G1 -->|yes| GGUF["merge + Q4_K_M GGUF<br/>tagged on HF Hub"]
     GGUF --> G2{"CI eval gate<br/>(llama.cpp)"}
@@ -250,7 +254,7 @@ The two gates:
 Training never reads the held-out eval file. Checkpoints are selected on a validation
 slice of the training data.
 
-The dataset is curated: 351 training and 108 eval pairs, with the eval set spanning 41
+The dataset is curated: 502 training and 108 eval pairs, with the eval set spanning 41
 categories. Every Python block was parsed, and most were executed against FastAPI
 during authoring. CI checks for train/eval leakage. `fastapi-assistant data generate`
 drafts more pairs from the official docs with Claude, for human review.
@@ -272,10 +276,12 @@ drafts more pairs from the official docs with Claude, for human review.
 ### Capacity
 
 What has been measured is in
-[docs/audit/PERFORMANCE_BASELINE.md](docs/audit/PERFORMANCE_BASELINE.md):
+[docs/audit/PERFORMANCE_BASELINE.md](docs/audit/PERFORMANCE_BASELINE.md), on the
+earlier TinyLlama model (the deployed Qwen model generates about 7.6 tokens/s on
+Cloud Run):
 
 - each instance runs one generation at a time;
-- a 32-token answer takes about 3 s;
+- a 32-token answer took about 3 s with TinyLlama;
 - with `maxScale: 2`, a burst that forces a cold scale-out can see some requests
   refused with 429 and a retry hint.
 
@@ -393,7 +399,10 @@ If you use this project in your work, cite it with the metadata in
 ## Acknowledgements
 
 This project builds on:
-- [TinyLlama](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0) (Apache-2.0);
+- [Qwen2.5-Coder-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct)
+  by the Qwen team, Alibaba Cloud (Apache-2.0), the base of the deployed model;
+- [TinyLlama](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0) (Apache-2.0),
+  the base of the earlier releases;
 - [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT);
 - the [FastAPI documentation](https://github.com/fastapi/fastapi) (MIT), which grounds
   retrieval;
@@ -409,5 +418,6 @@ its license.
 The code is released under the [MIT License](LICENSE). Copyright (c) 2026 Syed Waleed
 Ahmed.
 
-Model weights derived from TinyLlama are distributed under the Apache License 2.0;
-see [MODEL_CARD.md](MODEL_CARD.md).
+The model weights, derived from Qwen2.5-Coder-1.5B-Instruct (earlier releases: from
+TinyLlama), are distributed under the Apache License 2.0; see
+[MODEL_CARD.md](MODEL_CARD.md).

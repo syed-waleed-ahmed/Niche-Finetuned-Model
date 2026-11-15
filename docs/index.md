@@ -18,9 +18,10 @@ new model only if it beats the current one on a held-out evaluation.
 
 !!! note "Status"
 
-    The live service runs the first fine-tuned release, a LoRA fine-tune of
-    TinyLlama-1.1B-Chat quantized to GGUF. It scores 0.546 on the held-out set against
-    the base model's 0.402. It is a small model and often wrong, so check its answers.
+    The live service runs `v2026.11.14-72d6b37`, a LoRA fine-tune of
+    Qwen2.5-Coder-1.5B-Instruct quantized to GGUF. It scores 0.666 on the held-out set
+    against 0.546 for the previous release, a TinyLlama-1.1B fine-tune. It is a small
+    model and often wrong, so check its answers.
     The [model card](project/model-card.md) has the evaluation and the
     [implementation status](IMPLEMENTATION_STATUS.md) page has what is live.
 

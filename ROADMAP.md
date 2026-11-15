@@ -12,7 +12,7 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Why |
 | --- | --- |
-| Larger, more varied training set | Keyword recall did not move with the first fine-tune (0.426 against the base model's 0.432): it still names the wrong API about as often. More questions per topic, especially on dependencies, security and testing, should help. |
+| Larger, more varied training set | Keyword recall did not move with the first fine-tune (0.426 against the base model's 0.432). With 151 more training rows (351 to 502) and the Qwen base model it rose to 0.685 (#44, #53), but about a third of the required API names are still missing, and live answers still get FastAPI wrong. More questions per topic, especially on the weakest categories (logging, deployment, rate limiting, streaming), should help. |
 | Measure retrieval with the fine-tuned model | Retrieval was measured on the base model only, where it was a trade-off. The fine-tune trained on context examples, so `fastapi-assistant eval --rag` on it decides whether retrieval should become the default. |
 
 ## Next
@@ -26,7 +26,6 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Why |
 | --- | --- |
-| A stronger base model | A 1.1B model is fast on a free CPU but often wrong. A 1.5B to 3B model, quantized, may still fit the free tier. |
 | Retrieval on by default | Answers grounded in the FastAPI documentation are more accurate; the index needs to fit the image size and cold-start budget. |
 | Backup origin | A Hugging Face Space or a small VM behind the edge circuit breaker (configurations exist in `deploy/`). |
 | Evaluation with an LLM judge | ROUGE-L and keyword recall miss answers that are right but worded differently. |
@@ -35,7 +34,8 @@ or start a thread in [Discussions](https://github.com/syed-waleed-ahmed/Niche-Fi
 
 | Item | Result |
 | --- | --- |
-| The first fine-tuned release | `v2026.11.13-2b04940` is the served model: 0.546 on the held-out set against the base model's 0.402 (#33). |
+| A stronger base model | `v2026.11.14-72d6b37`, a fine-tune of Qwen2.5-Coder-1.5B-Instruct, replaced the TinyLlama-1.1B fine-tune: 0.666 on the held-out set against 0.546, served on the same free-tier CPU at about 7.6 tokens/s (#44, #53). It is still often wrong. |
+| The first fine-tuned release | `v2026.11.13-2b04940`, a TinyLlama-1.1B fine-tune, served from #33 until #53: 0.546 on the held-out set against the base model's 0.402. |
 | Public demo access | Visitors can try the live service without a key, behind the edge rate limits (#24). |
 | Documentation website | The guides in `docs/`, published as a searchable site on GitHub Pages (#30). |
 | Web UI refresh | A welcome screen, access onboarding, light and dark themes, and a mobile layout (#32). |

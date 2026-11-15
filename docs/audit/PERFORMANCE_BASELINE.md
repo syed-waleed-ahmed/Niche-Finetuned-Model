@@ -6,6 +6,13 @@ Measured on 2026-11-13 against the live deployment:
 - **Origin:** Cloud Run, 2 vCPU and 2 GiB per instance, `maxScale: 2`, `containerConcurrency: 4`, `MAX_CONCURRENCY=1`, `MAX_QUEUE=3`.
 - **Model:** TinyLlama-1.1B-Chat Q4_K_M with llama.cpp, `n_ctx` 2048.
 
+**These figures were measured on the TinyLlama-1.1B model** served at the time. Since
+2026-11-15 the deployed model is `v2026.11.14-72d6b37`, a fine-tune of
+Qwen2.5-Coder-1.5B-Instruct, also Q4_K_M on llama.cpp. The measurements below have not
+been repeated for it; on Cloud Run (2 vCPU) it generates about 7.6 tokens/s (Grafana,
+mean over an hour), and two live answers took 14.2 s (104 tokens) and 26.3 s
+(192 tokens).
+
 Every figure is one observed run from a single client, not a statistical benchmark. No
 sustained load test has been run, and none should be run against the public deployment
 without a plan, a time window and a cost check.
@@ -62,7 +69,7 @@ Two controlled, one-off bursts of short requests (32 new tokens each), one minut
 |---|---|---|
 | `minScale: 1` | No cold start for the first instance | An always-allocated instance, billed while idle |
 | Higher `maxScale` | More parallel generations during bursts | Raises the worst-case bill |
-| Bake weights into the image | Shorter cold start (no 0.7 GB download) | Image exceeds Artifact Registry's 0.5 GB free storage |
+| Bake weights into the image | Shorter cold start (no 0.7 GB download; about 1 GB for the Qwen release) | Image exceeds Artifact Registry's 0.5 GB free storage |
 
 ## After the hardening release (same day)
 

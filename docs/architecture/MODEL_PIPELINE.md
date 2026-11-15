@@ -5,30 +5,38 @@ how a model release rolls out and rolls back.
 
 ## 1. Current state
 
-**The deployed model is the first fine-tuned release, `v2026.11.13-2b04940`.** This
-pipeline produced it end to end on 2026-11-13: trained on a free Kaggle GPU, gated,
-merged, quantized and published to the Hub (by CI, with `publish_only`), re-scored in
-CI, and deployed by merging release pull request #33. `model-release.json` has
-`"finetuned": true` and points at `syed-waleed-ahmed/fastapi-assistant-gguf` at that
-tag, with its SHA-256. The first training runs exposed environment problems in the
-Kaggle image, fixed in #15 and #16 (audit finding F-04).
+**The deployed model is `v2026.11.14-72d6b37`, a LoRA fine-tune of
+Qwen2.5-Coder-1.5B-Instruct**, live since 2026-11-15. This pipeline produced it end to
+end: Train run 43622001406 trained it from commit `72d6b37` (#44) on a free Kaggle T4
+GPU, gated, merged, quantized and published it to the Hub, and it was re-scored in CI
+and deployed by Release run 43696171917 after release pull request #53 was merged.
+`model-release.json` has `"finetuned": true` and points at
+`syed-waleed-ahmed/fastapi-assistant-gguf` at that tag, with its SHA-256.
 
-Both models scored with the production backend in the same CI run. The fine-tune's
-scores in `eval/baseline.json` are now the bar the next release must clear:
+Both gates, each scoring both models in the same run:
 
-| Metric | Fine-tuned `v2026.11.13-2b04940` | Base TinyLlama Q4_K_M |
-| --- | --- | --- |
-| Items | 108 | 108 |
-| Composite score | 0.546 | 0.402 |
-| Keyword recall | 0.426 | 0.432 |
-| Code validity | 0.846 | 0.490 |
-| ROUGE-L | 0.387 | 0.289 |
+| Metric | Gate 2 (CI, llama.cpp): `v2026.11.14-72d6b37` | Gate 2: previous release `v2026.11.13-2b04940` | Gate 1 (Kaggle, fp16): fine-tune | Gate 1: base Qwen2.5-Coder-1.5B-Instruct |
+| --- | --- | --- | --- | --- |
+| Items | 108 | 108 | 108 | 108 |
+| Composite score | 0.6663 | 0.5463 | 0.6716 | 0.5576 |
+| Keyword recall | 0.6852 | 0.4259 | 0.7114 | 0.6219 |
+| Code validity | 0.8846 | 0.8462 | 0.8558 | 0.7212 |
+| ROUGE-L | 0.4488 | 0.3866 | 0.4548 | 0.3450 |
+
+The fine-tune's Gate 2 scores in `eval/baseline.json` are now the bar the next release
+must clear.
+
+The previous release, `v2026.11.13-2b04940`, was the first fine-tuned release: a LoRA
+fine-tune of TinyLlama-1.1B-Chat, deployed by #33, which scored 0.5463 against the
+base TinyLlama's 0.4023 in Gate 2. Before it, `base-tinyllama-q4km` served the base
+TinyLlama (audit finding F-04). The first training runs exposed environment problems
+in the Kaggle image, fixed in #15 and #16.
 
 ## 2. Pipeline
 
 ```mermaid
 flowchart LR
-    Data[("data/*.jsonl<br/>351 train, 108 eval")] --> Validate["data validate<br/>in CI and on Kaggle"]
+    Data[("data/*.jsonl<br/>502 train, 108 eval")] --> Validate["data validate<br/>in CI and on Kaggle"]
     Validate --> Train["LoRA fine-tune<br/>Kaggle GPU kernel"]
     Train --> G1{"Gate 1<br/>fine-tune scores at least<br/>the base model?"}
     G1 -->|no| Stop1["stop<br/>nothing published"]
@@ -58,7 +66,7 @@ flowchart LR
 
 | File | Rows | Fields |
 | --- | --- | --- |
-| `data/fastapi_qa_train.jsonl` | 351 | `instruction`, `input`, `output` |
+| `data/fastapi_qa_train.jsonl` | 502 | `instruction`, `input`, `output` |
 | `data/fastapi_qa_eval.jsonl` | 108 | `id`, `category`, `instruction`, `input`, `output`, `must_include` (API identifiers a correct answer must name) |
 
 `fastapi-assistant data validate` (`datasets_tools.py`) fails on:
@@ -95,9 +103,9 @@ cannot replace them, and then uninstalls the image's `torchao`, which is older t
 
 | Setting | Value | Source |
 | --- | --- | --- |
-| Base model | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | `kaggle/pipeline.py` `CONFIG` |
-| LoRA | r 16, alpha 32, dropout 0.05, on `q_proj`, `k_proj`, `v_proj`, `o_proj` | `kaggle/pipeline.py`, `config.py` |
-| Optimisation | 3 epochs, learning rate 2e-4, batch 8, gradient accumulation 2 | `kaggle/pipeline.py` |
+| Base model | `Qwen/Qwen2.5-Coder-1.5B-Instruct` (until #44: `TinyLlama/TinyLlama-1.1B-Chat-v1.0`) | `kaggle/pipeline.py` `CONFIG` |
+| LoRA | r 16, alpha 32, dropout 0.05, on `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj` | `kaggle/pipeline.py`, `config.py` |
+| Optimisation | 3 epochs, learning rate 2e-4, batch 4, gradient accumulation 4 (effective batch 16, fits a T4 in fp16) | `kaggle/pipeline.py` |
 | Sequence length | 512 tokens | `config.py` `max_seq_length` |
 | Loss | Completion-only: prompt tokens are masked with label -100 | `training.py`, `data.py` |
 | Prompt format | `prompts.build_messages` and `encode_chat`, the same format serving uses | `data.py`, `prompts.py` |
@@ -135,9 +143,10 @@ trainer selects its best checkpoint by loss on that slice.
    `merge_and_unload`, writing a full model plus tokenizer.
 2. `scripts/export_gguf.sh` clones llama.cpp at a pinned ref (`b11971`), converts
    the merged model to an f16 GGUF with `convert_hf_to_gguf.py`, builds
-   `llama-quantize` (`GGML_NATIVE=OFF`), and quantizes to `Q4_K_M` (about 0.7 GB for
-   1.1B parameters). The converter embeds the tokenizer's chat template, so serving
-   uses the training prompt format without extra configuration.
+   `llama-quantize` (`GGML_NATIVE=OFF`), and quantizes to `Q4_K_M` (about 1 GB for the
+   1.5B-parameter Qwen model; 0.7 GB for the earlier 1.1B TinyLlama). The converter
+   embeds the tokenizer's chat template (ChatML for Qwen), so serving uses the
+   training prompt format without extra configuration.
 3. The pipeline computes the SHA-256 of `model-Q4_K_M.gguf` (`hub.sha256_file`) and
    writes it into the release manifest.
 
@@ -175,14 +184,14 @@ PR replaces it together with `eval/baseline.json` and `eval/baseline.md`.
 
 | Field | Current value | Becomes |
 | --- | --- | --- |
-| `model_version` | `v2026.11.13-2b04940` | `MODEL_VERSION` (responses, metrics, usage), Cloud Run revision label, edge cache namespace |
-| `base_model` | `TinyLlama/TinyLlama-1.1B-Chat-v1.0` | `BASE_MODEL_NAME` |
+| `model_version` | `v2026.11.14-72d6b37` | `MODEL_VERSION` (responses, metrics, usage), Cloud Run revision label, edge cache namespace |
+| `base_model` | `Qwen/Qwen2.5-Coder-1.5B-Instruct` | `BASE_MODEL_NAME` |
 | `finetuned` | `true` | `FINETUNED_WEIGHTS`, reported as `uses_adapter` by `/health` |
 | `chat_format` | absent (the base release set `zephyr`) | `LLAMACPP_CHAT_FORMAT`; absent for a fine-tune, which uses the GGUF's embedded template |
 | `gguf.repo_id`, `gguf.filename`, `gguf.revision` | `syed-waleed-ahmed/fastapi-assistant-gguf`, `model-Q4_K_M.gguf`, the release tag | `GGUF_REPO_ID`, `GGUF_FILENAME`, `GGUF_REVISION` |
 | `gguf.sha256` | 64 hex characters | `GGUF_SHA256`, verified before load |
 | `adapter` | `syed-waleed-ahmed/fastapi-assistant-lora` at the release tag | `ADAPTER_REPO_ID`, `ADAPTER_REVISION` (transformers backend only) |
-| `eval` | the Kaggle gate's summary (score 0.538) | Eval summary of the release |
+| `eval` | the Kaggle gate's summary (score 0.6716) | Eval summary of the release |
 
 The translation is `export.manifest_env`, exposed as
 `fastapi-assistant export env model-release.json`.
@@ -210,8 +219,9 @@ so the gate compares future candidates against the restored model.
 
 ## 12. Known gaps
 
-- Only one fine-tuned release exists. Its keyword recall did not improve on the base
-  model's, and retrieval has not been measured with it ([ROADMAP.md](../../ROADMAP.md)).
+- Two fine-tuned releases exist. The first did not improve keyword recall on its base
+  model; the Qwen release raised it to 0.6852, but its answers are still often wrong,
+  and retrieval has not been measured with either ([ROADMAP.md](../../ROADMAP.md)).
 - **Fixed during this review.** `train.yml` passes the commit SHA as `ref`, but
   `kaggle/pipeline.py` used to clone with `git clone --branch <ref>`, which rejects a
   commit hash. The pipeline now runs `git init`, `git fetch --depth 1 origin <ref>`

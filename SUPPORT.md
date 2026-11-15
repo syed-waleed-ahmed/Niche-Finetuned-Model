@@ -17,7 +17,7 @@
 - Include the `X-Request-ID` of the failing request if you have one. Every response
   carries it, and it links the edge and origin logs.
 - For a wrong answer from the model, include the question and the answer. The served
-  model is small (1.1B parameters), so wrong answers are expected. They are tracked as
+  model is small (1.5B parameters), so wrong answers are expected. They are tracked as
   evaluation data, not as bugs, unless the service itself misbehaves.
 - Never paste API keys, tokens or other secrets.
 

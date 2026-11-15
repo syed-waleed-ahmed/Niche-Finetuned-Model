@@ -45,7 +45,11 @@ spec:
           resources:
             limits:
               cpu: "2"
-              memory: 2Gi
+              # 4 GiB since the Qwen2.5-Coder-1.5B release: its 1 GB GGUF lives in the
+              # in-memory file system and is mapped by llama.cpp, and at 2 GiB the
+              # instance ran at 99% memory. With 2 vCPU the free vCPU-seconds still run
+              # out before the free GiB-seconds do.
+              memory: 4Gi
           env:
             - { name: MODEL_VERSION, value: "${MODEL_VERSION}" }
             - { name: BASE_MODEL_NAME, value: "${BASE_MODEL_NAME}" }

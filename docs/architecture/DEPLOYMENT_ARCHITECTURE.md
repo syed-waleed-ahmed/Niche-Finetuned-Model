@@ -122,7 +122,7 @@ Values from `deploy/cloudrun/service.yaml` after rendering.
 | `cpu-throttling` | `true` | Request-based billing: CPU billed only while serving requests |
 | `startup-cpu-boost` | `true` | Faster cold start (model load) |
 | Execution environment | `gen2` | |
-| CPU, memory | 2 vCPU, 2 GiB | Fits the 0.7 GB GGUF; `LLAMACPP_N_THREADS=2` |
+| CPU, memory | 2 vCPU, 4 GiB | The 1 GB Qwen GGUF ran the instance at 99% of 2 GiB, so memory was raised to 4 GiB; `LLAMACPP_N_THREADS=2` |
 | `containerConcurrency` | 4 | Sized to one running generation plus `MAX_QUEUE=3` waiting (comment in the file) |
 | Container port | `h2c` (8080) | Cloud Run talks cleartext HTTP/2 to the container, which is how it reports a client's disconnect. The image serves it with Hypercorn (`HTTP_SERVER=hypercorn`); see [DECISIONS.md](DECISIONS.md), ADR-009 |
 | `timeoutSeconds` | 300 | Whole request, including a stream |

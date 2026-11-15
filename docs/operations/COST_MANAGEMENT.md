@@ -65,7 +65,7 @@ The configuration (`deploy/cloudrun/service.yaml`) is:
 
 | Setting | Value |
 |---|---|
-| CPU and memory per instance | 2 vCPU, 2 GiB |
+| CPU and memory per instance | 2 vCPU, 4 GiB (2 GiB until the Qwen release) |
 | Billing | Request-based (`run.googleapis.com/cpu-throttling: "true"`) |
 | `minScale` | 0 |
 | `maxScale` | 2 by default; 1 on the live deployment (`CLOUD_RUN_MAX_INSTANCES`) |
@@ -88,10 +88,10 @@ Derived from the allowance:
 | Quantity | Arithmetic | Result |
 |---|---|---|
 | Billable instance time covered by the vCPU allowance | 180,000 vCPU-s / 2 vCPU | 90,000 s, about **25 hours** per month |
-| Billable instance time covered by the memory allowance | 360,000 GiB-s / 2 GiB | 180,000 s, about 50 hours per month |
-| Limiting allowance | | vCPU-seconds |
+| Billable instance time covered by the memory allowance | 360,000 GiB-s / 4 GiB | 90,000 s, about 25 hours per month |
+| Limiting allowance | | vCPU-seconds and GiB-seconds run out together (about 25 hours) |
 | Worst case at `maxScale 2`, both instances busy for a 30-day month | 2 x 2 vCPU x 2,592,000 s | 10,368,000 vCPU-s, about **58 times** the free vCPU allowance |
-| Worst case at `maxScale 1` (the live setting) | 1 x 2 vCPU x 2,592,000 s | 5,184,000 vCPU-s, about 29 times the free allowance |
+| Worst case at `maxScale 1` (the live setting) | 1 x 2 vCPU x 2,592,000 s, and 1 x 4 GiB x 2,592,000 s | 5,184,000 vCPU-s and 10,368,000 GiB-s, each about 29 times the free allowance |
 
 Per-request examples come from the single-request measurements in the audit. They are
 not averages.

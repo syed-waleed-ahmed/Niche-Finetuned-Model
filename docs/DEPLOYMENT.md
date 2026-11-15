@@ -12,7 +12,7 @@ Allowances as published in November 2026; check each provider before relying on 
 | Need | Service | Free allowance | What this project uses |
 | --- | --- | --- | --- |
 | Training GPU | Kaggle | about 30 GPU hours/week (not officially published) | about 1 hour per training run |
-| Weights registry | Hugging Face Hub | free public repos | adapter (about 20 MB) + GGUF (about 0.7 GB) per release |
+| Weights registry | Hugging Face Hub | free public repos | adapter (about 74 MB) + GGUF (about 1 GB) per release |
 | Primary origin | Google Cloud Run | 180k vCPU-s, 360k GiB-s, 2M requests per month (request-based billing) | CPU time per uncached answer (no monthly answer count is claimed without a load test; see audit/PERFORMANCE_BASELINE.md) |
 | Image storage | Artifact Registry | 0.5 GB | one amd64 image (cleanup policy keeps two) |
 | Backup origin | Oracle Cloud Always Free | Ampere A1: 2 OCPU / 12 GB total (halved in 2026) | one VM |

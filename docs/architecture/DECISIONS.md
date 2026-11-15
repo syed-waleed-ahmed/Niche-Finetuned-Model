@@ -74,7 +74,8 @@ money continuously.
 
 **Decision.**
 - Merge the adapter into the base model and convert it to GGUF, quantised to
-  `Q4_K_M` (about 0.7 GB).
+  `Q4_K_M` (about 0.7 GB for TinyLlama-1.1B when this was decided; about 1 GB for the
+  deployed Qwen2.5-Coder-1.5B release).
 - Serve it with llama-cpp-python (`ENGINE_BACKEND=llamacpp`).
 - Keep the torch backend for training-time evaluation, and the `remote` backend for
   a future GPU server.
@@ -225,9 +226,9 @@ followed by an in-band error on streams, and wasted an admission slot (F-01).
 
 ## ADR-007: Weights are not baked into the image
 
-**Context.** The GGUF is about 0.7 GB, and Artifact Registry's free storage is
-0.5 GB (F-06). Baking the weights in would make every stored image exceed it, a
-small recurring charge. Downloading at start makes the Hugging Face Hub a runtime
+**Context.** The GGUF is about 1 GB (0.7 GB for the earlier TinyLlama releases), and
+Artifact Registry's free storage is 0.5 GB (F-06). Baking the weights in would make
+every stored image exceed it, a small recurring charge. Downloading at start makes the Hugging Face Hub a runtime
 dependency and lengthens cold starts.
 
 **Decision.**

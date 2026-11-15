@@ -11,7 +11,7 @@ logs and metrics are, and how to do the routine tasks. For outages use
 |---|---|---|
 | Edge | Cloudflare Worker `fastapi-assistant-edge`, which also serves the web UI from `web/dist` | `deploy/cloudflare-worker/`, `web/` |
 | Origin | Cloud Run service `fastapi-assistant` in `us-central1`: Hypercorn serving HTTP/2 (h2c) to Cloud Run's front end, llama.cpp on CPU, 2 vCPU and 4 GiB per instance, `minScale 0`, `maxScale` from the `CLOUD_RUN_MAX_INSTANCES` variable (1 on the live public demo) | `deploy/cloudrun/service.yaml`, `.github/workflows/release.yml` |
-| Model | The fine-tuned release `v2026.11.13-2b04940` (TinyLlama 1.1B Chat with a merged LoRA fine-tune), Q4_K_M GGUF, downloaded from the Hugging Face Hub at its release tag and checked against a SHA-256. To roll back to the base model, revert release pull request #33 | `model-release.json` |
+| Model | The fine-tuned release `v2026.11.14-72d6b37` (Qwen2.5-Coder-1.5B-Instruct with a merged LoRA fine-tune), Q4_K_M GGUF of about 1 GB, downloaded from the Hugging Face Hub at its release tag and checked against a SHA-256. Live since 2026-11-15 (Release run 43696171917). To roll back to the previous release, `v2026.11.13-2b04940` (a TinyLlama 1.1B Chat fine-tune), revert release pull request #53 | `model-release.json` |
 | Uptime probe | GitHub Actions every 10 minutes through the edge: `GET /health`, then the authenticated `GET /v1/models` when `SMOKE_API_KEY` is set | `.github/workflows/uptime.yml` |
 | Secrets | GitHub Actions secrets, copied into Google Secret Manager by Release; one Worker secret | `scripts/setup_secrets.sh` |
 
@@ -147,7 +147,7 @@ curl -sS -o /dev/null -w 'metrics at edge: %{http_code}\n' "$EDGE_URL/metrics"
 | 6 | `metrics, no token: 401`, `metrics at edge: 404` |
 
 **Cold starts.** The first request after an idle period starts a new instance. The
-instance downloads the 0.7 GB GGUF, verifies its SHA-256 and loads it before Cloud Run
+instance downloads the 1 GB GGUF, verifies its SHA-256 and loads it before Cloud Run
 routes traffic to it. The edge waits at most 150 s (`ORIGIN_TIMEOUT_MS`) for response
 headers, so a cold start slower than that shows up as a 504. Check 2 is the cheapest way to
 warm an instance before testing.

@@ -136,3 +136,19 @@ unchanged; only the statuses of items 16 and 20 moved.
   at `c4d1041`.
 - **Still open:** project-wide deployer roles (O-4) and the
   optional services in items 21 to 23.
+
+## 8. Update after the Qwen release (2026-11-15)
+
+Recorded after release pull request #53 was merged. The evidence above is unchanged.
+
+- **Model (item 16).** `v2026.11.13-2b04940` is no longer the live model. Its
+  successor, `v2026.11.14-72d6b37`, is a LoRA fine-tune of
+  Qwen2.5-Coder-1.5B-Instruct trained by Train run 43622001406 from `72d6b37` (#44),
+  with 502 training rows and the unchanged 108-item eval set. It passed gate 1 on the
+  Kaggle GPU (0.6716 against the base Qwen model's 0.5576) and gate 2 in CI with
+  llama.cpp (0.6663 against the TinyLlama fine-tune's 0.5463). Release run
+  43696171917 deployed it, and `/health` reports
+  `"model_version":"v2026.11.14-72d6b37"` and `"uses_adapter":true`.
+- **Speed.** On Cloud Run it generates about 7.6 tokens/s (Grafana, mean over an
+  hour). The figures in [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md) were
+  measured on TinyLlama and have not been repeated.

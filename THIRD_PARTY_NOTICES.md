@@ -95,10 +95,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## TinyLlama model weights
+## Qwen model weights
 
-Not included in the image by default: the GGUF is downloaded at start-up from
-`TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF`, a quantization of
-`TinyLlama/TinyLlama-1.1B-Chat-v1.0`. Both are licensed under the Apache License,
-Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0). An image built with
-`BAKE_MODEL=true` redistributes these weights under that license.
+Not included in the image by default: the GGUF is downloaded at start-up. The deployed
+release, `v2026.11.14-72d6b37`, is `model-Q4_K_M.gguf` from
+`syed-waleed-ahmed/fastapi-assistant-gguf`, a LoRA fine-tune of
+`Qwen/Qwen2.5-Coder-1.5B-Instruct` by the Qwen team, Alibaba Cloud; its Hub
+repositories carry a NOTICE that attributes the base model and describes the
+modifications. Without a configured release, the image falls back to
+`qwen2.5-coder-1.5b-instruct-q4_k_m.gguf` from `Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF`
+(see the `Dockerfile`). All of these are licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). An image built with `BAKE_MODEL=true`
+redistributes these weights under that license, and must carry the license text and
+the attribution.
+
+## TinyLlama model weights (earlier releases)
+
+The releases up to `v2026.11.13-2b04940` were based on
+`TinyLlama/TinyLlama-1.1B-Chat-v1.0`: the base release served
+`TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF`, a quantization of it, and
+`v2026.11.13-2b04940` a LoRA fine-tune of it. Both are licensed under the Apache
+License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0). They are not
+included in the image by default; an image built with `BAKE_MODEL=true` for one of
+those releases redistributes its weights under that license.

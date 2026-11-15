@@ -20,7 +20,7 @@ deploys both Cloud Run and the Worker from `main`.
 | --- | --- | --- |
 | Edge Worker `fastapi-assistant-edge` with the web UI, at https://fastapi-assistant-edge.fastapi-assistant-edge.workers.dev | Live. Deployed by Release (`deploy-edge`) from `main`. | Release run 43460008003; F-10 (resolved) |
 | Cloud Run service `fastapi-assistant` | Live, deployed by Release from `main` | Audit header; `.github/workflows/release.yml` |
-| Model | The fine-tuned release `v2026.11.13-2b04940`: a LoRA fine-tune of TinyLlama-1.1B-Chat as a Q4_K_M GGUF | `model-release.json` (`"finetuned": true`); F-04 (resolved in #33) |
+| Model | The fine-tuned release `v2026.11.14-72d6b37`: a LoRA fine-tune of Qwen2.5-Coder-1.5B-Instruct as a Q4_K_M GGUF (about 1 GB), live since 2026-11-15 (#53). It replaced `v2026.11.13-2b04940`, a TinyLlama-1.1B-Chat fine-tune | `model-release.json` (`"finetuned": true`); F-04 (resolved in #33) |
 | Authentication | Static owner key from Secret Manager; origin locked to the edge | Implementation status |
 | Secret Manager, Artifact Registry, Workload Identity Federation, budget alert | Live | Audit section 5; `deploy/gcp/bootstrap.sh` |
 | Upstash Redis (shared rate limit and cache) | Live since 2026-11-14 (database `fastapi-assistant-edge`, free tier). If it fails, rate limiting falls back to per-isolate counters and the cache is skipped. | F-03; implementation status |
@@ -29,7 +29,7 @@ deploys both Cloud Run and the Worker from `main`.
 | `uptime.yml` | Live: `EDGE_URL` is set | Implementation status |
 | Release jobs `deploy-edge`, `smoke-edge` | Live: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set. Both jobs succeeded in Release run 43460008003 (the merge of #15). | F-10 (resolved); `release.yml` |
 | Backup origins: Hugging Face Space, Oracle VM | Configuration only, not deployed. `ORIGINS` lists Cloud Run only. | F-11; `deploy/hf-space/`, `deploy/vm/` |
-| Train on Kaggle | Configured: the Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` attached to the kernel on Kaggle. The first runs exposed Kaggle environment problems, fixed in #15 and #16. A later run trained `v2026.11.13-2b04940`, which is deployed (#33). | F-04; `.github/workflows/train.yml` |
+| Train on Kaggle | Configured: the Kaggle API token and username, `HF_NAMESPACE`, and `HF_TOKEN` attached to the kernel on Kaggle. The first runs exposed Kaggle environment problems, fixed in #15 and #16. Later runs trained `v2026.11.13-2b04940` (deployed in #33) and `v2026.11.14-72d6b37` (Train run 43622001406, deployed in #53). | F-04; `.github/workflows/train.yml` |
 
 ## 2. Delivery pipeline
 
@@ -146,9 +146,10 @@ Model environment (`MODEL_VERSION`, `GGUF_REPO_ID`, `GGUF_FILENAME`, `GGUF_REVIS
 | `builder` (`python:3.11-slim`) | `build-essential` and `cmake`; `pip wheel --require-hashes -r requirements/serve.txt`; llama.cpp compiled with `GGML_NATIVE=OFF` so one image runs on any CPU of its architecture. |
 | `runtime` (`python:3.11-slim`) | Debian security updates applied; `libgomp1`; wheels installed offline; documentation index baked at `/models/rag_index` (`BAKE_RAG_INDEX=true`); GGUF not baked (`BAKE_MODEL=false`); pip, setuptools and wheel uninstalled; runs as uid 10001; `HEALTHCHECK` on `/health`. |
 
-Defaults baked into the image name the base TinyLlama GGUF, with its revision and
-SHA-256, so the image boots without extra configuration (CI relies on this in its
-container smoke test). Release overrides them with the values from
+Defaults baked into the image name the official Qwen Q4_K_M GGUF
+(`Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF`, the base model without a fine-tune), with
+its revision and SHA-256, so the image boots without extra configuration (CI relies
+on this in its container smoke test). Release overrides them with the values from
 `model-release.json`, which names the fine-tuned GGUF. Why weights are downloaded rather than baked:
 [DECISIONS.md](DECISIONS.md), ADR-007.
 

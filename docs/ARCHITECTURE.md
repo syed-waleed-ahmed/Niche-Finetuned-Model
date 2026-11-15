@@ -259,7 +259,7 @@ short-lived auth cache), so capacity scales by replication. In order of cost:
 
 ## 13. Decision log
 
-- **llama.cpp GGUF for production, torch for training.** Q4_K_M is about 0.7 GB and
+- **llama.cpp GGUF for production, torch for training.** Q4_K_M is about 1 GB for the deployed 1.5B model and
   several times faster than fp32 torch on CPU, which is what makes free CPU
   instances usable. torch remains the reference backend for training-time eval.
 - **Admission control over unbounded queuing.** Fast 429s keep latency honest and

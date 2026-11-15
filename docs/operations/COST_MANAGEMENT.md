@@ -93,8 +93,9 @@ Derived from the allowance:
 | Worst case at `maxScale 2`, both instances busy for a 30-day month | 2 x 2 vCPU x 2,592,000 s | 10,368,000 vCPU-s, about **58 times** the free vCPU allowance |
 | Worst case at `maxScale 1` (the live setting) | 1 x 2 vCPU x 2,592,000 s, and 1 x 4 GiB x 2,592,000 s | 5,184,000 vCPU-s and 10,368,000 GiB-s, each about 29 times the free allowance |
 
-Per-request examples come from the single-request measurements in the audit. They are
-not averages.
+Per-request examples come from the single-request measurements in the audit, made with
+the earlier TinyLlama model. They are not averages. The deployed Qwen model takes
+longer per answer: two live answers took 14.2 s (104 tokens) and 26.3 s (192 tokens).
 
 | Request | Measured duration | vCPU-seconds if alone on the instance |
 |---|---|---|
@@ -104,7 +105,7 @@ not averages.
 Other inputs:
 
 - **Cold starts.** Every cold start is billable. It includes downloading and hashing
-  the 0.7 GB GGUF and loading it. The log lines `Verified sha256 of ... in N s` and
+  the 1 GB GGUF and loading it. The log lines `Verified sha256 of ... in N s` and
   `Model ready ... in N s` give the time for each start.
 - **Probe traffic.** It is cheap per request but continuous:
   - the uptime probe sends about 4,320 `/health` calls per 30 days (one every
@@ -139,7 +140,7 @@ after #38, an abandoned generation now stops within about two seconds.
 | 64 KiB body cap at the edge and the origin | `body.ts`, `limits.py` | Large bodies are refused before parsing |
 | Per-key and per-IP rate limits | `ratelimit.ts` | Bounds a single client. Shared across isolates through Upstash; per isolate only if Upstash fails. |
 | Prompt token check before admission | `engines/base.py` (`fit`) | Over-long prompts get a 400 without taking a queue slot |
-| Weights not baked into the image (`BAKE_MODEL=false`) | `Dockerfile`, Release does not set it | The 0.7 GB GGUF alone exceeds Artifact Registry's 0.5 GB free storage |
+| Weights not baked into the image (`BAKE_MODEL=false`) | `Dockerfile`, Release does not set it | The 1 GB GGUF alone exceeds Artifact Registry's 0.5 GB free storage |
 | Artifact Registry cleanup policy: keep 2 versions, delete older after a day | `deploy/gcp/bootstrap.sh` | Keeps image storage near the free allowance |
 | Secret Manager version added only when a value changed | `release.yml`, "Sync secrets" | Rotations, not deploys, create versions |
 | Uptime probe every 10 minutes, not more often | `uptime.yml` | Keeps probe volume to about 4,300 runs per month (two requests each with `SMOKE_API_KEY` set) |

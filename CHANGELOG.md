@@ -7,9 +7,11 @@ the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.
 Version numbers are the `version` field in `pyproject.toml`.
 
 The deployed model is versioned separately, by `model_version` in
-`model-release.json`. The deployed model is the first fine-tuned release,
-`v2026.11.13-2b04940` (`finetuned: true`), which replaced the base TinyLlama
-(`base-tinyllama-q4km`) in #33. See [MODEL_CARD.md](MODEL_CARD.md).
+`model-release.json`. The deployed model is `v2026.11.14-72d6b37`
+(`finetuned: true`), a LoRA fine-tune of Qwen2.5-Coder-1.5B-Instruct, live since
+2026-11-15 (#53). It replaced `v2026.11.13-2b04940`, a TinyLlama-1.1B-Chat fine-tune,
+which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
+[MODEL_CARD.md](MODEL_CARD.md).
 
 ## [Unreleased]
 
@@ -22,6 +24,11 @@ The deployed model is versioned separately, by `model_version` in
   role markers of both chat templates, so either model serves correctly.
 - Dataset: 151 new training rows (351 to 502) covering the FastAPI tutorial and
   advanced guide; the eval set is unchanged.
+- Web UI: the finished conversation survives a page reload (kept in `sessionStorage`
+  for the tab; answers still streaming and the API key are never stored), and
+  "Download as Markdown" saves it as `fastapi-assistant-YYYY-MM-DD.md` (#41, #42).
+- Eval report: the category table compares each category with the baseline, so a
+  release that wins overall but loses a topic shows it (#43).
 - Edge Worker: the request log records `rl_key_id`, the first 12 hex characters of
   the SHA-256 of the presented API key, so requests can be attributed to a key.
   The key itself and the caller's IP are still never logged (#27).
@@ -34,8 +41,37 @@ The deployed model is versioned separately, by `model_version` in
   server-sent events, and explains `401`, `413`, `429` and `503` responses. It is
   tested against a real server like the other examples (#29).
 
+### Changed
+
+- The served model is `v2026.11.14-72d6b37`, a LoRA fine-tune of
+  Qwen2.5-Coder-1.5B-Instruct, merged and quantized to Q4_K_M (`model-Q4_K_M.gguf`,
+  about 0.99 GB) and published on the Hugging Face Hub with its adapter. It replaces
+  `v2026.11.13-2b04940`, the TinyLlama-1.1B-Chat fine-tune. Train run 43622001406
+  trained it from `72d6b37` (#44) on a Kaggle T4 GPU, and it passed both gates:
+  - gate 1, on Kaggle (`transformers`, fp16): 0.6716 against 0.5576 for the base
+    Qwen2.5-Coder-1.5B-Instruct (keyword recall 0.7114 against 0.6219, code validity
+    0.8558 against 0.7212, ROUGE-L 0.4548 against 0.3450);
+  - gate 2, the production eval in CI (GGUF on llama.cpp, greedy, 256 new tokens):
+    0.6663 against 0.5463 for `v2026.11.13-2b04940` (keyword recall 0.6852 against
+    0.4259, code validity 0.8846 against 0.8462, ROUGE-L 0.4488 against 0.3866). It is
+    slower: latency p50 5.725 s against 4.426 s on the CI runner.
+
+  `eval/baseline.json` now holds its scores. Release run 43696171917 deployed it
+  after #53; on Cloud Run it generates about 7.6 tokens/s. Its answers are better but
+  still often wrong.
+
 ### Fixed
 
+- Eval: code blocks are found by pairing fences, so a `bash` or `toml` block before
+  the Python code no longer turns the prose between them into a "code block" that
+  fails to parse (#45, fixed by an outside contributor in #47).
+- The eval workflow no longer fails pull requests from forks at its comment step;
+  the report goes to the job summary instead (#50).
+- `scripts/setup_secrets.sh --storage-only` accepts values pasted straight from the
+  Upstash and Neon consoles (`NAME="value"`, `psql '...'`, bracketed-paste markers)
+  and can read each value from its environment variable (#46).
+- Security: GitHub's own actions are pinned to commit SHAs like the third-party ones
+  (audit item O-10, #40).
 - A non-streaming request (`POST /generate`, or `POST /v1/chat/completions` without
   `stream`) stops generating when its caller disconnects, as streamed requests
   already did. Until now it kept the only generation slot busy for up to

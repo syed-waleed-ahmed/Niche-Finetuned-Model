@@ -224,7 +224,7 @@ deploys the Worker on every run (F-10), so edge fixes no longer need a manual de
 | F-01 | P1 | Token-dense input under the character limit caused a 500 | Fixed | `fit` counts tokens before admission: 400 `context_length_exceeded`, `max_tokens` clamped; the CI image test asserts 400 |
 | F-02 | P1 | Unbounded request bodies | Fixed | 64 KiB at the edge (`body.ts`) and the origin (`limits.py`); the CI image test asserts 413 |
 | F-03 | P1 | No rate limiting live | Fixed (2026-11-14) | Upstash is connected, so the limits are shared across isolates; the in-isolate fallback limiter still covers Upstash failures. |
-| F-04 | P1 | Live model is the base TinyLlama | Fixed (#33) | The first fine-tuned release, `v2026.11.13-2b04940`, passed both eval gates (0.546 against the base model's 0.402 with the production backend) and is deployed. The first training runs exposed Kaggle environment problems, fixed in #15 and #16. |
+| F-04 | P1 | Live model is the base TinyLlama | Fixed (#33) | The first fine-tuned release, `v2026.11.13-2b04940`, passed both eval gates (0.546 against the base model's 0.402 with the production backend) and was deployed; `v2026.11.14-72d6b37`, a Qwen2.5-Coder-1.5B fine-tune, replaced it in #53. The first training runs exposed Kaggle environment problems, fixed in #15 and #16. |
 | F-20 | P1 | HIGH CVEs with fixes in the image | Fixed | `apt-get upgrade`, packaging tools removed, Release gate on HIGH and CRITICAL (ignoring unfixed). All 14 Trivy code-scanning alerts (#7 to #20) are closed as fixed by the scan of the deployed image. |
 | F-21 | P1 | False-positive secret alert on the RAG index | Fixed | `skip-dirs: /models/rag_index` with the reason next to it in `release.yml` |
 | F-05 | P2 | 5xx labelled `invalid_request_error` | Fixed | 5xx is `server_error`; admission rejections are `overloaded` |
@@ -308,8 +308,8 @@ chat-template role markers in their text. The model has no tools, functions, net
 file or database access. Injection can therefore only change the text returned to the
 same user, or, with the shared cache, to someone who sends a byte-identical request.
 
-**Answers are untrusted text.** The deployed model is a fine-tuned TinyLlama-1.1B and is
-known to give wrong FastAPI answers, including in code that parses
+**Answers are untrusted text.** The deployed model is a fine-tuned
+Qwen2.5-Coder-1.5B-Instruct and is known to give wrong FastAPI answers, including in code that parses
 ([MODEL_CARD.md](../../MODEL_CARD.md)). Treat every answer, especially code, as untrusted:
 
 - review it before running;

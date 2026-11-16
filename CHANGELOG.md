@@ -62,6 +62,11 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 
 ### Fixed
 
+- Alerts: `AssistantThroughputDrop` no longer fires while the service is idle. Its
+  denominator was clamped to `1e-9`, so 30 minutes without a generation read as a
+  mean of 0 tokens/s and the rule fired, emailing every few hours. The docs now say to
+  set "No data" handling to Normal for the Grafana-managed copies of the rules, and
+  how the live stack limits alert mail to about one email a day.
 - Eval: code blocks are found by pairing fences, so a `bash` or `toml` block before
   the Python code no longer turns the prose between them into a "code block" that
   fails to parse (#45, fixed by an outside contributor in #47).

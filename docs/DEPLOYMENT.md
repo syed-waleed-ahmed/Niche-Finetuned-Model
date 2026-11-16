@@ -178,8 +178,13 @@ An optional third origin is a Hugging Face Docker Space (`deploy/hf-space/`).
   and load `deploy/grafana/alerts.yaml`, either as data-source-managed rules
   (`mimirtool rules load deploy/grafana/alerts.yaml`) or, as the live stack does, as
   Grafana-managed rules (each expression as query A, plus a threshold that fires
-  whenever A returns a series), so they use Grafana's contact points. Add an email
-  contact point as the default notification policy.
+  whenever A returns a series), so they use Grafana's contact points. A healthy rule
+  returns no series, so set each rule's "No data" handling to Normal and its "Error"
+  handling to Keep Last State; the defaults send a `DatasourceNoData` email for every
+  quiet rule. Add an email contact point as the default notification policy. The live
+  stack batches mail to at most about one email a day: the default policy groups every
+  alert together (no group-by labels), with a group interval and a repeat interval of
+  24h.
 - Cloud Run's own request, latency, and instance metrics are free in Cloud
   Monitoring and can be added to Grafana as a Google Cloud Monitoring data source.
 - Sentry receives unhandled errors once `SENTRY_DSN` is set.

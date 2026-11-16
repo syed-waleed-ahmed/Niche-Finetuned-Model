@@ -2,6 +2,10 @@
 # `mimirtool rules load deploy/grafana/alerts.yaml`, or recreate them as Grafana-managed
 # rules; see docs/DEPLOYMENT.md section 7). Thresholds assume one CPU replica serving
 # a 1B to 2B-parameter model.
+#
+# Each expression returns no series while the service is healthy, and the labelled
+# counters do not exist until their first increment. As Grafana-managed rules, set
+# "No data" handling to Normal, or every healthy rule sends a DatasourceNoData email.
 namespace: fastapi-assistant
 groups:
   - name: fastapi-assistant
@@ -46,10 +50,12 @@ groups:
 
       - alert: AssistantThroughputDrop
         # Tokens/s per generation collapsing usually means CPU contention or
-        # a mis-set LLAMACPP_N_THREADS after a host change.
+        # a mis-set LLAMACPP_N_THREADS after a host change. No clamp_min on the
+        # denominator: with no generations in the window the mean is 0/0 = NaN, which
+        # never matches, so an idle service does not look slow.
         expr: |
           sum(rate(assistant_generation_tokens_per_second_sum[30m]))
-            / clamp_min(sum(rate(assistant_generation_tokens_per_second_count[30m])), 1e-9) < 4
+            / sum(rate(assistant_generation_tokens_per_second_count[30m])) < 4
         for: 30m
         labels: { severity: ticket }
         annotations:

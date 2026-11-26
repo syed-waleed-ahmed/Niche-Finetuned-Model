@@ -342,6 +342,33 @@ validity by 0.1379, so the composite fell by 0.0100, and median latency rose by
 about 58%. Retrieval is therefore opt-in per request. Retrieval has not been
 measured with a fine-tuned model yet.
 
+### The fine-tune against its own base model, paired
+
+The table above compares two fine-tunes of different base models, trained on
+different amounts of data, so it cannot say how much the fine-tuning itself
+added. Gate 1 can: it scores the fine-tune and the untuned
+Qwen2.5-Coder-1.5B-Instruct on the same 108 items, on the same Kaggle T4
+(`transformers`, fp16), in the training run for `v2026.11.14-72d6b37`. Both
+per-item reports are committed in `eval/reference/`, and
+`scripts/paired_bootstrap.py` computes the difference per item with a 95%
+interval from 10,000 resamples:
+
+| Metric | Fine-tune | Base | Difference (95% interval) | Items better / worse |
+| --- | --- | --- | --- | --- |
+| `score` (composite) | 0.6716 | 0.5576 | +0.114 (0.069 to 0.160) | 84 / 24 |
+| `keyword_recall` | 0.7114 | 0.6219 | +0.090 (0.022 to 0.161) | 31 / 16 |
+| `code_valid` | 0.8558 | 0.7212 | +0.135 (0.039 to 0.231) | 21 / 7 |
+| `rouge_l` | 0.4548 | 0.3450 | +0.110 (0.091 to 0.129) | 94 / 14 |
+
+Every interval excludes zero, so on these metrics the fine-tune is better
+than its base on this set. The intervals cover the sampling of items only:
+there is one training run with one seed, so the variation between runs is
+unknown, and the caveats below apply to every row.
+
+```bash
+python scripts/paired_bootstrap.py eval/reference/gate1-finetune-qwen.json eval/reference/gate1-base-qwen.json
+```
+
 ### Caveats
 
 - All metrics are automatic and lexical. They reward naming the right APIs, parseable

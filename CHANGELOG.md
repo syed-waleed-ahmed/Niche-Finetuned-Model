@@ -15,8 +15,13 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 
 ## [Unreleased]
 
+
 ### Added
 
+- **The fine-tune measured against its own base model, item by item.** The Gate 1
+  reports for `v2026.11.14-72d6b37` are committed in `eval/reference/`, and
+  `scripts/paired_bootstrap.py` gives the difference with a 95% interval
+  (composite +0.114, 0.069 to 0.160). `MODEL_CARD.md` reports it.
 - Training: the base model is now Qwen2.5-Coder-1.5B-Instruct (Apache-2.0), in place
   of TinyLlama-1.1B-Chat. LoRA now also adapts the MLP projections, the Kaggle batch is
   4 x 4 (same effective size, fits a T4 with the larger vocabulary), and the image's
@@ -43,6 +48,8 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 
 ### Changed
 
+- **The README describes the release gates as they work.** It said no model ships
+  unless it beats the one it replaces; Gate 2 allows a release up to 0.02 below it.
 - The served model is `v2026.11.14-72d6b37`, a LoRA fine-tune of
   Qwen2.5-Coder-1.5B-Instruct, merged and quantized to Q4_K_M (`model-Q4_K_M.gguf`,
   about 0.99 GB) and published on the Hugging Face Hub with its adapter. It replaces
@@ -99,6 +106,11 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
   Measured live after the deploy, the request behind an abandoned generation was
   answered in 1.3 s (non-streaming) and 2.2 s (streamed), against 59.8 s and
   58.4 s before. `scripts/check_abandoned_request.sh` repeats the measurement.
+
+### Removed
+
+- **The generated code graph** (`graphify-out/`) is no longer tracked.
+
 
 ## [2.2.0] - 2026-11-13
 

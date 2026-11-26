@@ -3,8 +3,9 @@
 A small language model specialised in FastAPI, run as a production service on
 free-tier infrastructure: an OpenAI-compatible API with streaming, retrieval over the
 official documentation, per-user API keys, back-pressure, an edge layer with
-rate limiting, caching and origin failover, and a model-release pipeline in which
-**no model ships unless it beats the one it replaces**.
+rate limiting, caching and origin failover, and a model-release pipeline with
+**two evaluation gates**: a fine-tune must beat its own base model, and a release may
+score no more than 0.02 below the model it replaces.
 
 [![CI](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/ci.yml)
 [![Release](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/release.yml/badge.svg)](https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/actions/workflows/release.yml)

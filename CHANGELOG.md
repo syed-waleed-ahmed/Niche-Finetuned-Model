@@ -15,7 +15,6 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 
 ## [Unreleased]
 
-
 ### Added
 
 - **The fine-tune measured against its own base model, item by item.** The Gate 1
@@ -110,7 +109,6 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 ### Removed
 
 - **The generated code graph** (`graphify-out/`) is no longer tracked.
-
 
 ## [2.2.0] - 2026-11-13
 

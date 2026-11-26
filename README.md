@@ -337,7 +337,6 @@ kaggle/, scripts/                    GPU training pipeline, GGUF export
 tests/, tests/load/                  pytest suite, k6 load/smoke scenarios
 requirements/serve.txt               hash-pinned lock for the production image (make lock)
 Dockerfile, docker-compose.yml       production image; local stack with Postgres + pgvector
-graphify-out/                        generated knowledge graph of the codebase (/graphify)
 .github/workflows/                   ci, release, security, eval, train, uptime, codeql
 ```
 

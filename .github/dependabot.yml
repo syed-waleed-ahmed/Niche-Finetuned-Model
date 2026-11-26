@@ -16,6 +16,10 @@ updates:
       # build fail. Remove this once a fastembed release accepts huggingface-hub 2.x.
       - dependency-name: huggingface-hub
         update-types: ["version-update:semver-major"]
+      # fastembed 0.9.1 also requires loguru<0.8, which broke the image build the
+      # same way (#66). Remove this once a fastembed release accepts loguru 0.8.
+      - dependency-name: loguru
+        versions: [">=0.8"]
 
   - package-ecosystem: npm
     directory: /deploy/cloudflare-worker

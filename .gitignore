@@ -40,8 +40,8 @@ eval/.*.log
 service.rendered.yaml
 # Wrangler local state (also covered by deploy/cloudflare-worker/.gitignore).
 .wrangler/
-# Knowledge-graph outputs are tracked; only the regenerable cache is ignored.
-graphify-out/cache/
+# A local code-graph tool's output, regenerable and unused by the project.
+graphify-out/
 
 # ---- Logs, editors, OS noise -------------------------------------------------
 *.log

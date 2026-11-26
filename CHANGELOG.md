@@ -15,6 +15,11 @@ which had replaced the base TinyLlama (`base-tinyllama-q4km`) in #33. See
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-26
+
+The served model is now a LoRA fine-tune of Qwen2.5-Coder-1.5B-Instruct, measured item by item
+against its own base model, with web UI, edge, monitoring and example additions. Merged in #37 to #70.
+
 ### Added
 
 - **The fine-tune measured against its own base model, item by item.** The Gate 1
@@ -428,7 +433,8 @@ question-answer pairs, an interactive CLI (`main.py`), and the resulting adapter
 committed under `outputs/` (a 2-step training run). A Gradio `app.py` for Hugging Face
 hosting was added and removed the same day.
 
-[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/syed-waleed-ahmed/Niche-Finetuned-Model/compare/v1.0.0...v2.0.0
